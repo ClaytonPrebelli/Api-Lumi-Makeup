@@ -1,0 +1,6 @@
+@LumiMakeup.Api_HostAddress = http://localhost:5116
+
+GET {{LumiMakeup.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

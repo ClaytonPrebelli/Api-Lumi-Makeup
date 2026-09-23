@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+out/
+publish/
+
+# IDE
+.vs/
+.idea/
+*.user
+
+# Local secrets — NUNCA versionar
+src/LumiMakeup.Api/appsettings.Development.json
+src/LumiMakeup.Api/appsettings.Local.json
+src/LumiMakeup.Api/appsettings.Production.json
+src/LumiMakeup.Api/appsettings.*.local.json
+
+# Logs
+*.log
+logs/

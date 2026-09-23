@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LumiMakeup.Api/LumiMakeup.Api.csproj" />
+    <Project Path="src/LumiMakeup.Application/LumiMakeup.Application.csproj" />
+    <Project Path="src/LumiMakeup.Domain/LumiMakeup.Domain.csproj" />
+    <Project Path="src/LumiMakeup.Infrastructure/LumiMakeup.Infrastructure.csproj" />
+  </Folder>
+</Solution>
