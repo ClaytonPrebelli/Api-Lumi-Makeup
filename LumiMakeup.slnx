@@ -5,4 +5,5 @@
     <Project Path="src/LumiMakeup.Domain/LumiMakeup.Domain.csproj" />
     <Project Path="src/LumiMakeup.Infrastructure/LumiMakeup.Infrastructure.csproj" />
   </Folder>
+    <Project Path="tests/LumiMakeup.Tests/LumiMakeup.Tests.csproj" />
 </Solution>

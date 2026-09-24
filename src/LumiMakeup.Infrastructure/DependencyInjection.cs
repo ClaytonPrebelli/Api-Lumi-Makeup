@@ -16,6 +16,12 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
+        => services.AddInfrastructure(configuration, ServerVersion.AutoDetect);
+
+    internal static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Func<string, ServerVersion> resolverDeVersaoDoServidor)
     {
         var connectionString = configuration.GetConnectionString("ConexaoPadrao")
             ?? throw new InvalidOperationException("Connection string 'ConexaoPadrao' não configurada.");
@@ -23,7 +29,7 @@ public static class DependencyInjection
         services.AddDbContext<LumiDbContext>(options =>
             options.UseMySql(
                 connectionString,
-                ServerVersion.AutoDetect(connectionString)));
+                resolverDeVersaoDoServidor(connectionString)));
 
         services.AddHttpClient<IViaCepService, ViaCepService>(client =>
         {

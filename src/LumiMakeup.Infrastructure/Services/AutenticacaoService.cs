@@ -104,11 +104,6 @@ public sealed class AutenticacaoService : IAutenticacaoService
 
         if (usuario is null)
         {
-            if (await _contexto.Usuarios.AnyAsync(u => u.Email == email, cancellationToken))
-            {
-                throw new InvalidOperationException("E-mail já cadastrado com senha. Faça login com e-mail e senha.");
-            }
-
             usuario = new Usuario
             {
                 Nome = string.IsNullOrWhiteSpace(dados.Nome) ? email : dados.Nome,

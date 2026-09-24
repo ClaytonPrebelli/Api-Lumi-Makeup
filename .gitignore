@@ -18,3 +18,9 @@ src/LumiMakeup.Api/appsettings.*.local.json
 # Logs
 *.log
 logs/
+
+# Resultados de teste e cobertura
+TestResults/
+coverage.*.xml
+coverage.json
+*.trx

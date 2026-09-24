@@ -102,7 +102,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run();
+if (builder.Configuration.GetValue<bool>("ExecutarServidor", defaultValue: true))
+{
+    app.Run();
+}
 
 static async Task SemearAdministradorSeConfiguradoAsync(WebApplication app)
 {
@@ -131,4 +134,8 @@ internal sealed class TokenJwtOptions
     public string Audiencia { get; set; } = string.Empty;
     public int MinutosDeExpiracao { get; set; } = 60;
     public int DiasDeExpiracaoDoRefresh { get; set; } = 7;
+}
+
+public partial class Program
+{
 }

@@ -73,7 +73,10 @@ public sealed class JwtTokenService : ITokenService
     {
         try
         {
-            var manipuladorDeToken = new JwtSecurityTokenHandler();
+            var manipuladorDeToken = new JwtSecurityTokenHandler
+            {
+                MapInboundClaims = false
+            };
             var parametrosDeValidacao = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,

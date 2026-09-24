@@ -13,6 +13,9 @@ public sealed class AutenticacaoGoogleService : IAutenticacaoGoogleService
 {
     private readonly AutenticacaoGoogleOptions _opcoes;
 
+    internal Func<string, GoogleJsonWebSignature.ValidationSettings, Task<GoogleJsonWebSignature.Payload>> ValidarEmGoogle { get; set; } =
+        (tokenId, configuracoes) => GoogleJsonWebSignature.ValidateAsync(tokenId, configuracoes);
+
     public AutenticacaoGoogleService(IOptions<AutenticacaoGoogleOptions> opcoes)
     {
         _opcoes = opcoes.Value;
@@ -32,7 +35,7 @@ public sealed class AutenticacaoGoogleService : IAutenticacaoGoogleService
 
         try
         {
-            var payload = await GoogleJsonWebSignature.ValidateAsync(tokenId, configuracoes);
+            var payload = await ValidarEmGoogle(tokenId, configuracoes);
 
             return new DadosDoUsuarioGoogle(
                 payload.Subject,

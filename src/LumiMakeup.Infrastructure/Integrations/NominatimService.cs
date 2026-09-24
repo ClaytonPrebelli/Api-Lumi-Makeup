@@ -24,7 +24,7 @@ public sealed class NominatimService : INominatimService
 
         try
         {
-            var resultados = await _httpClient.GetFromJsonAsync<List<ResultadoNominatim>>(consulta, cancellationToken);
+            var resultados = await _httpClient.GetFromJsonAsync<List<ResultadoNominatim>>("search?" + consulta, cancellationToken);
 
             if (resultados is null || resultados.Count == 0)
             {
