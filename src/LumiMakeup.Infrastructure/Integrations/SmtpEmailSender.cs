@@ -1,9 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Net;
 using System.Net.Mail;
 using LumiMakeup.Application.Abstractions;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MimeKit;
 
 namespace LumiMakeup.Infrastructure.Integrations;
 
@@ -35,14 +37,41 @@ internal sealed class EnviadorDeEmailSmtpViaClienteSmtp : IEnviadorDeEmailSmtp
     [ExcludeFromCodeCoverage]
     public async Task EnviarAsync(MailMessage mensagem, CancellationToken cancellationToken = default)
     {
-        using var cliente = new SmtpClient(_opcoes.Host, _opcoes.Porta)
+        using var cliente = new MailKit.Net.Smtp.SmtpClient { Timeout = 15_000 };
+
+        var seguranca = (_opcoes.UsarSsl, _opcoes.Porta) switch
         {
-            EnableSsl = _opcoes.UsarSsl,
-            Credentials = new NetworkCredential(_opcoes.Usuario, _opcoes.Senha),
-            Timeout = 15_000
+            (true, < 587) => SecureSocketOptions.SslOnConnect,
+            (true, _) => SecureSocketOptions.StartTls,
+            _ => SecureSocketOptions.None
         };
 
-        await cliente.SendMailAsync(mensagem, cancellationToken);
+        try
+        {
+            await cliente.ConnectAsync(_opcoes.Host, _opcoes.Porta, seguranca, cancellationToken);
+            await cliente.AuthenticateAsync(_opcoes.Usuario, _opcoes.Senha, cancellationToken);
+            await cliente.SendAsync(ConstruirMime(mensagem), cancellationToken);
+            await cliente.DisconnectAsync(quit: true, cancellationToken);
+        }
+        catch
+        {
+            cliente.Disconnect(quit: false);
+            throw;
+        }
+    }
+
+    private MimeMessage ConstruirMime(MailMessage mensagem)
+    {
+        var mime = new MimeMessage();
+        mime.From.Add(new MailboxAddress(mensagem.From.DisplayName, mensagem.From.Address));
+        foreach (var destino in mensagem.To)
+        {
+            mime.To.Add(new MailboxAddress(destino.DisplayName, destino.Address));
+        }
+
+        mime.Subject = mensagem.Subject;
+        mime.Body = new TextPart("html") { Text = mensagem.Body };
+        return mime;
     }
 }
 

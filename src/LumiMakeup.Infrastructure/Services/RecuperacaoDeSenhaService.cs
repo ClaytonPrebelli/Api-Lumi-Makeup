@@ -166,7 +166,7 @@ public sealed class RecuperacaoDeSenhaService : IRecuperacaoDeSenhaService
                           <tr>
                             <td style="padding:40px 44px 32px 44px;text-align:center;">
                               <div style="font-family:Georgia,'Playfair Display',serif;font-size:28px;letter-spacing:3px;color:#8b5e52;font-weight:600;">LUMI&nbsp;MAKEUP</div>
-                              <div style="font-family:'Brush Script MT','Segoe Print',cursive;font-size:20px;color:#b98b73;margin-top:2px;">beleza que ilumina</div>
+                              <div style="font-family:'Brush Script MT','Segoe Print',cursive;font-size:20px;color:#b98b73;margin-top:2px;">Seu brilho começa aqui</div>
                               <div style="color:#b98b73;font-size:14px;margin:18px 0 22px 0;">&#10084;&nbsp;&nbsp;&#10084;&nbsp;&nbsp;&#10084;</div>
                               <h1 style="font-family:Georgia,'Playfair Display',serif;font-size:26px;color:#4a332c;margin:0 0 10px 0;font-weight:600;">{titulo}</h1>
                               <p style="font-family:Arial,'Inter',sans-serif;font-size:15px;line-height:1.6;color:#4a332c;margin:0 0 26px 0;">
