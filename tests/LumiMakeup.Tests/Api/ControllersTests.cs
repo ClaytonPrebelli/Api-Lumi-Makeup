@@ -296,6 +296,37 @@ public class AutenticacaoControllerTests
     }
 }
 
+public class CepControllerTests
+{
+    [Fact]
+    public async Task Consultar_retorna_ok_com_o_endereco_encontrado()
+    {
+        var viaCep = new Mock<IViaCepService>();
+        var endereco = new ResultadoViaCep("01310100", "Avenida Paulista", "Bela Vista", "São Paulo", "SP");
+        viaCep.Setup(v => v.ConsultarAsync("01310100", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(endereco);
+        var controller = new CepController(viaCep.Object);
+
+        var resultado = await controller.Consultar("01310100", CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(resultado);
+        Assert.Equal(endereco, ok.Value);
+    }
+
+    [Fact]
+    public async Task Consultar_retorna_not_found_quando_cep_nao_existe()
+    {
+        var viaCep = new Mock<IViaCepService>();
+        viaCep.Setup(v => v.ConsultarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ResultadoViaCep?)null);
+        var controller = new CepController(viaCep.Object);
+
+        var resultado = await controller.Consultar("00000000", CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(resultado);
+    }
+}
+
 public class SaudeControllerTests
 {
     [Fact]
