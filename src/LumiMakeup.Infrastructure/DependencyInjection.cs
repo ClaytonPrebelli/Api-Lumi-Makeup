@@ -42,7 +42,19 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.UserAgent.ParseAdd("lumi-makeup/1.0 (contato@lumimakeup.com.br)");
         });
 
-        services.AddScoped<IEmailSender, EmailSenderStub>();
+        services.AddScoped<IEnviadorDeEmailSmtp, EnviadorDeEmailSmtpViaClienteSmtp>();
+        services.Configure<SmtpOptions>(configuration.GetSection("ExternalServices:Smtp"));
+
+        var smtpConfigurado = !string.IsNullOrWhiteSpace(configuration["ExternalServices:Smtp:Host"]);
+        if (smtpConfigurado)
+        {
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, EmailSenderStub>();
+        }
+
         services.AddHttpClient<IRecaptchaValidator, RecaptchaValidator>(client =>
         {
             client.BaseAddress = new Uri("https://www.google.com/");
@@ -51,6 +63,9 @@ public static class DependencyInjection
         services.AddScoped<ICloudinaryService, CloudinaryServiceStub>();
         services.AddScoped<IWhatsAppService, WhatsAppServiceStub>();
         services.AddScoped<IFocusNfeService, FocusNfeServiceStub>();
+
+        services.Configure<FrontendOptions>(configuration.GetSection("Frontend"));
+        services.AddScoped<IRecuperacaoDeSenhaService, RecuperacaoDeSenhaService>();
 
         services.AddScoped<ICatalogoService, CatalogoService>();
 

@@ -20,6 +20,7 @@ public class LumiDbContext : DbContext
     public DbSet<Despesa> Despesas => Set<Despesa>();
     public DbSet<NotaFiscal> NotasFiscais => Set<NotaFiscal>();
     public DbSet<RegistroWhatsApp> RegistrosWhatsApp => Set<RegistroWhatsApp>();
+    public DbSet<RecuperacaoDeSenha> RecuperacoesDeSenha => Set<RecuperacaoDeSenha>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

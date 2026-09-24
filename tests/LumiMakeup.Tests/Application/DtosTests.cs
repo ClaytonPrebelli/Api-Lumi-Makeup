@@ -50,6 +50,23 @@ public class DtosTests
     }
 
     [Fact]
+    public void RequisicaoDeSolicitarResetDeSenha_armazena_email()
+    {
+        var requisicao = new RequisicaoDeSolicitarResetDeSenha("maria@exemplo.com");
+
+        Assert.Equal("maria@exemplo.com", requisicao.Email);
+    }
+
+    [Fact]
+    public void RequisicaoDeConfirmarResetDeSenha_armazena_token_e_senha()
+    {
+        var requisicao = new RequisicaoDeConfirmarResetDeSenha("token-de-reset", "novaSenha123");
+
+        Assert.Equal("token-de-reset", requisicao.Token);
+        Assert.Equal("novaSenha123", requisicao.NovaSenha);
+    }
+
+    [Fact]
     public void RequisicaoDeCompletarPerfil_armazena_valores_com_endereco()
     {
         var endereco = new RequisicaoDeEndereco("01310100", "1000", "Apto 12");

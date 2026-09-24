@@ -10,6 +10,10 @@ public sealed record RequisicaoDeLoginGoogle(string TokenId);
 
 public sealed record RequisicaoDeRenovacao(string TokenRefresh);
 
+public sealed record RequisicaoDeSolicitarResetDeSenha(string Email);
+
+public sealed record RequisicaoDeConfirmarResetDeSenha(string Token, string NovaSenha);
+
 public sealed record RequisicaoDeCompletarPerfil(
     string Nome,
     string Cpf,

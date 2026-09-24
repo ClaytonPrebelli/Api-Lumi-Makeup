@@ -70,10 +70,38 @@ public class DependencyInjectionTests
         Assert.NotNull(provedor.GetRequiredService<ITokenService>());
         Assert.NotNull(provedor.GetRequiredService<IAutenticacaoGoogleService>());
         Assert.NotNull(provedor.GetRequiredService<IAutenticacaoService>());
+        Assert.NotNull(provedor.GetRequiredService<IRecuperacaoDeSenhaService>());
         Assert.NotNull(provedor.GetRequiredService<DatabaseSeeder>());
+        Assert.IsType<EmailSenderStub>(provedor.GetRequiredService<IEmailSender>());
         Assert.NotNull(provedor.GetRequiredService<IOptions<RecaptchaOptions>>().Value);
         Assert.NotNull(provedor.GetRequiredService<IOptions<TokenJwtOptions>>().Value);
         Assert.NotNull(provedor.GetRequiredService<IOptions<AutenticacaoGoogleOptions>>().Value);
+        Assert.NotNull(provedor.GetRequiredService<IOptions<SmtpOptions>>().Value);
+        Assert.NotNull(provedor.GetRequiredService<IOptions<FrontendOptions>>().Value);
+    }
+
+    [Fact]
+    public void AddInfrastructure_com_smtp_configurado_registra_o_smtp_email_sender()
+    {
+        var valores = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:ConexaoPadrao"] = "Server=localhost;Database=lumimake_testes;User=root;Password=pwd;",
+            ["ExternalServices:Smtp:Host"] = "mail.lumimakeup.com.br",
+            ["ExternalServices:Smtp:Porta"] = "465",
+            ["ExternalServices:Smtp:Usuario"] = "nao-responda@lumimakeup.com.br",
+            ["ExternalServices:Smtp:Senha"] = "segredo",
+            ["ExternalServices:Smtp:Remetente"] = "nao-responda@lumimakeup.com.br",
+            ["ExternalServices:Smtp:NomeDoRemetente"] = "Lumi Makeup"
+        };
+        var configuracao = new ConfigurationBuilder().AddInMemoryCollection(valores).Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddInfrastructure(configuracao, _ => new MySqlServerVersion(new Version(8, 0, 11)));
+
+        var provedor = services.BuildServiceProvider();
+
+        Assert.IsType<SmtpEmailSender>(provedor.GetRequiredService<IEmailSender>());
     }
 
     [Fact]
@@ -98,6 +126,8 @@ public class DependencyInjectionTests
             typeof(ITokenService),
             typeof(IAutenticacaoGoogleService),
             typeof(IAutenticacaoService),
+            typeof(IRecuperacaoDeSenhaService),
+            typeof(IEnviadorDeEmailSmtp),
             typeof(DatabaseSeeder)
         };
 

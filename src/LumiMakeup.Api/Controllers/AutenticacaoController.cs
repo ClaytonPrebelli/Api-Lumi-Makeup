@@ -11,10 +11,12 @@ namespace LumiMakeup.Api.Controllers;
 public sealed class AutenticacaoController : ControllerBase
 {
     private readonly IAutenticacaoService _autenticacaoService;
+    private readonly IRecuperacaoDeSenhaService _recuperacaoDeSenhaService;
 
-    public AutenticacaoController(IAutenticacaoService autenticacaoService)
+    public AutenticacaoController(IAutenticacaoService autenticacaoService, IRecuperacaoDeSenhaService recuperacaoDeSenhaService)
     {
         _autenticacaoService = autenticacaoService;
+        _recuperacaoDeSenhaService = recuperacaoDeSenhaService;
     }
 
     [HttpPost("cadastrar")]
@@ -74,6 +76,32 @@ public sealed class AutenticacaoController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("solicitar-reset-senha")]
+    public async Task<IActionResult> SolicitarResetDeSenha([FromBody] RequisicaoDeSolicitarResetDeSenha requisicao, CancellationToken cancellationToken)
+    {
+        await _recuperacaoDeSenhaService.SolicitarAsync(requisicao, cancellationToken);
+
+        return Ok(new { mensagem = "Se o e-mail informado existir, você receberá as instruções para redefinir a senha." });
+    }
+
+    [HttpPost("redefinir-senha")]
+    public async Task<IActionResult> RedefinirSenha([FromBody] RequisicaoDeConfirmarResetDeSenha requisicao, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var resposta = await _recuperacaoDeSenhaService.ConfirmarAsync(requisicao, cancellationToken);
+            return Ok(resposta);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 

@@ -17,4 +17,5 @@ public class Usuario
     public ICollection<Endereco> Enderecos { get; set; } = new List<Endereco>();
     public ICollection<Pedido> Pedidos { get; set; } = new List<Pedido>();
     public ICollection<Despesa> Despesas { get; set; } = new List<Despesa>();
+    public ICollection<RecuperacaoDeSenha> RecuperacoesDeSenha { get; set; } = new List<RecuperacaoDeSenha>();
 }

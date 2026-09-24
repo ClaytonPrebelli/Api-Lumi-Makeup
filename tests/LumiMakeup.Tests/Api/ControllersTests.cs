@@ -17,9 +17,10 @@ public class AutenticacaoControllerTests
 
     private static AutenticacaoController CriarController(
         Mock<IAutenticacaoService> servico,
-        string? sub = null)
+        string? sub = null,
+        Mock<IRecuperacaoDeSenhaService>? recuperacaoDeSenha = null)
     {
-        var controller = new AutenticacaoController(servico.Object)
+        var controller = new AutenticacaoController(servico.Object, (recuperacaoDeSenha ?? new Mock<IRecuperacaoDeSenhaService>()).Object)
         {
             ControllerContext = new ControllerContext
             {
@@ -229,6 +230,69 @@ public class AutenticacaoControllerTests
         var resultado = await controller.CompletarPerfil(new RequisicaoDeCompletarPerfil("Maria", "12345678901", null, null), CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(resultado);
+    }
+
+    [Fact]
+    public async Task SolicitarResetDeSenha_retorna_ok_com_mensagem_generica()
+    {
+        var servico = new Mock<IAutenticacaoService>();
+        var recuperacao = new Mock<IRecuperacaoDeSenhaService>();
+        recuperacao.Setup(r => r.SolicitarAsync(It.IsAny<RequisicaoDeSolicitarResetDeSenha>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        var controller = CriarController(servico, recuperacaoDeSenha: recuperacao);
+
+        var resultado = await controller.SolicitarResetDeSenha(new RequisicaoDeSolicitarResetDeSenha("maria@exemplo.com"), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(resultado);
+        var mensagem = ok.Value!.GetType().GetProperty("mensagem")!.GetValue(ok.Value);
+        Assert.Equal("Se o e-mail informado existir, você receberá as instruções para redefinir a senha.", mensagem);
+    }
+
+    [Fact]
+    public async Task RedefinirSenha_retorna_ok_com_nova_resposta()
+    {
+        var servico = new Mock<IAutenticacaoService>();
+        var recuperacao = new Mock<IRecuperacaoDeSenhaService>();
+        recuperacao.Setup(r => r.ConfirmarAsync(It.IsAny<RequisicaoDeConfirmarResetDeSenha>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Resposta);
+        var controller = CriarController(servico, recuperacaoDeSenha: recuperacao);
+
+        var resultado = await controller.RedefinirSenha(new RequisicaoDeConfirmarResetDeSenha("token", "novaSenha123"), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(resultado);
+        Assert.Equal(Resposta, ok.Value);
+    }
+
+    [Fact]
+    public async Task RedefinirSenha_retorna_nao_autorizado_quando_token_invalido()
+    {
+        var servico = new Mock<IAutenticacaoService>();
+        var recuperacao = new Mock<IRecuperacaoDeSenhaService>();
+        recuperacao.Setup(r => r.ConfirmarAsync(It.IsAny<RequisicaoDeConfirmarResetDeSenha>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new UnauthorizedAccessException("Token de recuperação inválido ou expirado."));
+        var controller = CriarController(servico, recuperacaoDeSenha: recuperacao);
+
+        var resultado = await controller.RedefinirSenha(new RequisicaoDeConfirmarResetDeSenha("token", "novaSenha123"), CancellationToken.None);
+
+        var naoAutorizado = Assert.IsType<UnauthorizedObjectResult>(resultado);
+        var mensagem = naoAutorizado.Value!.GetType().GetProperty("message")!.GetValue(naoAutorizado.Value);
+        Assert.Equal("Token de recuperação inválido ou expirado.", mensagem);
+    }
+
+    [Fact]
+    public async Task RedefinirSenha_retorna_requisicao_invalida_quando_senha_curta()
+    {
+        var servico = new Mock<IAutenticacaoService>();
+        var recuperacao = new Mock<IRecuperacaoDeSenhaService>();
+        recuperacao.Setup(r => r.ConfirmarAsync(It.IsAny<RequisicaoDeConfirmarResetDeSenha>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("A senha deve ter no mínimo 6 caracteres."));
+        var controller = CriarController(servico, recuperacaoDeSenha: recuperacao);
+
+        var resultado = await controller.RedefinirSenha(new RequisicaoDeConfirmarResetDeSenha("token", "123"), CancellationToken.None);
+
+        var invalido = Assert.IsType<BadRequestObjectResult>(resultado);
+        var mensagem = invalido.Value!.GetType().GetProperty("message")!.GetValue(invalido.Value);
+        Assert.Equal("A senha deve ter no mínimo 6 caracteres.", mensagem);
     }
 }
 
