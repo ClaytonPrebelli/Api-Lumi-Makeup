@@ -27,8 +27,4 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <Exclude>[LumiMakeup.Infrastructure]LumiMakeup.Infrastructure.Persistence.Migrations.*,[LumiMakeup.Infrastructure]LumiMakeup.Infrastructure.Persistence.LumiDbContextModelSnapshot</Exclude>
-  </PropertyGroup>
-
 </Project>
