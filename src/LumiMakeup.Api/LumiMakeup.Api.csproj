@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LumiMakeup.Application\LumiMakeup.Application.csproj" />
-    <ProjectReference Include="..\LumiMakeup.Infrastructure\LumiMakeup.Infrastructure.csproj" />
+    <ProjectReference Include="..\LumiMakeup.Aplicacao\LumiMakeup.Aplicacao.csproj" />
+    <ProjectReference Include="..\LumiMakeup.Infraestrutura\LumiMakeup.Infraestrutura.csproj" />
   </ItemGroup>
 
 </Project>

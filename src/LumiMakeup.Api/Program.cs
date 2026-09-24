@@ -1,8 +1,8 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
-using LumiMakeup.Infrastructure;
-using LumiMakeup.Infrastructure.Persistence;
+using LumiMakeup.Infraestrutura;
+using LumiMakeup.Infraestrutura.Persistencia;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -14,7 +14,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AdicionarInfraestrutura(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -45,22 +45,22 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+var origensPermitidas = builder.Configuration.GetSection("Cors:OrigensPermitidas").Get<string[]>()
     ?? Array.Empty<string>();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("LumiCors", policy =>
-        policy.WithOrigins(corsOrigins)
+        policy.WithOrigins(origensPermitidas)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
 });
 
-var jwtSection = builder.Configuration.GetSection("Jwt");
-var jwtSettings = jwtSection.Get<JwtSettings>();
+var secaoJwt = builder.Configuration.GetSection("Jwt");
+var opcoesJwt = secaoJwt.Get<OpcoesDeTokenJwt>();
 
-if (jwtSettings is not null && !string.IsNullOrWhiteSpace(jwtSettings.Secret))
+if (opcoesJwt is not null && !string.IsNullOrWhiteSpace(opcoesJwt.Segredo))
 {
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
@@ -71,9 +71,9 @@ if (jwtSettings is not null && !string.IsNullOrWhiteSpace(jwtSettings.Secret))
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ValidIssuer = jwtSettings.Issuer,
-                ValidAudience = jwtSettings.Audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+                ValidIssuer = opcoesJwt.Emissor,
+                ValidAudience = opcoesJwt.Audiencia,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(opcoesJwt.Segredo)),
                 NameClaimType = ClaimTypes.Name,
                 RoleClaimType = ClaimTypes.Role
             };
@@ -81,13 +81,13 @@ if (jwtSettings is not null && !string.IsNullOrWhiteSpace(jwtSettings.Secret))
 
     builder.Services.AddAuthorization(options =>
     {
-        options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+        options.AddPolicy("SomenteAdministrador", policy => policy.RequireRole("Administrador"));
     });
 }
 
 var app = builder.Build();
 
-await SeedAdminIfConfiguredAsync(app);
+await SemearAdministradorSeConfiguradoAsync(app);
 
 if (app.Environment.IsDevelopment())
 {
@@ -104,31 +104,31 @@ app.MapControllers();
 
 app.Run();
 
-static async Task SeedAdminIfConfiguredAsync(WebApplication app)
+static async Task SemearAdministradorSeConfiguradoAsync(WebApplication app)
 {
-    using var scope = app.Services.CreateScope();
-    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
+    using var escopo = app.Services.CreateScope();
+    var configuration = escopo.ServiceProvider.GetRequiredService<IConfiguration>();
+    var logger = escopo.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
 
-    var email = configuration["Auth:AdminSeed:Email"];
-    var password = configuration["Auth:AdminSeed:Password"];
+    var email = configuration["Autenticacao:SeedAdministrador:Email"];
+    var senha = configuration["Autenticacao:SeedAdministrador:Senha"];
 
-    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(senha))
     {
-        logger.LogWarning("AdminSeed não configurado (Auth:AdminSeed:Email/Password) — admin não criado.");
+        logger.LogWarning("SeedAdministrador não configurado (Autenticacao:SeedAdministrador:Email/Senha) — administrador não criado.");
         return;
     }
 
-    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-    await seeder.SeedAdminAsync(new AdminSeedOptions(email, password));
-    logger.LogInformation("AdminSeed concluído para {Email}.", email);
+    var gerador = escopo.ServiceProvider.GetRequiredService<GeradorDeDadosIniciais>();
+    await gerador.SemearAdministradorAsync(new OpcoesDeSeedDeAdministrador(email, senha));
+    logger.LogInformation("SeedAdministrador concluído para {Email}.", email);
 }
 
-internal sealed class JwtSettings
+internal sealed class OpcoesDeTokenJwt
 {
-    public string Secret { get; set; } = string.Empty;
-    public string Issuer { get; set; } = string.Empty;
-    public string Audience { get; set; } = string.Empty;
-    public int ExpirationMinutes { get; set; } = 60;
-    public int RefreshExpirationDays { get; set; } = 7;
+    public string Segredo { get; set; } = string.Empty;
+    public string Emissor { get; set; } = string.Empty;
+    public string Audiencia { get; set; } = string.Empty;
+    public int MinutosDeExpiracao { get; set; } = 60;
+    public int DiasDeExpiracaoDoRefresh { get; set; } = 7;
 }
