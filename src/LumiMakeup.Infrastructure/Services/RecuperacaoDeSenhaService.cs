@@ -20,7 +20,8 @@ public sealed class FrontendOptions
 
 public sealed class RecuperacaoDeSenhaService : IRecuperacaoDeSenhaService
 {
-    private const string AssuntoDoEmail = "Redefinição de senha – Lumi Makeup";
+    private const string AssuntoDeRedefinicaoDeSenha = "Redefinição de senha – Lumi Makeup";
+    private const string AssuntoDeDefinicaoDeSenha = "Definição de senha – Lumi Makeup";
 
     private readonly LumiDbContext _contexto;
     private readonly IPasswordHasher<Usuario> _passwordHasher;
@@ -48,11 +49,12 @@ public sealed class RecuperacaoDeSenhaService : IRecuperacaoDeSenhaService
         var usuario = await _contexto.Usuarios
             .SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
 
-        if (usuario is null || string.IsNullOrEmpty(usuario.HashSenha))
+        if (usuario is null)
         {
             return;
         }
 
+        var temSenha = !string.IsNullOrEmpty(usuario.HashSenha);
         var token = GerarToken();
         var agora = DateTime.UtcNow;
         var minutosDeExpiracao = _opcoesDoFrontend.Value.MinutosDeExpiracaoDoTokenDeReset;
@@ -73,9 +75,10 @@ public sealed class RecuperacaoDeSenhaService : IRecuperacaoDeSenhaService
         await _contexto.SaveChangesAsync(cancellationToken);
 
         var linkDeRedefinicao = $"{_opcoesDoFrontend.Value.UrlBase}{_opcoesDoFrontend.Value.RotaDeRedefinicaoDeSenha}?token={token}";
-        var corpoHtml = ConstruirCorpoDoEmail(usuario.Nome, linkDeRedefinicao, minutosDeExpiracao);
+        var corpoHtml = ConstruirCorpoDoEmail(usuario.Nome, linkDeRedefinicao, minutosDeExpiracao, temSenha);
+        var assunto = temSenha ? AssuntoDeRedefinicaoDeSenha : AssuntoDeDefinicaoDeSenha;
 
-        await _emailSender.EnviarAsync(usuario.Email, AssuntoDoEmail, corpoHtml, cancellationToken);
+        await _emailSender.EnviarAsync(usuario.Email, assunto, corpoHtml, cancellationToken);
     }
 
     public async Task<RespostaDeAutenticacao> ConfirmarAsync(RequisicaoDeConfirmarResetDeSenha requisicao, CancellationToken cancellationToken = default)
@@ -137,9 +140,17 @@ public sealed class RecuperacaoDeSenhaService : IRecuperacaoDeSenhaService
     private static string CalcularHashDoToken(string token)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
-    private static string ConstruirCorpoDoEmail(string nome, string linkDeRedefinicao, int minutosDeExpiracao)
+    private static string ConstruirCorpoDoEmail(string nome, string linkDeRedefinicao, int minutosDeExpiracao, bool temSenha)
     {
         var nomeSeguro = WebUtility.HtmlEncode(nome);
+        var titulo = temSenha ? "Redefinição de senha" : "Definição de senha";
+        var botao = temSenha ? "Redefinir minha senha" : "Definir minha senha";
+        var introducao = temSenha
+            ? $"Olá, <strong>{nomeSeguro}</strong>! Recebemos uma solicitação para redefinir a senha da sua conta na <strong>Lumi Makeup</strong>. Se foi você, basta confirmar pelo botão abaixo."
+            : $"Olá, <strong>{nomeSeguro}</strong>! Você criou sua conta com o Google e ainda não tem senha. Para acessar também com senha, defina uma pelo botão abaixo.";
+        var observacaoDeSeguranca = temSenha
+            ? "Se você não solicitou a redefinição, ignore este e-mail — a sua senha continua segura."
+            : "Se você não pediu essa definição de senha, ignore este e-mail — a sua conta continua segura.";
 
         return $"""
                 <!DOCTYPE html>
@@ -157,19 +168,18 @@ public sealed class RecuperacaoDeSenhaService : IRecuperacaoDeSenhaService
                               <div style="font-family:Georgia,'Playfair Display',serif;font-size:28px;letter-spacing:3px;color:#8b5e52;font-weight:600;">LUMI&nbsp;MAKEUP</div>
                               <div style="font-family:'Brush Script MT','Segoe Print',cursive;font-size:20px;color:#b98b73;margin-top:2px;">beleza que ilumina</div>
                               <div style="color:#b98b73;font-size:14px;margin:18px 0 22px 0;">&#10084;&nbsp;&nbsp;&#10084;&nbsp;&nbsp;&#10084;</div>
-                              <h1 style="font-family:Georgia,'Playfair Display',serif;font-size:26px;color:#4a332c;margin:0 0 10px 0;font-weight:600;">Redefinição de senha</h1>
+                              <h1 style="font-family:Georgia,'Playfair Display',serif;font-size:26px;color:#4a332c;margin:0 0 10px 0;font-weight:600;">{titulo}</h1>
                               <p style="font-family:Arial,'Inter',sans-serif;font-size:15px;line-height:1.6;color:#4a332c;margin:0 0 26px 0;">
-                                Olá, <strong>{nomeSeguro}</strong>! Recebemos uma solicitação para redefinir a senha da sua conta na <strong>Lumi Makeup</strong>.
-                                Se foi você, basta confirmar pelo botão abaixo.
+                                {introducao}
                               </p>
-                              <a href="{linkDeRedefinicao}" style="background-color:#b98b73;color:#ffffff;padding:14px 30px;border-radius:10px;font-family:Arial,'Inter',sans-serif;font-size:15px;font-weight:600;text-decoration:none;display:inline-block;border:1px solid #8b5e52;">Redefinir minha senha</a>
+                              <a href="{linkDeRedefinicao}" style="background-color:#b98b73;color:#ffffff;padding:15px 34px;border-radius:10px;font-family:Arial,'Inter',sans-serif;font-size:16px;font-weight:700;text-decoration:none;display:inline-block;line-height:1.4;">{botao}</a>
                               <p style="font-family:Arial,'Inter',sans-serif;font-size:13px;line-height:1.6;color:#8a7268;margin:22px 0 0 0;">
                                 Se o botão não funcionar, copie e cole este link no navegador:<br />
                                 <a href="{linkDeRedefinicao}" style="color:#8b5e52;word-break:break-all;">{linkDeRedefinicao}</a>
                               </p>
                               <p style="font-family:Arial,'Inter',sans-serif;font-size:13px;line-height:1.6;color:#8a7268;margin:16px 0 0 0;">
                                 Este link é válido por <strong>{minutosDeExpiracao} minutos</strong> e pode ser usado uma única vez.
-                                Se você não solicitou a redefinição, ignore este e-mail — a sua senha continua segura.
+                                {observacaoDeSeguranca}
                               </p>
                             </td>
                           </tr>

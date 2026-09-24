@@ -126,19 +126,28 @@ public class RecuperacaoDeSenhaServiceTests
     }
 
     [Fact]
-    public async Task Solicitar_nao_envia_email_para_usuario_sem_senha()
+    public async Task Solicitar_envia_email_para_usuario_sem_senha_com_link_de_definicao()
     {
         var contexto = Testes.CriarContextoInMemory();
         contexto.Usuarios.Add(new Usuario
         {
-            Nome = "Maria",
-            Email = "maria@exemplo.com",
+            Nome = "Clayton",
+            Email = "clayton.prebelli.act@gmail.com",
             IdGoogle = "google-123",
             Papel = PapelUsuario.Cliente
         });
         await contexto.SaveChangesAsync();
 
         var email = new Mock<IEmailSender>();
+        string? assunto = null;
+        string? corpo = null;
+        email.Setup(e => e.EnviarAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, string, CancellationToken>((_, tema, html, _) =>
+            {
+                assunto = tema;
+                corpo = html;
+            })
+            .Returns(Task.CompletedTask);
         var servico = new RecuperacaoDeSenhaService(
             contexto,
             new PasswordHasher<Usuario>(),
@@ -146,10 +155,17 @@ public class RecuperacaoDeSenhaServiceTests
             email.Object,
             Options.Create(OpcoesDoFrontend));
 
-        await servico.SolicitarAsync(new RequisicaoDeSolicitarResetDeSenha("maria@exemplo.com"), CancellationToken.None);
+        await servico.SolicitarAsync(new RequisicaoDeSolicitarResetDeSenha("clayton.prebelli.act@gmail.com"), CancellationToken.None);
 
-        email.Verify(e => e.EnviarAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        Assert.Empty(contexto.RecuperacoesDeSenha);
+        email.Verify(e => e.EnviarAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal("Definição de senha – Lumi Makeup", assunto);
+        Assert.Contains("Definição de senha", corpo);
+        Assert.Contains("Definir minha senha", corpo);
+        Assert.Contains("criou sua conta com o Google", corpo);
+        Assert.DoesNotContain("Redefinição de senha", corpo);
+        Assert.Contains("https://lumimakeup.com.br/redefinir-senha?token=", corpo);
+        var recuperacao = await contexto.RecuperacoesDeSenha.SingleAsync();
+        Assert.Equal("google-123", recuperacao.Usuario.IdGoogle);
     }
 
     [Fact]
