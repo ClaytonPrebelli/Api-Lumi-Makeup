@@ -1,4 +1,4 @@
-using LumiMakeup.Aplicacao.Abstracoes;
+using LumiMakeup.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LumiMakeup.Api.Controllers;
@@ -7,24 +7,24 @@ namespace LumiMakeup.Api.Controllers;
 [Route("api/produtos")]
 public sealed class ProdutosController : ControllerBase
 {
-    private readonly IServicoDeCatalogo _servicoDeCatalogo;
+    private readonly ICatalogoService _catalogoService;
 
-    public ProdutosController(IServicoDeCatalogo servicoDeCatalogo)
+    public ProdutosController(ICatalogoService catalogoService)
     {
-        _servicoDeCatalogo = servicoDeCatalogo;
+        _catalogoService = catalogoService;
     }
 
     [HttpGet]
     public async Task<IActionResult> ObterTodos(CancellationToken cancellationToken)
     {
-        var produtos = await _servicoDeCatalogo.ObterProdutosAtivosAsync(cancellationToken);
+        var produtos = await _catalogoService.ObterProdutosAtivosAsync(cancellationToken);
         return Ok(produtos);
     }
 
     [HttpGet("{slug}")]
     public async Task<IActionResult> ObterPorSlug(string slug, CancellationToken cancellationToken)
     {
-        var produto = await _servicoDeCatalogo.ObterProdutoPorSlugAsync(slug, cancellationToken);
+        var produto = await _catalogoService.ObterProdutoPorSlugAsync(slug, cancellationToken);
         return produto is null ? NotFound() : Ok(produto);
     }
 }

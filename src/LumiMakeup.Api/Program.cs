@@ -1,8 +1,8 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
-using LumiMakeup.Infraestrutura;
-using LumiMakeup.Infraestrutura.Persistencia;
+using LumiMakeup.Infrastructure;
+using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -14,7 +14,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-builder.Services.AdicionarInfraestrutura(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -58,7 +58,7 @@ builder.Services.AddCors(options =>
 });
 
 var secaoJwt = builder.Configuration.GetSection("Jwt");
-var opcoesJwt = secaoJwt.Get<OpcoesDeTokenJwt>();
+var opcoesJwt = secaoJwt.Get<TokenJwtOptions>();
 
 if (opcoesJwt is not null && !string.IsNullOrWhiteSpace(opcoesJwt.Segredo))
 {
@@ -119,12 +119,12 @@ static async Task SemearAdministradorSeConfiguradoAsync(WebApplication app)
         return;
     }
 
-    var gerador = escopo.ServiceProvider.GetRequiredService<GeradorDeDadosIniciais>();
-    await gerador.SemearAdministradorAsync(new OpcoesDeSeedDeAdministrador(email, senha));
+    var gerador = escopo.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await gerador.SemearAdministradorAsync(new SeedAdministradorOptions(email, senha));
     logger.LogInformation("SeedAdministrador concluído para {Email}.", email);
 }
 
-internal sealed class OpcoesDeTokenJwt
+internal sealed class TokenJwtOptions
 {
     public string Segredo { get; set; } = string.Empty;
     public string Emissor { get; set; } = string.Empty;

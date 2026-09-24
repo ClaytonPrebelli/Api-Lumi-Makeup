@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using LumiMakeup.Aplicacao.Abstracoes;
-using LumiMakeup.Aplicacao.DTOs;
+using LumiMakeup.Application.Abstractions;
+using LumiMakeup.Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,11 +10,11 @@ namespace LumiMakeup.Api.Controllers;
 [Route("api/autenticacao")]
 public sealed class AutenticacaoController : ControllerBase
 {
-    private readonly IServicoDeAutenticacao _servicoDeAutenticacao;
+    private readonly IAutenticacaoService _autenticacaoService;
 
-    public AutenticacaoController(IServicoDeAutenticacao servicoDeAutenticacao)
+    public AutenticacaoController(IAutenticacaoService autenticacaoService)
     {
-        _servicoDeAutenticacao = servicoDeAutenticacao;
+        _autenticacaoService = autenticacaoService;
     }
 
     [HttpPost("cadastrar")]
@@ -22,7 +22,7 @@ public sealed class AutenticacaoController : ControllerBase
     {
         try
         {
-            var response = await _servicoDeAutenticacao.CadastrarAsync(requisicao, cancellationToken);
+            var response = await _autenticacaoService.CadastrarAsync(requisicao, cancellationToken);
             return Ok(response);
         }
         catch (InvalidOperationException ex)
@@ -36,7 +36,7 @@ public sealed class AutenticacaoController : ControllerBase
     {
         try
         {
-            var response = await _servicoDeAutenticacao.EntrarAsync(requisicao, cancellationToken);
+            var response = await _autenticacaoService.EntrarAsync(requisicao, cancellationToken);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -50,7 +50,7 @@ public sealed class AutenticacaoController : ControllerBase
     {
         try
         {
-            var response = await _servicoDeAutenticacao.EntrarComGoogleAsync(requisicao, cancellationToken);
+            var response = await _autenticacaoService.EntrarComGoogleAsync(requisicao, cancellationToken);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -68,7 +68,7 @@ public sealed class AutenticacaoController : ControllerBase
     {
         try
         {
-            var response = await _servicoDeAutenticacao.RenovarAsync(requisicao.TokenRefresh, cancellationToken);
+            var response = await _autenticacaoService.RenovarAsync(requisicao.TokenRefresh, cancellationToken);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -87,7 +87,7 @@ public sealed class AutenticacaoController : ControllerBase
             return Unauthorized();
         }
 
-        var usuario = await _servicoDeAutenticacao.ObterUsuarioAtualAsync(usuarioId.Value, cancellationToken);
+        var usuario = await _autenticacaoService.ObterUsuarioAtualAsync(usuarioId.Value, cancellationToken);
         return Ok(usuario);
     }
 
@@ -103,7 +103,7 @@ public sealed class AutenticacaoController : ControllerBase
 
         try
         {
-            var usuario = await _servicoDeAutenticacao.CompletarPerfilAsync(usuarioId.Value, requisicao, cancellationToken);
+            var usuario = await _autenticacaoService.CompletarPerfilAsync(usuarioId.Value, requisicao, cancellationToken);
             return Ok(usuario);
         }
         catch (InvalidOperationException ex)

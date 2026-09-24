@@ -1,4 +1,4 @@
-using LumiMakeup.Aplicacao.Abstracoes;
+using LumiMakeup.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LumiMakeup.Api.Controllers;
@@ -7,17 +7,17 @@ namespace LumiMakeup.Api.Controllers;
 [Route("api/categorias")]
 public sealed class CategoriasController : ControllerBase
 {
-    private readonly IServicoDeCatalogo _servicoDeCatalogo;
+    private readonly ICatalogoService _catalogoService;
 
-    public CategoriasController(IServicoDeCatalogo servicoDeCatalogo)
+    public CategoriasController(ICatalogoService catalogoService)
     {
-        _servicoDeCatalogo = servicoDeCatalogo;
+        _catalogoService = catalogoService;
     }
 
     [HttpGet]
     public async Task<IActionResult> ObterTodas(CancellationToken cancellationToken)
     {
-        var categorias = await _servicoDeCatalogo.ObterCategoriasAtivasAsync(cancellationToken);
+        var categorias = await _catalogoService.ObterCategoriasAtivasAsync(cancellationToken);
         return Ok(categorias);
     }
 }
