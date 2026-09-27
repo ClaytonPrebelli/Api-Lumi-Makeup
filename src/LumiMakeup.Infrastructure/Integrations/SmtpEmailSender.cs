@@ -60,6 +60,7 @@ internal sealed class EnviadorDeEmailSmtpViaClienteSmtp : IEnviadorDeEmailSmtp
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private MimeMessage ConstruirMime(MailMessage mensagem)
     {
         var mime = new MimeMessage();
