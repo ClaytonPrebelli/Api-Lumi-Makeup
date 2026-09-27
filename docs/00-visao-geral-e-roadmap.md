@@ -20,7 +20,7 @@ O frontend Angular é um repositório separado (`LumiMakeup`) e consome esta API
 | Runtime | .NET 8 |
 | Framework | ASP.NET Core (Web API) |
 | ORM | Entity Framework Core 8 + Pomelo (MySQL) |
-| Banco | MySQL |
+| Banco | MariaDB 10.11 (provider do Pomelo; ver doc `04`) |
 | Autenticação | JWT (HMAC-SHA256) |
 | Hash de senha | `PasswordHasher<Usuario>` (ASP.NET Core Identity) |
 | Documentação da API | Swagger / OpenAPI |

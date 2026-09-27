@@ -135,6 +135,32 @@ snapshot do modelo naquele ponto, e a atualização do
 > A API precisa estar **parada** para rodar `dotnet ef`: o build tenta copiar as DLLs
 > para `bin/` e falha se o processo estiver segurando o arquivo.
 
+### O banco é MariaDB, não MySQL
+
+A conexão de desenvolvimento aponta para um **MariaDB 10.11**, embora o projeto use o
+provider do Pomelo e a documentação fale em MySQL. A diferença é pequena, mas tem uma
+consequência prática: a migration `EnderecoDeEntregaNoPedido` usa
+`DROP FOREIGN KEY IF EXISTS`, que existe no MariaDB e **não** existe no MySQL. Se um dia
+a conexão apontar para MySQL, essa instrução precisa ser reescrita.
+
+O provedor continua sendo o Pomelo, e o código C# não muda nada por causa disso — só o
+SQL escrito à mão dentro das migrations.
+
+### O banco não tem chaves estrangeiras
+
+O schema real está **sem qualquer FK**, em todas as tabelas, embora a `InitialCreate` as
+crie e o modelo do EF as exija. Nenhuma migration as removeu: elas sumiram fora do EF.
+
+A consequência aparece na `EnderecoDeEntregaNoPedido`, que precisava derrubar
+`FK_pedidos_enderecos_EnderecoEntregaId`. Um `DropForeignKey` incondicional, como o EF
+gerou, aborta com o erro 3940 nesse banco. E o índice não podia ser removido antes da FK,
+porque o MariaDB recusa com *"Cannot drop index: needed in a foreign key constraint"* —
+algo que só ficou claro testando os quatro caminhos possíveis numa tabela de teste.
+
+Vale saber disso antes de confiar no schema: **a integridade referencial não está sendo
+aplicada pelo banco**, e sim só pelo código. Um `INSERT` direto com `UsuarioId`
+inexistente seria aceito.
+
 ---
 
 ## Tipos de coluna

@@ -104,6 +104,27 @@ está escolhido — ou seja, no checkout. No carrinho, o valor aparece como
 Isso vale para `ConfiguracaoFrete` (origem, preço por km, taxa mínima) e para a
 distância, que depende das coordenadas do destino.
 
+### Como os pedidos existentes sobreviveram à mudança
+
+A migration `EnderecoDeEntregaNoPedido` não pode simplesmente derrubar
+`EnderecoEntregaId`, porque isso deixaria o histórico de entregas em branco. A ordem real
+é:
+
+1. Sete colunas novas entram com o **mesmo tipo e tamanho** de `enderecos`, para que a
+   cópia não trunque nada.
+2. Um `UPDATE ... INNER JOIN` copia os sete campos de cada pedido que ainda tem destino.
+3. Pedidos sem destino válido recebem um marcador visível — `"(endereço não informado)"` e
+   estado `ZZ` — em vez de ficarem com endereço vazio, para que a lacuna não se confunda
+   com um endereço em branco legítimo.
+4. Só então a coluna e o índice antigos são removidos.
+
+Os tipos de `enderecos` e das colunas novas de `pedidos` são idênticos (`varchar(9)` para
+CEP, `varchar(200)` para logradouro, e assim por diante), o que garante a cópia sem perda.
+
+O `Down` é o inverso imperfeito: a relação antiga guardava só a FK, então o vínculo só
+pode ser aproximado comparando os campos de endereço, e a coluna volta anulável — nem
+todo endereço tem um registro correspondente em `enderecos`.
+
 ---
 
 ## Mapeamento
