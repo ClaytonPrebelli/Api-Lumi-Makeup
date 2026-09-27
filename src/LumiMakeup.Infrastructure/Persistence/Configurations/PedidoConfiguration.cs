@@ -26,6 +26,14 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
             .HasConversion<string>()
             .HasMaxLength(30);
 
+        builder.Property(o => o.EnderecoCep).HasMaxLength(9).IsRequired();
+        builder.Property(o => o.EnderecoLogradouro).HasMaxLength(200).IsRequired();
+        builder.Property(o => o.EnderecoNumero).HasMaxLength(20).IsRequired();
+        builder.Property(o => o.EnderecoComplemento).HasMaxLength(100);
+        builder.Property(o => o.EnderecoBairro).HasMaxLength(100).IsRequired();
+        builder.Property(o => o.EnderecoCidade).HasMaxLength(100).IsRequired();
+        builder.Property(o => o.EnderecoEstado).HasMaxLength(2).IsRequired();
+
         builder.Property(o => o.DistanciaKm).HasColumnType("decimal(8,2)");
         builder.Property(o => o.CustoFrete).HasColumnType("decimal(10,2)");
         builder.Property(o => o.Subtotal).HasColumnType("decimal(10,2)");
@@ -34,11 +42,6 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
         builder.Property(o => o.CriadoEm).HasColumnType("datetime");
         builder.Property(o => o.PagoEm).HasColumnType("datetime");
         builder.Property(o => o.EntregueEm).HasColumnType("datetime");
-
-        builder.HasOne(o => o.EnderecoEntrega)
-            .WithMany()
-            .HasForeignKey(o => o.EnderecoEntregaId)
-            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(o => o.Itens)
             .WithOne(i => i.Pedido)

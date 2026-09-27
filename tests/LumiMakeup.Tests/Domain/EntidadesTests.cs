@@ -206,7 +206,13 @@ public class EntidadesTests
         {
             Id = 12,
             UsuarioId = 5,
-            EnderecoEntregaId = 4,
+            EnderecoCep = "01310-100",
+            EnderecoLogradouro = "Av. Paulista",
+            EnderecoNumero = "1000",
+            EnderecoComplemento = "Conj. 101",
+            EnderecoBairro = "Bela Vista",
+            EnderecoCidade = "São Paulo",
+            EnderecoEstado = "SP",
             Status = StatusPedido.Pago,
             StatusEntrega = StatusEntrega.Enviado,
             MetodoPagamento = MetodoPagamento.Pix,
@@ -218,8 +224,7 @@ public class EntidadesTests
             CriadoEm = new DateTime(2026, 1, 6, 9, 0, 0, DateTimeKind.Utc),
             PagoEm = new DateTime(2026, 1, 6, 9, 5, 0, DateTimeKind.Utc),
             EntregueEm = null,
-            Usuario = new Usuario(),
-            EnderecoEntrega = new Endereco()
+            Usuario = new Usuario()
         };
 
         pedido.Itens.Add(new ItemPedido());
@@ -228,7 +233,13 @@ public class EntidadesTests
 
         Assert.Equal(12, pedido.Id);
         Assert.Equal(5, pedido.UsuarioId);
-        Assert.Equal(4, pedido.EnderecoEntregaId);
+        Assert.Equal("01310-100", pedido.EnderecoCep);
+        Assert.Equal("Av. Paulista", pedido.EnderecoLogradouro);
+        Assert.Equal("1000", pedido.EnderecoNumero);
+        Assert.Equal("Conj. 101", pedido.EnderecoComplemento);
+        Assert.Equal("Bela Vista", pedido.EnderecoBairro);
+        Assert.Equal("São Paulo", pedido.EnderecoCidade);
+        Assert.Equal("SP", pedido.EnderecoEstado);
         Assert.Equal(StatusPedido.Pago, pedido.Status);
         Assert.Equal(StatusEntrega.Enviado, pedido.StatusEntrega);
         Assert.Equal(MetodoPagamento.Pix, pedido.MetodoPagamento);
@@ -241,7 +252,6 @@ public class EntidadesTests
         Assert.Equal(new DateTime(2026, 1, 6, 9, 5, 0, DateTimeKind.Utc), pedido.PagoEm);
         Assert.Null(pedido.EntregueEm);
         Assert.NotNull(pedido.Usuario);
-        Assert.NotNull(pedido.EnderecoEntrega);
         Assert.Single(pedido.Itens);
         Assert.Single(pedido.NotasFiscais);
         Assert.Single(pedido.RegistrosWhatsApp);
