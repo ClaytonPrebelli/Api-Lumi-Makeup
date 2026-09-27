@@ -131,35 +131,47 @@ snapshot do modelo naquele ponto, e a atualização do
 | `RenomearParaPortugues` | Tabelas, colunas e enums convertidos para português |
 | `AdicionarRecuperacaoDeSenha` | Tabela `recuperacoes_de_senha` |
 | `EnderecoDeEntregaNoPedido` | Endereço próprio no pedido (ver doc `05`) |
+| `RestaurarIntegridadeReferencial` | MyISAM → InnoDB e criação das 10 FKs |
 
 > A API precisa estar **parada** para rodar `dotnet ef`: o build tenta copiar as DLLs
 > para `bin/` e falha se o processo estiver segurando o arquivo.
 
-### O banco é MariaDB, não MySQL
+### O banco era MyISAM, e MyISAM não tem chaves estrangeiras
 
-A conexão de desenvolvimento aponta para um **MariaDB 10.11**, embora o projeto use o
-provider do Pomelo e a documentação fale em MySQL. A diferença é pequena, mas tem uma
-consequência prática: a migration `EnderecoDeEntregaNoPedido` usa
-`DROP FOREIGN KEY IF EXISTS`, que existe no MariaDB e **não** existe no MySQL. Se um dia
-a conexão apontar para MySQL, essa instrução precisa ser reescrita.
+O servidor de desenvolvimento está com `default_storage_engine = MyISAM`, e **todas** as
+13 tabelas foram criadas nele. MyISAM ignora a clause `CONSTRAINT` ao criar a tabela, sem
+avisar. Por isso nenhuma das 10 FKs que o modelo do EF declara existiu no banco, e ninguém
+percebeu: a `InitialCreate` as pediu, o MariaDB aceitou o `CREATE TABLE` e simplesmente
+descartou.
 
-O provedor continua sendo o Pomelo, e o código C# não muda nada por causa disso — só o
-SQL escrito à mão dentro das migrations.
+A consequência era maior do que a integridade referencial. MyISAM também não tem
+transações, então:
 
-### O banco não tem chaves estrangeiras
+- O `SaveChanges` do EF **não era atômico**. Uma falha no meio de um pedido deixava
+  itens gravados sem o pedido.
+- O `START TRANSACTION` / `COMMIT` que o EF emite ao aplicar uma migration era um no-op.
+- Um lock de escrita travava a tabela inteira, não só a linha.
 
-O schema real está **sem qualquer FK**, em todas as tabelas, embora a `InitialCreate` as
-crie e o modelo do EF as exija. Nenhuma migration as removeu: elas sumiram fora do EF.
+A migration `RestaurarIntegridadeReferencial` converte as 13 tabelas para InnoDB e só
+então cria as 10 FKs, com os nomes e o `ON DELETE` que o modelo declara. Verificado no
+banco: um `INSERT` com `UsuarioId` inexistente agora é rejeitado com o erro 1452, e um
+`INSERT` seguido de `ROLLBACK` não deixa rastro.
 
-A consequência aparece na `EnderecoDeEntregaNoPedido`, que precisava derrubar
-`FK_pedidos_enderecos_EnderecoEntregaId`. Um `DropForeignKey` incondicional, como o EF
-gerou, aborta com o erro 3940 nesse banco. E o índice não podia ser removido antes da FK,
-porque o MariaDB recusa com *"Cannot drop index: needed in a foreign key constraint"* —
-algo que só ficou claro testando os quatro caminhos possíveis numa tabela de teste.
+> O `default_storage_engine` do servidor continua em MyISAM. Qualquer tabela nova criada
+> fora de migration nasce em MyISAM e perde as garantias de novo. Para um servidor
+> dedicado, o certo é `default_storage_engine = InnoDB` na configuração do MariaDB.
 
-Vale saber disso antes de confiar no schema: **a integridade referencial não está sendo
-aplicada pelo banco**, e sim só pelo código. Um `INSERT` direto com `UsuarioId`
-inexistente seria aceito.
+### `DROP FOREIGN KEY IF EXISTS` é sintaxe do MariaDB
+
+A `EnderecoDeEntregaNoPedido` usa `DROP FOREIGN KEY IF EXISTS`, que existe no MariaDB
+10.11 e **não** existe no MySQL. Ela precisa disso porque, na altura, a FK de
+`pedidos.EnderecoEntregaId` não existia no banco: um `DropForeignKey` incondicional, como
+o EF gerou, aborta com o erro 3940. E o índice não podia ser removido antes da FK, porque
+o MariaDB recusa com *"Cannot drop index: needed in a foreign key constraint"* — algo que
+só ficou claro testando os quatro caminhos possíveis numa tabela de teste.
+
+O provedor continua sendo o Pomelo, e o código C# não muda nada por causa disso — só o SQL
+escrito à mão dentro das migrations.
 
 ---
 
