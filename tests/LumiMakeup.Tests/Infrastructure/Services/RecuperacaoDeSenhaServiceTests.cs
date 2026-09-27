@@ -94,7 +94,7 @@ public class RecuperacaoDeSenhaServiceTests
         Assert.Equal(usuario.Email, destinatario);
         Assert.Contains("Redefinição de senha", assunto);
         Assert.Contains("LUMI&nbsp;MAKEUP", corpo);
-        Assert.Contains("beleza que ilumina", corpo);
+        Assert.Contains("Seu brilho começa aqui", corpo);
         Assert.Contains("Julia Udinal Americo", corpo);
         Assert.Contains("https://lumimakeup.com.br/redefinir-senha?token=", corpo);
         Assert.Contains("Redefinir minha senha", corpo);
