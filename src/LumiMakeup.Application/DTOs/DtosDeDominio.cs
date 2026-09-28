@@ -34,6 +34,10 @@ public sealed record RequisicaoDeOrdenacaoDeImagens(IReadOnlyList<long> Ordem);
 
 public sealed record RequisicaoDeCategoria(string Nome, string? Slug, string? Descricao, bool Ativo);
 
+public sealed record RequisicaoDeMelhoriaDeTexto(string? Nome, string Descricao);
+
+public sealed record RespostaDeMelhoriaDeTextoDto(string DescricaoMelhorada, string ModeloUsado);
+
 public sealed record ProdutoDto(
     long Id,
     string Nome,

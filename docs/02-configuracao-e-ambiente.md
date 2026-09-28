@@ -104,6 +104,7 @@ aviso é registrado e nada acontece.
 | `Smtp` | `SmtpEmailSender` | ✅ em uso |
 | `Recaptcha` | `RecaptchaValidator` | ✅ em uso |
 | `Google` | `AutenticacaoGoogleService` | ✅ em uso |
+| `Gemini` | `MelhoradorDeTextoGemini` | ✅ em uso — ver abaixo |
 | `FocusNfe` | `FocusNfeServiceStub` | ⬜ stub |
 | `Baileys` | `WhatsAppServiceStub` | ⬜ stub |
 | `Brevo` | — | ⬜ não integrado |
@@ -132,6 +133,51 @@ irmã da pasta da aplicação. Se for relativo, é resolvido a partir do *conten
 > Com `CaminhoBase` vazio, `ArmazenamentoDeImagensLocal` lança na construção, e a API
 > não sobe. É proposital: a configuração ausente aparece no deploy, não no primeiro
 > upload de um cliente.
+
+---
+
+## `ExternalServices:Gemini`
+
+Usada por `MelhoradorDeTextoGemini` para reescrever a descrição de um produto.
+
+| Chave | Padrão | Papel |
+|---|---|---|
+| `Chave` | `""` | Chave da AI Studio. Se preenchida, tem precedência |
+| `Projeto` | `""` | ID do projeto Google Cloud, usado no caminho do Agent Platform |
+| `Local` | `global` | Região do endpoint (`global`, `us-central1`, …) |
+| `Modelo` | `gemini-3.5-flash` | Modelo chamado |
+| `EndpointDaAiStudio` | `https://generativelanguage.googleapis.com/` | Base do modo chave |
+| `EndpointDoVertex` | `https://aiplatform.googleapis.com/` | Base do modo ADC |
+| `TimeoutEmSegundos` | `30` | Tempo limite da chamada |
+
+Há **dois modos de autenticação**, escolhidos automaticamente:
+
+| Modo | Quando | URL chamada | Autenticação |
+|---|---|---|---|
+| Chave da AI Studio | `Chave` preenchida | `generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent` | header `x-goog-api-key` |
+| Credenciais padrão | `Chave` vazia e `Projeto` preenchido | `aiplatform.googleapis.com/v1/projects/{projeto}/locations/{local}/publishers/google/models/{modelo}:generateContent` | `Authorization: Bearer` via ADC |
+
+No modo ADC, o token vem de `IProvedorDeTokenDoGoogle`, que usa
+`GoogleCredential.GetApplicationDefaultAsync()`. Ele lê, nesta ordem:
+
+1. `GOOGLE_APPLICATION_CREDENTIALS` apontando para um JSON de service account;
+2. o arquivo de credenciais gerado por `gcloud auth application-default login`;
+3. as credenciais do servidor, quando a API roda em Google Cloud.
+
+A `GoogleCredential` é carregada uma vez e reaproveitada; a renovação do token fica
+com a biblioteca.
+
+> **Atenção ao custo:** o modo ADC passa pelo Gemini Enterprise Agent Platform, que
+> **exige faturamento habilitado** no projeto — não é o free tier sem cobrança da AI
+> Studio. Se a prioridade for não ligar faturamento, use o modo chave.
+>
+> **Atenção ao deploy:** ADC só existe onde foi configurado. Em desenvolvimento, com
+> `gcloud auth application-default login` feito, funciona. Na hospedagem, será preciso
+> definir `GOOGLE_APPLICATION_CREDENTIALS` para o JSON de uma service account com o
+> papel que permite chamar o modelo.
+
+Erros do Google são traduzidos para mensagens que o admin entende, sem repassar o
+corpo bruto da resposta (que pode conter detalhe interno da conta).
 
 ---
 

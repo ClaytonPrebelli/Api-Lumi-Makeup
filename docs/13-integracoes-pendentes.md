@@ -85,6 +85,55 @@ Regras de validação no upload:
 > Isso é configuração do servidor web, não do código. E as imagens precisam entrar no
 > plano de backup: elas não têm mais cópia em serviço de terceiros.
 
+---
+
+## Melhoria de texto com IA (implementado)
+
+No painel de administração, o campo de descrição do produto tem um botão que reescreve
+o texto por um modelo de linguagem. O endpoint é `POST api/admin/produtos/texto/melhorar`,
+protegido pela policy `SomenteAdministrador`, e devolve
+`{ descricaoMelhorada, modeloUsado }`.
+
+| Camada | Onde |
+|---|---|
+| Contrato | `IMelhoradorDeTextoService` em `Application/Abstractions` |
+| Implementação | `MelhoradorDeTextoGemini` em `Infrastructure/Integrations` |
+| Token | `IProvedorDeTokenDoGoogle` / `ProvedorDeTokenPorAdc` |
+
+**A chave nunca sai do backend.** O navegador só chama a API; é ela que fala com o
+Google. É o mesmo cuidado do reCAPTCHA, e vale ainda mais aqui porque a chave tem
+custo associado quando o projeto tem faturamento.
+
+**Dois modos de autenticação**, com a chave da AI Studio tendo precedência quando
+preenchida. Ver [`02-configuracao-e-ambiente.md`](02-configuracao-e-ambiente.md) para
+a tabela completa e a diferença de custo entre eles.
+
+### O prompt proíbe a IA de inventar
+
+O ponto mais importante do prompt: reescrever texto de cosmético é uma operação com
+risco regulatório. Alegação de benefício sem respaldo é infração de consumo, e o modelo,
+treinado para vender, adiciona benefício se perguntado de forma vaga. Por isso as
+regras são explícitas:
+
+- não inventar característica, ingrediente, textura ou benefício;
+- não usar promessa de resultado garantido nem linguagem de efeito médico;
+- não citar porcentagem, selo, aprovação, certificação ou estudo clínico;
+- não inventar número de cores, gramas, volume ou duração;
+- devolver **somente** a descrição, sem comentário sobre o que mudou.
+
+Ainda assim, o texto gerado entra no formulário **como sugestão editável**, nunca
+gravado direto no produto. Revisão humana antes de salvar é requisito, não formalidade.
+
+### Limites
+
+Descrição entre 10 e 4.000 caracteres, nome até 150. `thinkingLevel: low` porque o
+botão espera resposta rápida, e `maxOutputTokens: 1024`.
+
+> A geração passa pela IA, então o texto original e o reescrito saem da sua
+> infraestrutura. Para descrição de produto isso não é dado sensível, mas é uma
+> decisão consciente do negócio, não um detalhe técnico.
+
+
 
 ---
 

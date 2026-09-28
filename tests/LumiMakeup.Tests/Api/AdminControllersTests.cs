@@ -15,7 +15,8 @@ public class AdminProdutosControllerTests
 
     private static AdminProdutosController CriarController(
         Mock<IGestaoDeProdutosService> gestaoDeProdutos,
-        long tamanhoMaximo = 5_242_880)
+        long tamanhoMaximo = 5_242_880,
+        Mock<IMelhoradorDeTextoService>? melhorador = null)
     {
         var opcoes = Options.Create(new ArmazenamentoDeImagensOptions
         {
@@ -23,7 +24,10 @@ public class AdminProdutosControllerTests
             TamanhoMaximoEmBytes = tamanhoMaximo
         });
 
-        return new AdminProdutosController(gestaoDeProdutos.Object, opcoes);
+        return new AdminProdutosController(
+            gestaoDeProdutos.Object,
+            (melhorador ?? new Mock<IMelhoradorDeTextoService>()).Object,
+            opcoes);
     }
 
     private static ProdutoAdministracaoDto CriarProduto() => new(

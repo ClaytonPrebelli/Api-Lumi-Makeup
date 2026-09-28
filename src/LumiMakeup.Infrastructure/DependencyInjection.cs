@@ -60,6 +60,15 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://www.google.com/");
         });
         services.Configure<RecaptchaOptions>(configuration.GetSection("ExternalServices:Recaptcha"));
+
+        services.AddHttpClient<IMelhoradorDeTextoService, MelhoradorDeTextoGemini>(client =>
+        {
+            var gemini = configuration.GetSection("ExternalServices:Gemini");
+            var timeout = int.TryParse(gemini["TimeoutEmSegundos"], out var segundos) ? segundos : 30;
+            client.Timeout = TimeSpan.FromSeconds(timeout);
+        });
+        services.AddSingleton<IProvedorDeTokenDoGoogle, ProvedorDeTokenPorAdc>();
+        services.Configure<GeminiOptions>(configuration.GetSection("ExternalServices:Gemini"));
         services.Configure<ArmazenamentoDeImagensOptions>(configuration.GetSection("ArmazenamentoDeImagens"));
         services.AddScoped<IArmazenamentoDeImagens, ArmazenamentoDeImagensLocal>();
         services.AddScoped<IWhatsAppService, WhatsAppServiceStub>();

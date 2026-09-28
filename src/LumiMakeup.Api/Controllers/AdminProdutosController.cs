@@ -13,13 +13,16 @@ namespace LumiMakeup.Api.Controllers;
 public sealed class AdminProdutosController : ControllerBase
 {
     private readonly IGestaoDeProdutosService _gestaoDeProdutos;
+    private readonly IMelhoradorDeTextoService _melhoradorDeTexto;
     private readonly ArmazenamentoDeImagensOptions _opcoes;
 
     public AdminProdutosController(
         IGestaoDeProdutosService gestaoDeProdutos,
+        IMelhoradorDeTextoService melhoradorDeTexto,
         IOptions<ArmazenamentoDeImagensOptions> opcoes)
     {
         _gestaoDeProdutos = gestaoDeProdutos;
+        _melhoradorDeTexto = melhoradorDeTexto;
         _opcoes = opcoes.Value;
     }
 
@@ -85,6 +88,26 @@ public sealed class AdminProdutosController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("texto/melhorar")]
+    public async Task<IActionResult> MelhorarTexto(
+        [FromBody] RequisicaoDeMelhoriaDeTexto requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var resultado = await _melhoradorDeTexto.MelhorarAsync(
+                requisicao.Nome ?? string.Empty,
+                requisicao.Descricao,
+                cancellationToken);
+
+            return Ok(new RespostaDeMelhoriaDeTextoDto(resultado.DescricaoMelhorada, resultado.ModeloUsado));
         }
         catch (InvalidOperationException ex)
         {
