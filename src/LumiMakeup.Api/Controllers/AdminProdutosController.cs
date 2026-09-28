@@ -163,6 +163,13 @@ public sealed class AdminProdutosController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            // Antes so o KeyNotFoundException era tratado, e qualquer outra falha
+            // virava 500 sem mensagem. Apagar uma imagem nao pode falhar por causa
+            // do arquivo: e a referencia no banco que precisa sair.
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id:long}/imagens/ordem")]
