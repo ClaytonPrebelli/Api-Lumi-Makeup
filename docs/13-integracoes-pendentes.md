@@ -97,16 +97,24 @@ protegido pela policy `SomenteAdministrador`, e devolve
 | Camada | Onde |
 |---|---|
 | Contrato | `IMelhoradorDeTextoService` em `Application/Abstractions` |
-| Implementação | `MelhoradorDeTextoGemini` em `Infrastructure/Integrations` |
-| Token | `IProvedorDeTokenDoGoogle` / `ProvedorDeTokenPorAdc` |
+| Implementação | `MelhoradorDeTextoOpenAiCompativel` em `Infrastructure/Integrations` |
 
 **A chave nunca sai do backend.** O navegador só chama a API; é ela que fala com o
-Google. É o mesmo cuidado do reCAPTCHA, e vale ainda mais aqui porque a chave tem
-custo associado quando o projeto tem faturamento.
+provedor. É o mesmo cuidado do reCAPTCHA, e vale ainda mais aqui porque a chave é
+limitada por cota.
 
-**Dois modos de autenticação**, com a chave da AI Studio tendo precedência quando
-preenchida. Ver [`02-configuracao-e-ambiente.md`](02-configuracao-e-ambiente.md) para
-a tabela completa e a diferença de custo entre eles.
+**Um formato, muitos provedores.** A implementação fala o formato `chat/completions`
+da OpenAI, que Groq, OpenRouter, Cerebras e NVIDIA NIM implementam. Provedor e modelo
+são configuração, não código — ver
+[`02-configuracao-e-ambiente.md`](02-configuracao-e-ambiente.md).
+
+> Groq foi escolhido por ser o free tier mais simples de manter: chave sem cartão,
+> cota de 200K tokens/dia em `openai/gpt-oss-120b` e *prompt caching*, que deixa a
+> instrução de sistema longa fora da conta. Para o volume de um painel de aplicação
+> com um botão, a folga é enorme.
+>
+> O Gemini foi avaliado antes e ficado de fora: o caminho de Application Default
+> Credentials passa pelo Agent Platform, que exige faturamento habilitado no projeto.
 
 ### O prompt proíbe a IA de inventar
 
@@ -126,8 +134,9 @@ gravado direto no produto. Revisão humana antes de salvar é requisito, não fo
 
 ### Limites
 
-Descrição entre 10 e 4.000 caracteres, nome até 150. `thinkingLevel: low` porque o
-botão espera resposta rápida, e `maxOutputTokens: 1024`.
+Descrição entre 10 e 4.000 caracteres, nome até 150, `temperatura` 0.3 e teto de 1024
+tokens. A temperatura é baixa de propósito: o objetivo é reescrever sem inventar, e
+modelo criativo é exatamente o risco aqui.
 
 > A geração passa pela IA, então o texto original e o reescrito saem da sua
 > infraestrutura. Para descrição de produto isso não é dado sensível, mas é uma

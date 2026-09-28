@@ -104,7 +104,8 @@ aviso é registrado e nada acontece.
 | `Smtp` | `SmtpEmailSender` | ✅ em uso |
 | `Recaptcha` | `RecaptchaValidator` | ✅ em uso |
 | `Google` | `AutenticacaoGoogleService` | ✅ em uso |
-| `Gemini` | `MelhoradorDeTextoGemini` | ✅ em uso — ver abaixo |
+| `Gemini` | — | removido, ver `13` |
+| `Ia` | `MelhoradorDeTextoOpenAiCompativel` | ✅ em uso — ver abaixo |
 | `FocusNfe` | `FocusNfeServiceStub` | ⬜ stub |
 | `Baileys` | `WhatsAppServiceStub` | ⬜ stub |
 | `Brevo` | — | ⬜ não integrado |
@@ -136,48 +137,45 @@ irmã da pasta da aplicação. Se for relativo, é resolvido a partir do *conten
 
 ---
 
-## `ExternalServices:Gemini`
+## `ExternalServices:Ia`
 
-Usada por `MelhoradorDeTextoGemini` para reescrever a descrição de um produto.
+Usada por `MelhoradorDeTextoOpenAiCompativel` para reescrever a descrição de um produto.
 
 | Chave | Padrão | Papel |
 |---|---|---|
-| `Chave` | `""` | Chave da AI Studio. Se preenchida, tem precedência |
-| `Projeto` | `""` | ID do projeto Google Cloud, usado no caminho do Agent Platform |
-| `Local` | `global` | Região do endpoint (`global`, `us-central1`, …) |
-| `Modelo` | `gemini-3.5-flash` | Modelo chamado |
-| `EndpointDaAiStudio` | `https://generativelanguage.googleapis.com/` | Base do modo chave |
-| `EndpointDoVertex` | `https://aiplatform.googleapis.com/` | Base do modo ADC |
-| `TimeoutEmSegundos` | `30` | Tempo limite da chamada |
+| `Chave` | `""` | Chave do provedor. Sem ela, o botão informa que a IA não está configurada |
+| `UrlBase` | `https://api.groq.com/openai/v1` | Base compatível com a API da OpenAI |
+| `Modelo` | `openai/gpt-oss-120b` | Modelo chamado |
+| `Temperatura` | `0.3` | Baixa de propósito, para o modelo não inventar |
+| `MaximoDeTokens` | `1024` | teto da resposta |
+| `TimeoutEmSegundos` | `45` | Tempo limite da chamada |
 
-Há **dois modos de autenticação**, escolhidos automaticamente:
+A chamada é sempre `POST {UrlBase}/chat/completions`, com a chave em
+`Authorization: Bearer`.
 
-| Modo | Quando | URL chamada | Autenticação |
-|---|---|---|---|
-| Chave da AI Studio | `Chave` preenchida | `generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent` | header `x-goog-api-key` |
-| Credenciais padrão | `Chave` vazia e `Projeto` preenchido | `aiplatform.googleapis.com/v1/projects/{projeto}/locations/{local}/publishers/google/models/{modelo}:generateContent` | `Authorization: Bearer` via ADC |
+### Trocar de provedor
 
-No modo ADC, o token vem de `IProvedorDeTokenDoGoogle`, que usa
-`GoogleCredential.GetApplicationDefaultAsync()`. Ele lê, nesta ordem:
+Groq, OpenRouter, Cerebras e NVIDIA NIM falam o mesmo formato. Trocar de fornecedor é
+mudar **duas linhas de configuração**, sem tocar em código:
 
-1. `GOOGLE_APPLICATION_CREDENTIALS` apontando para um JSON de service account;
-2. o arquivo de credenciais gerado por `gcloud auth application-default login`;
-3. as credenciais do servidor, quando a API roda em Google Cloud.
+```json
+"Ia": {
+  "Chave": "...",
+  "UrlBase": "https://openrouter.ai/api/v1",
+  "Modelo": "qwen/qwen3.8-27b"
+}
+```
 
-A `GoogleCredential` é carregada uma vez e reaproveitada; a renovação do token fica
-com a biblioteca.
+> **Atenção:** nomes de modelo mudam com frequência, e provedores removem modelos do
+> plano gratuito sem avisar. Por isso o modelo fica em configuração e nunca fixo no
+> código. A mensagem de erro traduz "modelo não existe" para o admin, que é o erro
+> mais provável de um botão parado.
 
-> **Atenção ao custo:** o modo ADC passa pelo Gemini Enterprise Agent Platform, que
-> **exige faturamento habilitado** no projeto — não é o free tier sem cobrança da AI
-> Studio. Se a prioridade for não ligar faturamento, use o modo chave.
->
-> **Atenção ao deploy:** ADC só existe onde foi configurado. Em desenvolvimento, com
-> `gcloud auth application-default login` feito, funciona. Na hospedagem, será preciso
-> definir `GOOGLE_APPLICATION_CREDENTIALS` para o JSON de uma service account com o
-> papel que permite chamar o modelo.
+> **Atenção à temperatura:** nunca use `0`. O Groq converte silenciosamente para
+> `1e-8`, e há teste garantindo que o valor enviado fica acima de zero.
 
-Erros do Google são traduzidos para mensagens que o admin entende, sem repassar o
-corpo bruto da resposta (que pode conter detalhe interno da conta).
+Erros do provedor são traduzidos para mensagens que o admin entende, sem repassar o
+corpo bruto da resposta, que pode conter detalhe interno da conta.
 
 ---
 

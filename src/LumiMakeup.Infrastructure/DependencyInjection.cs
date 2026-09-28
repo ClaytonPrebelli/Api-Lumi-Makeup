@@ -61,14 +61,13 @@ public static class DependencyInjection
         });
         services.Configure<RecaptchaOptions>(configuration.GetSection("ExternalServices:Recaptcha"));
 
-        services.AddHttpClient<IMelhoradorDeTextoService, MelhoradorDeTextoGemini>(client =>
+        services.AddHttpClient<IMelhoradorDeTextoService, MelhoradorDeTextoOpenAiCompativel>(client =>
         {
-            var gemini = configuration.GetSection("ExternalServices:Gemini");
-            var timeout = int.TryParse(gemini["TimeoutEmSegundos"], out var segundos) ? segundos : 30;
+            var ia = configuration.GetSection("ExternalServices:Ia");
+            var timeout = int.TryParse(ia["TimeoutEmSegundos"], out var segundos) ? segundos : 45;
             client.Timeout = TimeSpan.FromSeconds(timeout);
         });
-        services.AddSingleton<IProvedorDeTokenDoGoogle, ProvedorDeTokenPorAdc>();
-        services.Configure<GeminiOptions>(configuration.GetSection("ExternalServices:Gemini"));
+        services.Configure<OpcoesDeIa>(configuration.GetSection("ExternalServices:Ia"));
         services.Configure<ArmazenamentoDeImagensOptions>(configuration.GetSection("ArmazenamentoDeImagens"));
         services.AddScoped<IArmazenamentoDeImagens, ArmazenamentoDeImagensLocal>();
         services.AddScoped<IWhatsAppService, WhatsAppServiceStub>();
