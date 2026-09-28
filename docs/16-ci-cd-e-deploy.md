@@ -111,6 +111,32 @@ o arquivo que a API efetivamente lê.
 > declara o ambiente. O padrão do IIS é `Production`, então a API funcionaria por
 > coincidência. Declarar remove a coincidência da equação.
 
+## O artefato precisa ser plano
+
+O deploy falha com `ECONNRESET` se a publicação tiver ** subdiretórios**, e isso aconteceu
+duas vezes antes de ser descoberto.
+
+A action de FTP abre **uma conexão de dados nova por diretório criado**, e o servidor
+descarta a partir da terceira. O frontend e o outro projeto .NET deste servidor publicam
+listas planas de arquivos, por isso nunca tiveram o problema — a diferença nunca foi
+volume nem TLS, foi a contagem de diretórios.
+
+A publicação do .NET vinha com `runtimes/win/lib/net7.0/` e `runtimes/win/lib/net8.0/`,
+621 KB e quatro níveis, que davam exatamente a terceira conexão que derruba.
+
+A pasta foi removida da publicação, e ela é dispensável: numa publicação **sem `-r`**, quem
+carregado é a cópia portátil dos assemblies, que fica na **raiz** — `System.Management.dll`
+e `System.Security.Cryptography.Pkcs.dll` já estão lá. A pasta `runtimes/` guarda só a
+variante específica por RID. Confirmado na execução: com ela removida, a API sobe,
+`/api/saude` responde 200 e `/api/produtos` falha por **conexão** com o banco
+(`MySqlConnector.MySqlException`), não por assembly faltando — que é o que aconteceria se
+fosse realmente necessária.
+
+O step `Conferir o artefato` **falha o deploy se aparecer qualquer subdiretório**, dizendo
+quais. O motivo é não depender de alguém lembrar dessa regra: se uma dependência nova
+trazer uma pasta aninhada, o erro aparece como `ECONNRESET` no meio de um log de FTP, que
+não liga a causa ao diretório. Falhando ali, o nome da pasta vem junto.
+
 ## Arquivos travados: recicle o pool antes de publicar
 
 Enquanto o `w3wp.exe` está no ar, ele segura os arquivos da aplicação abertos e **o FTP
