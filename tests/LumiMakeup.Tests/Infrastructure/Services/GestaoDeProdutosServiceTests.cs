@@ -16,8 +16,13 @@ public sealed class GestaoDeProdutosServiceTests
         string? slug = null,
         decimal precoVenda = 39.90m,
         decimal precoCusto = 20m,
-        int estoque = 5) =>
-        new(categoriaId, nome, slug, "Batom de alta duração", precoCusto, precoVenda, estoque, true);
+        int estoque = 5,
+        decimal? precoPromocional = null,
+        bool destaque = false) =>
+        new(categoriaId, nome, slug, "Batom de alta duração", precoCusto, precoVenda, precoPromocional, estoque, true, destaque);
+
+    private static GestaoDeProdutosService CriarServico(LumiDbContext contexto) =>
+        new(contexto, Mock.Of<IArmazenamentoDeImagens>());
 
     private static async Task<Categoria> SemearCategoriaAsync(LumiDbContext contexto, bool ativa = true)
     {
@@ -192,7 +197,7 @@ public sealed class GestaoDeProdutosServiceTests
 
         var atualizado = await servico.AtualizarAsync(
             produto.Id,
-            new RequisicaoDeProduto(categoria.Id, "Batom Novo", "batom-novo", "Nova descricao", 25m, 49.9m, 9, false),
+            new RequisicaoDeProduto(categoria.Id, "Batom Novo", "batom-novo", "Nova descricao", 25m, 49.9m, null, 9, false, false),
             CancellationToken.None);
 
         Assert.Equal("Batom Novo", atualizado.Nome);
@@ -441,5 +446,117 @@ public sealed class GestaoDeProdutosServiceTests
     public void GerarSlug_normaliza_o_texto(string? entrada, string esperado)
     {
         Assert.Equal(esperado, GestaoDeProdutosService.GerarSlug(entrada));
+    }
+
+    [Fact]
+    public async Task CriarAsync_guarda_o_preco_promocional()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var servico = CriarServico(contexto);
+
+        var produto = await servico.CriarAsync(
+            Requisicao(categoria.Id, precoPromocional: 29.90m), CancellationToken.None);
+
+        Assert.Equal(29.90m, produto.PrecoPromocional);
+    }
+
+    [Fact]
+    public async Task CriarAsync_sem_promocao_deixa_o_preco_promocional_nulo()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var servico = CriarServico(contexto);
+
+        var produto = await servico.CriarAsync(Requisicao(categoria.Id), CancellationToken.None);
+
+        Assert.Null(produto.PrecoPromocional);
+    }
+
+    [Fact]
+    public async Task CriarAsync_recusa_promocao_acima_do_preco_de_venda()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var servico = CriarServico(contexto);
+
+        // "Promover" para mais caro mostraria R$ 50 riscado com R$ 80 ao lado.
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CriarAsync(Requisicao(categoria.Id, precoPromocional: 50m), CancellationToken.None));
+
+        Assert.Contains("menor que o preço de venda", erro.Message);
+    }
+
+    [Fact]
+    public async Task CriarAsync_recusa_promocao_igual_ao_preco_de_venda()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var servico = CriarServico(contexto);
+
+        // Igual não é promoção, e deixaria a vitrine exibindo um selo sem ganho nenhum.
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CriarAsync(Requisicao(categoria.Id, precoVenda: 30m, precoPromocional: 30m), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CriarAsync_recusa_promocao_negativa()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var servico = CriarServico(contexto);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CriarAsync(Requisicao(categoria.Id, precoPromocional: -1m), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AtualizarAsync_altera_o_preco_promocional_e_pode_limpar()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var servico = CriarServico(contexto);
+
+        var criado = await servico.CriarAsync(
+            Requisicao(categoria.Id, precoPromocional: 25m), CancellationToken.None);
+
+        var comPromocao = await servico.AtualizarAsync(
+            criado.Id, Requisicao(categoria.Id, precoPromocional: 19.90m), CancellationToken.None);
+        Assert.Equal(19.90m, comPromocao.PrecoPromocional);
+
+        // Limpar a promoção é o caminho normal para encerrar a campanha.
+        var semPromocao = await servico.AtualizarAsync(
+            criado.Id, Requisicao(categoria.Id, precoPromocional: null), CancellationToken.None);
+        Assert.Null(semPromocao.PrecoPromocional);
+    }
+
+    [Fact]
+    public async Task AtualizarAsync_recusa_promocao_acima_do_preco_de_venda()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var servico = CriarServico(contexto);
+
+        var criado = await servico.CriarAsync(Requisicao(categoria.Id), CancellationToken.None);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.AtualizarAsync(
+                criado.Id, Requisicao(categoria.Id, precoVenda: 30m, precoPromocional: 31m), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CriarAsync_guarda_a_flag_de_destaque()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var servico = CriarServico(contexto);
+
+        var emDestaque = await servico.CriarAsync(
+            Requisicao(categoria.Id, nome: "Destaque", destaque: true), CancellationToken.None);
+        var comum = await servico.CriarAsync(
+            Requisicao(categoria.Id, nome: "Comum"), CancellationToken.None);
+
+        Assert.True(emDestaque.Destaque);
+        Assert.False(comum.Destaque);
     }
 }

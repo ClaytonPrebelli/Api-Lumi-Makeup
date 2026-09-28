@@ -38,6 +38,65 @@ public class CatalogoServiceTests
     }
 
     [Fact]
+    public async Task ObterProdutosAtivosAsync_traz_o_preco_promocional_e_a_flag_de_destaque()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = new Categoria { Nome = "Bases", Slug = "bases", Ativo = true };
+        contexto.Categorias.Add(categoria);
+        contexto.Produtos.Add(new Produto
+        {
+            Nome = "Base em Promoção", Slug = "base-promocao", Descricao = "",
+            PrecoVenda = 90m, PrecoPromocional = 59.90m,
+            CategoriaId = categoria.Id, Categoria = categoria,
+            Ativo = true, Destaque = true
+        });
+        await contexto.SaveChangesAsync();
+
+        var servico = new CatalogoService(contexto);
+        var produtos = await servico.ObterProdutosAtivosAsync(CancellationToken.None);
+
+        var produto = Assert.Single(produtos);
+        Assert.Equal(59.90m, produto.PrecoPromocional);
+        Assert.True(produto.Destaque);
+    }
+
+    [Fact]
+    public async Task ObterProdutosDestaqueAsync_traz_so_os_ativos_com_destaque()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = new Categoria { Nome = "Bases", Slug = "bases", Ativo = true };
+        contexto.Categorias.Add(categoria);
+        contexto.Produtos.AddRange(
+            new Produto
+            {
+                Nome = "Vitrine", Slug = "vitrine", Descricao = "",
+                PrecoVenda = 50m, CategoriaId = categoria.Id, Categoria = categoria,
+                Ativo = true, Destaque = true
+            },
+            new Produto
+            {
+                Nome = "Comum", Slug = "comum", Descricao = "",
+                PrecoVenda = 50m, CategoriaId = categoria.Id, Categoria = categoria,
+                Ativo = true, Destaque = false
+            },
+            new Produto
+            {
+                // Destaque mas inativo: desativar tem de tirar da vitrine, senão
+                // a home mostraria produto que o cliente não consegue comprar.
+                Nome = "Desativado", Slug = "desativado", Descricao = "",
+                PrecoVenda = 50m, CategoriaId = categoria.Id, Categoria = categoria,
+                Ativo = false, Destaque = true
+            });
+        await contexto.SaveChangesAsync();
+
+        var servico = new CatalogoService(contexto);
+        var destaques = await servico.ObterProdutosDestaqueAsync(CancellationToken.None);
+
+        var produto = Assert.Single(destaques);
+        Assert.Equal("Vitrine", produto.Nome);
+    }
+
+    [Fact]
     public async Task ObterProdutosAtivosAsync_retorna_produtos_ativos_com_categoria_e_imagens_ordenadas()
     {
         using var contexto = Testes.CriarContextoInMemory();

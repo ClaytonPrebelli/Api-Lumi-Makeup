@@ -13,8 +13,10 @@ public sealed record ProdutoAdministracaoDto(
     string Descricao,
     decimal PrecoCusto,
     decimal PrecoVenda,
+    decimal? PrecoPromocional,
     int QuantidadeEstoque,
     bool Ativo,
+    bool Destaque,
     DateTime CriadoEm,
     long CategoriaId,
     string NomeCategoria,
@@ -27,8 +29,10 @@ public sealed record RequisicaoDeProduto(
     string Descricao,
     decimal PrecoCusto,
     decimal PrecoVenda,
+    decimal? PrecoPromocional,
     int QuantidadeEstoque,
-    bool Ativo);
+    bool Ativo,
+    bool Destaque);
 
 public sealed record RequisicaoDeOrdenacaoDeImagens(IReadOnlyList<long> Ordem);
 
@@ -38,14 +42,20 @@ public sealed record RequisicaoDeMelhoriaDeTexto(string? Nome, string Descricao)
 
 public sealed record RespostaDeMelhoriaDeTextoDto(string DescricaoMelhorada, string ModeloUsado);
 
+/// <summary>
+/// Produto na vitrine. Não leva <c>PrecoCusto</c>: custo é informação interna
+/// e deixá-lo na API pública entregaria a margem de quem compra.
+/// </summary>
 public sealed record ProdutoDto(
     long Id,
     string Nome,
     string Slug,
     string Descricao,
     decimal PrecoVenda,
+    decimal? PrecoPromocional,
     int QuantidadeEstoque,
     bool Ativo,
+    bool Destaque,
     long CategoriaId,
     string NomeCategoria,
     IReadOnlyList<ImagemProdutoDto> Imagens);

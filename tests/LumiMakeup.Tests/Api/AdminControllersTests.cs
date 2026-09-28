@@ -31,11 +31,11 @@ public class AdminProdutosControllerTests
     }
 
     private static ProdutoAdministracaoDto CriarProduto() => new(
-        10, "Batom Matte", "batom-matte", "Batom de alta duração", 20m, 39.90m, 5, true,
+        10, "Batom Matte", "batom-matte", "Batom de alta duração", 20m, 39.90m, null, 5, true, false,
         DateTime.UtcNow, 2, "Batom",
         new ImagemProdutoDto[] { new(1, "produtos/batom.png", "batom.png", 0) });
 
-    private static RequisicaoDeProduto Requisicao() => new(2, "Batom Matte", null, "Batom", 20m, 39.90m, 5, true);
+    private static RequisicaoDeProduto Requisicao() => new(2, "Batom Matte", null, "Batom", 20m, 39.90m, null, 5, true, false);
 
     private const int BytesDeCabecalhoLidos = 8;
 

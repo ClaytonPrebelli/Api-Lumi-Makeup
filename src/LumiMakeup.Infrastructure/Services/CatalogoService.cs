@@ -1,5 +1,6 @@
 using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
+using LumiMakeup.Domain.Entities;
 using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,18 +27,39 @@ public sealed class CatalogoService : ICatalogoService
 
     public async Task<IReadOnlyList<ProdutoDto>> ObterProdutosAtivosAsync(CancellationToken cancellationToken = default)
     {
-        return await _contexto.Produtos
-            .AsNoTracking()
-            .Where(p => p.Ativo)
-            .OrderBy(p => p.Nome)
+        return await ProjetarAsync(
+            _contexto.Produtos
+                .AsNoTracking()
+                .Where(p => p.Ativo)
+                .OrderBy(p => p.Nome),
+            cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ProdutoDto>> ObterProdutosDestaqueAsync(CancellationToken cancellationToken = default)
+    {
+        return await ProjetarAsync(
+            _contexto.Produtos
+                .AsNoTracking()
+                .Where(p => p.Ativo && p.Destaque)
+                .OrderBy(p => p.Nome),
+            cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<ProdutoDto>> ProjetarAsync(
+        IQueryable<Produto> consulta,
+        CancellationToken cancellationToken)
+    {
+        return await consulta
             .Select(p => new ProdutoDto(
                 p.Id,
                 p.Nome,
                 p.Slug,
                 p.Descricao,
                 p.PrecoVenda,
+                p.PrecoPromocional,
                 p.QuantidadeEstoque,
                 p.Ativo,
+                p.Destaque,
                 p.CategoriaId,
                 p.Categoria.Nome,
                 p.Imagens
@@ -58,8 +80,10 @@ public sealed class CatalogoService : ICatalogoService
                 p.Slug,
                 p.Descricao,
                 p.PrecoVenda,
+                p.PrecoPromocional,
                 p.QuantidadeEstoque,
                 p.Ativo,
+                p.Destaque,
                 p.CategoriaId,
                 p.Categoria.Nome,
                 p.Imagens

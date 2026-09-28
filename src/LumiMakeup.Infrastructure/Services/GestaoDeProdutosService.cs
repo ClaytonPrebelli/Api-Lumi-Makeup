@@ -53,8 +53,10 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
             Descricao = requisicao.Descricao?.Trim() ?? string.Empty,
             PrecoCusto = requisicao.PrecoCusto,
             PrecoVenda = requisicao.PrecoVenda,
+            PrecoPromocional = requisicao.PrecoPromocional,
             QuantidadeEstoque = requisicao.QuantidadeEstoque,
             Ativo = requisicao.Ativo,
+            Destaque = requisicao.Destaque,
             CriadoEm = DateTime.UtcNow
         };
 
@@ -82,8 +84,10 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
         produto.Descricao = requisicao.Descricao?.Trim() ?? string.Empty;
         produto.PrecoCusto = requisicao.PrecoCusto;
         produto.PrecoVenda = requisicao.PrecoVenda;
+        produto.PrecoPromocional = requisicao.PrecoPromocional;
         produto.QuantidadeEstoque = requisicao.QuantidadeEstoque;
         produto.Ativo = requisicao.Ativo;
+        produto.Destaque = requisicao.Destaque;
 
         await _contexto.SaveChangesAsync(cancellationToken);
 
@@ -257,6 +261,32 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
         {
             throw new InvalidOperationException("A quantidade em estoque não pode ser negativa.");
         }
+
+        ValidarPromocional(requisicao);
+    }
+
+    /// <summary>
+    /// O preço promocional precisa ser menor que o de venda. Sem esta regra dava
+    /// para "promover" um produto para um valor maior, e a vitrine mostraria
+    /// R$ 50 riscado com R$ 80 ao lado — o contrário de uma promoção.
+    /// </summary>
+    private static void ValidarPromocional(RequisicaoDeProduto requisicao)
+    {
+        if (requisicao.PrecoPromocional is not { } promocional)
+        {
+            return;
+        }
+
+        if (promocional < 0)
+        {
+            throw new InvalidOperationException("O preço promocional não pode ser negativo.");
+        }
+
+        if (promocional >= requisicao.PrecoVenda)
+        {
+            throw new InvalidOperationException(
+                "O preço promocional precisa ser menor que o preço de venda.");
+        }
     }
 
     private async Task<string> GerarSlugUnicoAsync(
@@ -325,8 +355,10 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
             p.Descricao,
             p.PrecoCusto,
             p.PrecoVenda,
+            p.PrecoPromocional,
             p.QuantidadeEstoque,
             p.Ativo,
+            p.Destaque,
             p.CriadoEm,
             p.CategoriaId,
             p.Categoria.Nome,
