@@ -15,7 +15,7 @@ pelo **IIS** com o ASP.NET Core Module.
 push na branch main
    └─ testar     dotnet test -> 294 testes
         └─ publicar    dotnet publish -c Release -> publicacao/
-             └─ enviar   FTP em duas passadas -> health check
+             └─ enviar   FTP -> health check
 ```
 
 Três jobs, na ordem. O deploy só acontece se os **294 testes** passarem, e a pasta
@@ -111,44 +111,39 @@ o arquivo que a API efetivamente lê.
 > declara o ambiente. O padrão do IIS é `Production`, então a API funcionaria por
 > coincidência. Declarar remove a coincidência da equação.
 
-## Por que o deploy baixa a API antes de enviar
-
-O deploy tem **duas passadas de FTP**, e isso não é redundância. É o que faz funcionar.
+## Arquivos travados: recicle o pool antes de publicar
 
 Enquanto o `w3wp.exe` está no ar, ele segura os arquivos da aplicação abertos e **o FTP
-não consegue sobrescrever as DLLs** — a transferência falha no meio, deixando a pasta
+não consegue sobrescrever as DLLs**. A transferência falha no meio, deixando a pasta
 mixada: metade da versão antiga, metade da nova.
 
-A solução oficial do ASP.NET Core Module é o **`app_offline.htm`**. Um arquivo com esse
-nome na raiz da aplicação faz o módulo desligar a aplicação; enquanto ele existe, o
-módulo responde todas as requisições com o conteúdo dele; quando some, a aplicação sobe
-de novo no próximo pedido. É o mecanismo que o Web Deploy usa.
+> **Por que o workflow não resolve isso sozinho.** A solução oficial do ASP.NET Core
+> Module é o `app_offline.htm` — um arquivo com esse nome na raiz da aplicação faz o
+> módulo desligar a aplicação, e a subida seguinte a religa. O deploy usava isso em duas
+> passadas de FTP, mas foi removido a pedido: ele exibia uma página de manutenção para o
+> cliente durante a publicação, e a manutenção é mais do que a operação precisa mostrar.
+>
+> A consequência é direta: **o primeiro deploy funciona, porque a pasta está vazia. Os
+> seguintes só funcionam se o pool de aplicações for reciclado antes.** Sem isso o envio
+> falha com "arquivo em uso" logo nas primeiras DLLs, e a pasta fica no estado misto.
 
-O workflow usa exatamente isso, com o arquivo versionado em
-`.github/deploy/app_offline.htm`:
+O que fazer, em ordem:
 
-| Passo | O que faz |
-|---|---|
-| `Baixar a API` | FTP só com o `app_offline.htm`. A aplicação para. |
-| `Esperar a API parar` | faz `GET /api/saude` até a resposta ser a página de manutenção |
-| `Enviar a publicacao` | FTP com o artefato inteiro. Como o `app_offline.htm` **não** está no artefato, a action o apaga — e a aplicação sobe sozinha. |
+1. **Reciclar o pool de aplicações** pelo Gerenciador do IIS (ou pelo painel do seu
+   servidor) **antes** de rodar o deploy. É o passo que substitui o `app_offline.htm`.
+2. Se o painel tiver a opção de reiniciar a aplicação a cada publicação, use-a — é o
+   mesmo efeito, automatizado.
+3. Se o erro persistir depois de reciclar, definir `ASPNETCORE_FILE_WATCHER_THREAD_TERMINATION`
+   como `1` no sistema. Uma conexão aberta (WebSocket) também segura o desligamento.
 
-O passo `Esperar a API parar` não é um `sleep` fixo. Ele pergunta para a API se ela já
-parou, e só então envia. Se não confirmar em 60 segundos, o deploy **continua assim mesmo**
-e deixa um aviso no log — porque a pasta pode já estar parada, e o único sintoma de
-falha real vai ser o envio recusando os arquivos.
+A primeira publicação da API não passa por nenhum desses problemas, porque ainda não há
+arquivo no servidor para ser travado. Vale saber disso antes de concluding que está tudo
+certo depois de um deploy bem-sucedido.
 
-> **Se o envio falhar com "arquivo em uso"**, a aplicação não parou. A causa é quase sempre
-> o módulo não ter conseguido desligá-la a tempo. As saídas, em ordem de esforço: dar
-> **Reciclar** no pool de aplicações pelo Gerenciador do IIS e rodar o deploy de novo;
-> ou, se acontecer sempre, definir `ASPNETCORE_FILE_WATCHER_THREAD_TERMINATION` como `1`
-> no sistema. Uma conexão aberta (WebSocket) também segura o desligamento — foi o que
-> atrasou o `app_offline.htm` até o .NET 8 corrigir.
-
-> **Se a conferência final falhar**, a pasta `app_offline.htm` provavelmente ficou no
-> servidor. Ela fica respondendo no lugar da API até ser apagada. O log do workflow diz
-> exatamente qual arquivo remover, e é uma pasta só, pela interface de arquivos do
-> servidor.
+> **Se a conferência final falhar**, as causas mais prováveis, em ordem: o envio falhou e
+> sobrou arquivo antigo; a aplicação subiu mas o `appsettings.Production.json` está
+> errado (veja `ConnectionStrings` e `Jwt`); ou o pool precisa ser reciclado para carregar
+> a versão nova. A mensagem do workflow lista as três.
 
 ## Segredos e variáveis
 

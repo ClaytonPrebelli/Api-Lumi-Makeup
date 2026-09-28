@@ -230,11 +230,6 @@ jobs:
           print("ok: appsettings.Production.json gerado.")
           PY
 
-      - name: Preparar a pagina de manutencao
-        run: |
-          mkdir -p manutencao
-          cp .github/deploy/app_offline.htm manutencao/app_offline.htm
-
       - name: Conferir os segredos do FTP
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
@@ -252,32 +247,6 @@ jobs:
             exit 1
           fi
           echo "ok: os tres segredos do FTP estao cadastrados"
-
-      - name: Baixar a API
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || '21' }}
-          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
-          local-dir: manutencao/
-          server-dir: ${{ secrets.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
-          timeout: 120000
-          log-level: standard
-
-      - name: Esperar a API parar
-        env:
-          ENDERECO: ${{ secrets.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
-        run: |
-          for tentativa in $(seq 1 30); do
-            if curl --silent --max-time 5 "$ENDERECO/api/saude" | grep --quiet 'atualizando a loja'; then
-              echo "A API parou."
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "::warning::A API nao confirmou que parou. Seguindo mesmo assim; se o envio falhar com 'arquivo em uso', recicle o pool de aplicacoes."
 
       - name: Enviar a publicacao
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -307,5 +276,8 @@ jobs:
             fi
             sleep 2
           done
-          echo "::error::A API nao voltou depois do deploy. Se a pagina de manutencao continua no servidor, apague o app_offline.htm de dentro da pasta da API no IIS."
+          echo "::error::A API nao voltou depois do deploy. As causas mais provaveis:"
+          echo "  - o envio falhou e sobrou arquivo antigo: veja o passo anterior no log"
+          echo "  - a API subiu mas a configuracao esta errada: confira ConnectionStrings e Jwt no appsettings.Production.json no servidor"
+          echo "  - o pool de aplicacoes precisa ser reciclado no IIS para carregar a versao nova"
           exit 1

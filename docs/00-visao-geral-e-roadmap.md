@@ -114,6 +114,7 @@ Nada. A etapa de produtos foi fechada dos dois lados — API e painel — e a br
 - Os dois servidores rodam com a pasta de imagens em `../imagens`, para que o FTP não
   sobrescreva as fotos ao publicar. Em desenvolvimento a API serve essa mesma pasta em
   `/imagens`; em produção quem serve é `imagens.lumimakeup.com.br`, direto do disco.
-- **Deploy automático pela branch `deploy`** — testes, `dotnet publish` e envio por FTP
-  para `api.lumimakeup.com.br/`, com a API baixada pelo `app_offline.htm` antes de
-  sobrescrever as DLLs. Ver [`16-ci-cd-e-deploy.md`](16-ci-cd-e-deploy.md).
+- **Deploy automático pela branch `main`** — testes, `dotnet publish` e envio por FTP
+  para `api.lumimakeup.com.br/`. Publicar com a API no ar exige reciclar o pool de
+  aplicações antes, senão as DLLs travadas não são sobrescritas. Ver
+  [`16-ci-cd-e-deploy.md`](16-ci-cd-e-deploy.md).
