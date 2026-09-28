@@ -155,8 +155,9 @@ ambiente de teste.
 > **Atenção em dados existentes.** Como as colunas entram como `NOT NULL DEFAULT ''`,
 > pedidos que já existiam no banco ficam com o endereço **vazio**. Se houver pedido
 > anterior à migration, é preciso preencher os campos a partir do endereço que estava
-> vinculado antes de aplicar. A migration de dados para produção ainda não foi
-> escrita.
+> vinculado antes de aplicar. Como a migration já foi aplicada no banco compartilhado,
+> essa migration de dados precisa ser escrita e rodada **localmente**, em desenvolvimento
+> — nunca em deploy e nunca no servidor.
 
 ---
 

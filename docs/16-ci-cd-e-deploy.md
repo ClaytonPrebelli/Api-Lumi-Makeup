@@ -180,7 +180,7 @@ montada a partir dos oito campos de `BANCO_*`:
 | `DIRETORIO_DA_API` | pasta de destino, relativa à raiz do FTP — vazio assume `api.lumimakeup.com.br/` |
 | `ENDERECO_DA_API` | endereço do health check — vazio assume `https://api.lumimakeup.com.br` |
 
-> **`CharSet=utf8mb4` não é装饰.** É o que permite gravar emoji e acentuação completa na
+> **`CharSet=utf8mb4` não é decoração.** É o que permite gravar emoji e acentuação completa na
 > descrição do produto. Sem ele, o texto quebra ao salvar — e o problema aparece no
 > painel, dias depois do deploy, sem relação aparente com ele.
 
@@ -212,7 +212,7 @@ primeira execução, e que depois pode exigir aprovação manual.
 
 | O que | Por quê |
 |---|---|
-| **Não aplica migrations** | a API não migra o banco na inicialização (ver `00`). Migration é `dotnet ef database update`, na mão, com backup antes. Automatizar isso colocaria o banco na mesma corrida do deploy. |
+| **Não aplica migrations, nunca** | a API não migra o banco na inicialização, e o workflow não tem nenhum passo de banco. Aplicação é local, em desenvolvimento, contra o mesmo banco que serve a produção — o servidor não recebe schema. Ver [`04-banco-de-dados-e-ef-core.md`](04-banco-de-dados-e-ef-core.md). |
 | **Não envia `.pdb`** | são ~4 MB por assembly e só servem para depurar com símbolos. Estão no `exclude` da action. |
 | **Não publica o `appsettings.Production.json` do repositório** | o arquivo é sempre gerado no deploy. Se alguém versionar um por engano, o `.gitignore` bloqueia e as guardas do workflow falham. |
 

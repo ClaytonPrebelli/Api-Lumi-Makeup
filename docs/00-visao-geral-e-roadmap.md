@@ -108,9 +108,12 @@ Nada. A etapa de produtos foi fechada dos dois lados — API e painel — e a br
 - Cobertura de **linhas em 97,4%** e de **branches em 88,6%**. O detalhamento do que
   ficou por fora está em [`14-testes-e-qualidade.md`](14-testes-e-qualidade.md) — o
   número **caiu de 100%** com o código de produtos e ainda não foi fechado.
-- Migrations aplicadas manualmente — a API **não** migra o banco na inicialização.
+- **Migrations nunca são aplicadas em deploy nem no servidor.** A API não migra o banco
+  na inicialização, o workflow não tem passo de banco, e o servidor não recebe schema.
+  Aplicação é local, na máquina de desenvolvimento, contra o mesmo banco que serve a
+  produção. Ver [`04-banco-de-dados-e-ef-core.md`](04-banco-de-dados-e-ef-core.md).
   Migrations novas: `20260927232105_ImagemProdutoComCaminhoRelativo` e
-  `20260928044006_PrecoPromocionalEDestaque`.
+  `20260928044006_PrecoPromocionalEDestaque`, ambas já aplicadas.
 - Os dois servidores rodam com a pasta de imagens em `../imagens`, para que o FTP não
   sobrescreva as fotos ao publicar. Em desenvolvimento a API serve essa mesma pasta em
   `/imagens`; em produção quem serve é `imagens.lumimakeup.com.br`, direto do disco.
