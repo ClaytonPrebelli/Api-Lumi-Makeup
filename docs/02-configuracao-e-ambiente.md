@@ -104,13 +104,78 @@ aviso é registrado e nada acontece.
 | `Smtp` | `SmtpEmailSender` | ✅ em uso |
 | `Recaptcha` | `RecaptchaValidator` | ✅ em uso |
 | `Google` | `AutenticacaoGoogleService` | ✅ em uso |
-| `Cloudinary` | `CloudinaryServiceStub` | ⬜ stub |
+| `Gemini` | — | removido, ver `13` |
+| `Ia` | `MelhoradorDeTextoOpenAiCompativel` | ✅ em uso — ver abaixo |
 | `FocusNfe` | `FocusNfeServiceStub` | ⬜ stub |
 | `Baileys` | `WhatsAppServiceStub` | ⬜ stub |
 | `Brevo` | — | ⬜ não integrado |
 
 > O bloco de `Brevo` está reservado e não é usado por nenhum código. O e-mail hoje sai
 > por SMTP, não pela API do Brevo.
+
+---
+
+## `ArmazenamentoDeImagens`
+
+Seção de nível superior (fora de `ExternalServices`) usada por
+`ArmazenamentoDeImagensLocal`.
+
+| Chave | Padrão | Papel |
+|---|---|---|
+| `CaminhoBase` | `""` | **Obrigatória.** Raiz onde as imagens são gravadas |
+| `PastaPadrao` | `produtos` | Subpasta criada dentro de `CaminhoBase` |
+| `TamanhoMaximoEmBytes` | `5242880` | 5 MB por arquivo |
+| `ExtensoesPermitidas` | `jpg`, `jpeg`, `png` | Extensões liberadas |
+
+`CaminhoBase` absoluto é o esperado em produção — por exemplo, a pasta `imagens` que é
+irmã da pasta da aplicação. Se for relativo, é resolvido a partir do *content root*
+(útil em desenvolvimento: `../imagens`).
+
+> Com `CaminhoBase` vazio, `ArmazenamentoDeImagensLocal` lança na construção, e a API
+> não sobe. É proposital: a configuração ausente aparece no deploy, não no primeiro
+> upload de um cliente.
+
+---
+
+## `ExternalServices:Ia`
+
+Usada por `MelhoradorDeTextoOpenAiCompativel` para reescrever a descrição de um produto.
+
+| Chave | Padrão | Papel |
+|---|---|---|
+| `Chave` | `""` | Chave do provedor. Sem ela, o botão informa que a IA não está configurada |
+| `UrlBase` | `https://api.groq.com/openai/v1` | Base compatível com a API da OpenAI |
+| `Modelo` | `openai/gpt-oss-120b` | Modelo chamado |
+| `Temperatura` | `0.3` | Baixa de propósito, para o modelo não inventar |
+| `MaximoDeTokens` | `1024` | teto da resposta |
+| `TimeoutEmSegundos` | `45` | Tempo limite da chamada |
+
+A chamada é sempre `POST {UrlBase}/chat/completions`, com a chave em
+`Authorization: Bearer`.
+
+### Trocar de provedor
+
+Groq, OpenRouter, Cerebras e NVIDIA NIM falam o mesmo formato. Trocar de fornecedor é
+mudar **duas linhas de configuração**, sem tocar em código:
+
+```json
+"Ia": {
+  "Chave": "...",
+  "UrlBase": "https://openrouter.ai/api/v1",
+  "Modelo": "qwen/qwen3.8-27b"
+}
+```
+
+> **Atenção:** nomes de modelo mudam com frequência, e provedores removem modelos do
+> plano gratuito sem avisar. Por isso o modelo fica em configuração e nunca fixo no
+> código. A mensagem de erro traduz "modelo não existe" para o admin, que é o erro
+> mais provável de um botão parado.
+
+> **Atenção à temperatura:** nunca use `0`. O Groq converte silenciosamente para
+> `1e-8`, e há teste garantindo que o valor enviado fica acima de zero.
+
+Erros do provedor são traduzidos para mensagens que o admin entende, sem repassar o
+corpo bruto da resposta, que pode conter detalhe interno da conta.
 
 ---
 

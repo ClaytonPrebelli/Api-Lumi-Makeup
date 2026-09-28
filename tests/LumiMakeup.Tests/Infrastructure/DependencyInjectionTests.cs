@@ -30,6 +30,9 @@ public class DependencyInjectionTests
         valores.Add("ExternalServices:Recaptcha:ChaveSecreta", "recaptcha");
         valores.Add("ExternalServices:Recaptcha:LimiteDeScore", "0.7");
         valores.Add("ExternalServices:Google:IdCliente", "cliente-google");
+        valores.Add("ArmazenamentoDeImagens:CaminhoBase", Path.Combine(AppContext.BaseDirectory, "imagens-de-teste"));
+        valores.Add("ArmazenamentoDeImagens:PastaPadrao", "produtos");
+        valores.Add("ArmazenamentoDeImagens:TamanhoMaximoEmBytes", "5242880");
 
         return new ConfigurationBuilder().AddInMemoryCollection(valores).Build();
     }
@@ -50,6 +53,7 @@ public class DependencyInjectionTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton(Testes.CriarAmbiente(AppContext.BaseDirectory));
 
         services.AddInfrastructure(
             CriarConfiguracao(),
@@ -62,10 +66,12 @@ public class DependencyInjectionTests
         Assert.NotNull(provedor.GetRequiredService<INominatimService>());
         Assert.NotNull(provedor.GetRequiredService<IRecaptchaValidator>());
         Assert.NotNull(provedor.GetRequiredService<IEmailSender>());
-        Assert.NotNull(provedor.GetRequiredService<ICloudinaryService>());
+        Assert.NotNull(provedor.GetRequiredService<IArmazenamentoDeImagens>());
         Assert.NotNull(provedor.GetRequiredService<IWhatsAppService>());
         Assert.NotNull(provedor.GetRequiredService<IFocusNfeService>());
         Assert.NotNull(provedor.GetRequiredService<ICatalogoService>());
+        Assert.NotNull(provedor.GetRequiredService<IGestaoDeProdutosService>());
+        Assert.NotNull(provedor.GetRequiredService<IGestaoDeCategoriasService>());
         Assert.NotNull(provedor.GetRequiredService<IPasswordHasher<Usuario>>());
         Assert.NotNull(provedor.GetRequiredService<ITokenService>());
         Assert.NotNull(provedor.GetRequiredService<IAutenticacaoGoogleService>());
@@ -78,6 +84,7 @@ public class DependencyInjectionTests
         Assert.NotNull(provedor.GetRequiredService<IOptions<AutenticacaoGoogleOptions>>().Value);
         Assert.NotNull(provedor.GetRequiredService<IOptions<SmtpOptions>>().Value);
         Assert.NotNull(provedor.GetRequiredService<IOptions<FrontendOptions>>().Value);
+        Assert.NotNull(provedor.GetRequiredService<IOptions<ArmazenamentoDeImagensOptions>>().Value);
     }
 
     [Fact]
@@ -118,10 +125,12 @@ public class DependencyInjectionTests
             typeof(INominatimService),
             typeof(IRecaptchaValidator),
             typeof(IEmailSender),
-            typeof(ICloudinaryService),
+            typeof(IArmazenamentoDeImagens),
             typeof(IWhatsAppService),
             typeof(IFocusNfeService),
             typeof(ICatalogoService),
+            typeof(IGestaoDeProdutosService),
+            typeof(IGestaoDeCategoriasService),
             typeof(IPasswordHasher<Usuario>),
             typeof(ITokenService),
             typeof(IAutenticacaoGoogleService),

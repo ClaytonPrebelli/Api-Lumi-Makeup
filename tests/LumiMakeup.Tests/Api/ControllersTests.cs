@@ -369,7 +369,7 @@ public class ProdutosControllerTests
 {
     private static ProdutoDto CriarProduto()
     {
-        return new ProdutoDto(10, "Batom Matte", "batom-matte", "Batom de alta duração", 39.90m, 5, true, 2, "Batom", new ImagemProdutoDto[] { new(1, "https://exemplo.com/batom.jpg", 0) });
+        return new ProdutoDto(10, "Batom Matte", "batom-matte", "Batom de alta duração", 39.90m, null, 5, true, false, 2, "Batom", new ImagemProdutoDto[] { new(1, "produtos/batom.jpg", "batom.jpg", 0) });
     }
 
     [Fact]

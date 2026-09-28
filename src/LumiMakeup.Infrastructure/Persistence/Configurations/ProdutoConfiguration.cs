@@ -17,6 +17,12 @@ public class ProdutoConfiguration : IEntityTypeConfiguration<Produto>
         builder.Property(p => p.Descricao).HasColumnType("text").IsRequired();
         builder.Property(p => p.PrecoCusto).HasColumnType("decimal(10,2)");
         builder.Property(p => p.PrecoVenda).HasColumnType("decimal(10,2)");
+        builder.Property(p => p.PrecoPromocional).HasColumnType("decimal(10,2)");
+        builder.Property(p => p.Destaque).HasColumnType("tinyint(1)");
+
+        // A home busca só os destaques; sem índice seria varredura da tabela
+        // inteira a cada visita à vitrine.
+        builder.HasIndex(p => p.Destaque);
         builder.Property(p => p.QuantidadeEstoque).HasColumnType("int");
         builder.Property(p => p.Ativo).HasColumnType("tinyint(1)");
         builder.Property(p => p.CriadoEm).HasColumnType("datetime");

@@ -10,11 +10,17 @@ public interface IRecaptchaValidator
     Task<bool> ValidarTokenAsync(string token, CancellationToken cancellationToken = default);
 }
 
-public interface ICloudinaryService
+public interface IArmazenamentoDeImagens
 {
-    Task<string> EnviarAsync(Stream arquivo, string nomeDoArquivo, string pasta, CancellationToken cancellationToken = default);
-    Task ExcluirAsync(string idPublico, CancellationToken cancellationToken = default);
+    Task<ImagemArmazenada> ArmazenarAsync(Stream conteudo, string nomeOriginal, CancellationToken cancellationToken = default);
+    Task ExcluirAsync(string caminhoRelativo, CancellationToken cancellationToken = default);
 }
+
+public sealed record ImagemArmazenada(
+    string CaminhoRelativo,
+    string NomeOriginal,
+    string ContentType,
+    long TamanhoEmBytes);
 
 public interface IWhatsAppService
 {

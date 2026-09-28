@@ -38,6 +38,65 @@ public class CatalogoServiceTests
     }
 
     [Fact]
+    public async Task ObterProdutosAtivosAsync_traz_o_preco_promocional_e_a_flag_de_destaque()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = new Categoria { Nome = "Bases", Slug = "bases", Ativo = true };
+        contexto.Categorias.Add(categoria);
+        contexto.Produtos.Add(new Produto
+        {
+            Nome = "Base em Promoção", Slug = "base-promocao", Descricao = "",
+            PrecoVenda = 90m, PrecoPromocional = 59.90m,
+            CategoriaId = categoria.Id, Categoria = categoria,
+            Ativo = true, Destaque = true
+        });
+        await contexto.SaveChangesAsync();
+
+        var servico = new CatalogoService(contexto);
+        var produtos = await servico.ObterProdutosAtivosAsync(CancellationToken.None);
+
+        var produto = Assert.Single(produtos);
+        Assert.Equal(59.90m, produto.PrecoPromocional);
+        Assert.True(produto.Destaque);
+    }
+
+    [Fact]
+    public async Task ObterProdutosDestaqueAsync_traz_so_os_ativos_com_destaque()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = new Categoria { Nome = "Bases", Slug = "bases", Ativo = true };
+        contexto.Categorias.Add(categoria);
+        contexto.Produtos.AddRange(
+            new Produto
+            {
+                Nome = "Vitrine", Slug = "vitrine", Descricao = "",
+                PrecoVenda = 50m, CategoriaId = categoria.Id, Categoria = categoria,
+                Ativo = true, Destaque = true
+            },
+            new Produto
+            {
+                Nome = "Comum", Slug = "comum", Descricao = "",
+                PrecoVenda = 50m, CategoriaId = categoria.Id, Categoria = categoria,
+                Ativo = true, Destaque = false
+            },
+            new Produto
+            {
+                // Destaque mas inativo: desativar tem de tirar da vitrine, senão
+                // a home mostraria produto que o cliente não consegue comprar.
+                Nome = "Desativado", Slug = "desativado", Descricao = "",
+                PrecoVenda = 50m, CategoriaId = categoria.Id, Categoria = categoria,
+                Ativo = false, Destaque = true
+            });
+        await contexto.SaveChangesAsync();
+
+        var servico = new CatalogoService(contexto);
+        var destaques = await servico.ObterProdutosDestaqueAsync(CancellationToken.None);
+
+        var produto = Assert.Single(destaques);
+        Assert.Equal("Vitrine", produto.Nome);
+    }
+
+    [Fact]
     public async Task ObterProdutosAtivosAsync_retorna_produtos_ativos_com_categoria_e_imagens_ordenadas()
     {
         using var contexto = Testes.CriarContextoInMemory();
@@ -56,8 +115,8 @@ public class CatalogoServiceTests
             CategoriaId = categoria.Id,
             Categoria = categoria
         };
-        produto.Imagens.Add(new ImagemProduto { UrlImagem = "https://cdn.example.com/1.jpg", Ordem = 2 });
-        produto.Imagens.Add(new ImagemProduto { UrlImagem = "https://cdn.example.com/0.jpg", Ordem = 1 });
+        produto.Imagens.Add(new ImagemProduto { CaminhoRelativo = "produtos/1.jpg", NomeOriginal = "1.jpg", Ordem = 2 });
+        produto.Imagens.Add(new ImagemProduto { CaminhoRelativo = "produtos/0.jpg", NomeOriginal = "0.jpg", Ordem = 1 });
         contexto.Produtos.Add(produto);
         contexto.Produtos.Add(new Produto { Nome = "Inativo", Slug = "inativo", Descricao = "", Ativo = false, Categoria = categoria, CategoriaId = categoria.Id });
         await contexto.SaveChangesAsync();
@@ -74,9 +133,9 @@ public class CatalogoServiceTests
         Assert.Equal(categoria.Id, produtoDto.CategoriaId);
         Assert.Equal("Bases", produtoDto.NomeCategoria);
         Assert.Equal(2, produtoDto.Imagens.Count);
-        Assert.Equal("https://cdn.example.com/0.jpg", produtoDto.Imagens[0].UrlImagem);
+        Assert.Equal("produtos/0.jpg", produtoDto.Imagens[0].CaminhoRelativo);
         Assert.Equal(1, produtoDto.Imagens[0].Ordem);
-        Assert.Equal("https://cdn.example.com/1.jpg", produtoDto.Imagens[1].UrlImagem);
+        Assert.Equal("produtos/1.jpg", produtoDto.Imagens[1].CaminhoRelativo);
     }
 
     [Fact]
@@ -108,7 +167,7 @@ public class CatalogoServiceTests
             CategoriaId = categoria.Id,
             Categoria = categoria
         };
-        produto.Imagens.Add(new ImagemProduto { UrlImagem = "https://cdn.example.com/foto.jpg", Ordem = 0 });
+        produto.Imagens.Add(new ImagemProduto { CaminhoRelativo = "produtos/foto.jpg", NomeOriginal = "foto.jpg", Ordem = 0 });
         contexto.Produtos.Add(produto);
         await contexto.SaveChangesAsync();
 
@@ -119,7 +178,7 @@ public class CatalogoServiceTests
         Assert.Equal("Corretivo", resultado!.Nome);
         Assert.Equal("Bases", resultado.NomeCategoria);
         var imagem = Assert.Single(resultado.Imagens);
-        Assert.Equal("https://cdn.example.com/foto.jpg", imagem.UrlImagem);
+        Assert.Equal("produtos/foto.jpg", imagem.CaminhoRelativo);
     }
 
     [Fact]

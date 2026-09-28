@@ -2,8 +2,10 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using LumiMakeup.Infrastructure;
+using LumiMakeup.Infrastructure.Integrations;
 using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -93,6 +95,7 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    ServirImagensEmDesenvolvimento(app);
 }
 
 app.UseCors("LumiCors");
@@ -105,6 +108,33 @@ app.MapControllers();
 if (builder.Configuration.GetValue<bool>("ExecutarServidor", defaultValue: true))
 {
     app.Run();
+}
+
+static void ServirImagensEmDesenvolvimento(WebApplication app)
+{
+    var caminhoBase = app.Configuration["ArmazenamentoDeImagens:CaminhoBase"];
+
+    if (string.IsNullOrWhiteSpace(caminhoBase))
+    {
+        return;
+    }
+
+    var raiz = ArmazenamentoDeImagensLocal.ResolverRaiz(caminhoBase, app.Environment.ContentRootPath);
+
+    if (!Directory.Exists(raiz))
+    {
+        Directory.CreateDirectory(raiz);
+    }
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(raiz),
+        RequestPath = "/imagens"
+    });
+
+    app.Logger.LogWarning(
+        "Imagens servidas pela API em /imagens a partir de {Raiz}. Em producao isso fica a cargo do subdominio.",
+        raiz);
 }
 
 static async Task SemearAdministradorSeConfiguradoAsync(WebApplication app)

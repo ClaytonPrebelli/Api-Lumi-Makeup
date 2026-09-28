@@ -14,7 +14,6 @@ que ninguém trate stub como funcionalidade pronta.
 ## Stubs registrados
 
 ```csharp
-services.AddScoped<ICloudinaryService, CloudinaryServiceStub>();
 services.AddScoped<IWhatsAppService, WhatsAppServiceStub>();
 services.AddScoped<IFocusNfeService, FocusNfeServiceStub>();
 ```
@@ -25,40 +24,125 @@ existem em `DependencyInjection.cs`. Só a implementação real falta.
 Um stub responde e registra a chamada em log, sem falar com o serviço externo. Isso
 mantém a API compilando e o fluxo executável, mas **nada chega ao destino real**.
 
-> Atenção ao `CloudinaryServiceStub`: ele **devolve uma URL de placeholder** em vez de
-> falhar. O código que chama o upload recebe uma string válida e segue como se tivesse
-> sido feito. Só o `LogWarning` denuncia. É o stub mais enganoso do projeto.
-
 | Integração | Interface | Usada hoje por | Bloqueia |
 |---|---|---|---|
-| Cloudinary | `ICloudinaryService` | nada | CRUD de produtos |
 | WhatsApp (Baileys) | `IWhatsAppService` | nada | avisos de pedido |
 | Focus NFe | `IFocusNfeService` | nada | emissão de nota fiscal |
 | Brevo | — | **nada** | não integrado (ver `02`) |
 
 ---
 
-## Cloudinary — imagens de produto
+## Imagens de produto — armazenamento local (implementado)
 
-É a próxima entrega e a que trava a vitrine. Hoje `ImagemProduto` existe no modelo e as
-URLs vêm do banco, mas não há como cadastrar uma imagem.
+A vitrine deixou de depender de Cloudinary. As imagens ficam no próprio servidor, em uma
+pasta **irmã** da aplicação, para que o deploy via FTP nunca as sobrescreva:
 
-Falta implementar:
+```
+root/
+├── api.lumimakeup.com.br/    → publicação da API
+└── imagens/                  → fora do deploy
+```
 
-1. **Upload assinado.** O `CloudinaryService` precisa gerar uma assinatura
-   (`timestamp` + `api_secret` em SHA-1) para que cada upload seja autorizado.
-2. **Endpoint de upload** que devolva a URL pública e salve `ImagemProduto` com a
-   `Ordem` correspondente.
-3. **Endpoint de exclusão** que remova o asset do Cloudinary e o registro.
-4. **CRUD de produtos** — criar, editar, ativar/desativar, com as imagens.
-5. **Tela de administração** no frontend.
+A leitura pública acontece por `imagens.lumimakeup.com.br`, que aponta via DNS para a
+pasta `imagens`. O upload passa pela API (para autenticar e validar); a leitura é servida
+diretamente pelo servidor web, sem passar pelo app server.
 
-As chaves já têm lugar reservado em `ExternalServices:Cloudinary`
-(`NomeNuvem`, `ChaveApi`, `SegredoApi`).
+O banco guarda apenas o **caminho relativo** (`produtos/abc123.jpg`), nunca o caminho
+absoluto do servidor, então o dado continua válido se a estrutura mudar.
 
-> A assinatura é calculada no servidor justamente para que `api_secret` não vá para o
-> navegador. O mesmo cuidado do reCAPTCHA: qualquer segredo que assine requisição é
-> responsabilidade do backend.
+| Camada | Onde |
+|---|---|
+| Contrato | `IArmazenamentoDeImagens` em `Application/Abstractions/IIntegrations.cs` |
+| Implementação | `ArmazenamentoDeImagensLocal` em `Infrastructure/Integrations` |
+| CRUD de produtos/categorias | `GestaoDeProdutosService`, `GestaoDeCategoriasService` |
+| Rotas | `api/admin/produtos`, `api/admin/categorias` (exigem `SomenteAdministrador`) |
+
+Configuração em `ArmazenamentoDeImagens`:
+
+| Chave | Padrão | Papel |
+|---|---|---|
+| `CaminhoBase` | `""` | **obrigatória**. Absoluta em produção; relativa ao *content root* localmente |
+| `PastaPadrao` | `produtos` | subpasta dentro de `CaminhoBase` |
+| `TamanhoMaximoEmBytes` | `5242880` | 5 MB |
+| `ExtensoesPermitidas` | `jpg`, `jpeg`, `png` | extensões liberadas |
+
+Regras de validação no upload:
+
+- **O formato é decidido pelo conteúdo, não pelo nome.** Os primeiros bytes são
+  comparados com as assinaturas de JPEG (`FF D8 FF`) e PNG (`89 50 4E 47 0D 0A 1A 0A`).
+  Um `.png` disfarçado é recusado com 400.
+- A extensão do arquivo gravado vem do formato detectado, nunca da enviada.
+- O nome do arquivo é um GUID gerado pelo servidor. O nome original é saneado e
+  guardado em `NomeOriginal` só para exibição.
+- Toda gravação passa por `ResolverCaminhoSeguro`, que rejeita `..` e qualquer caminho
+  que resolved para fora de `CaminhoBase`.
+- Máximo de **3 imagens por produto**.
+- Excluir imagem ou produto apaga o arquivo do disco; se o `SaveChanges` falhar depois
+  de gravar, o arquivo é removido para não deixar órfão.
+
+> **Obrigatório no servidor:** desabilitar execução de scripts na pasta `imagens`.
+> Sem isso, um `.aspx`/`.php` enviado por uma sessão comprometida seria executado.
+> Isso é configuração do servidor web, não do código. E as imagens precisam entrar no
+> plano de backup: elas não têm mais cópia em serviço de terceiros.
+
+---
+
+## Melhoria de texto com IA (implementado)
+
+No painel de administração, o campo de descrição do produto tem um botão que reescreve
+o texto por um modelo de linguagem. O endpoint é `POST api/admin/produtos/texto/melhorar`,
+protegido pela policy `SomenteAdministrador`, e devolve
+`{ descricaoMelhorada, modeloUsado }`.
+
+| Camada | Onde |
+|---|---|
+| Contrato | `IMelhoradorDeTextoService` em `Application/Abstractions` |
+| Implementação | `MelhoradorDeTextoOpenAiCompativel` em `Infrastructure/Integrations` |
+
+**A chave nunca sai do backend.** O navegador só chama a API; é ela que fala com o
+provedor. É o mesmo cuidado do reCAPTCHA, e vale ainda mais aqui porque a chave é
+limitada por cota.
+
+**Um formato, muitos provedores.** A implementação fala o formato `chat/completions`
+da OpenAI, que Groq, OpenRouter, Cerebras e NVIDIA NIM implementam. Provedor e modelo
+são configuração, não código — ver
+[`02-configuracao-e-ambiente.md`](02-configuracao-e-ambiente.md).
+
+> Groq foi escolhido por ser o free tier mais simples de manter: chave sem cartão,
+> cota de 200K tokens/dia em `openai/gpt-oss-120b` e *prompt caching*, que deixa a
+> instrução de sistema longa fora da conta. Para o volume de um painel de aplicação
+> com um botão, a folga é enorme.
+>
+> O Gemini foi avaliado antes e ficado de fora: o caminho de Application Default
+> Credentials passa pelo Agent Platform, que exige faturamento habilitado no projeto.
+
+### O prompt proíbe a IA de inventar
+
+O ponto mais importante do prompt: reescrever texto de cosmético é uma operação com
+risco regulatório. Alegação de benefício sem respaldo é infração de consumo, e o modelo,
+treinado para vender, adiciona benefício se perguntado de forma vaga. Por isso as
+regras são explícitas:
+
+- não inventar característica, ingrediente, textura ou benefício;
+- não usar promessa de resultado garantido nem linguagem de efeito médico;
+- não citar porcentagem, selo, aprovação, certificação ou estudo clínico;
+- não inventar número de cores, gramas, volume ou duração;
+- devolver **somente** a descrição, sem comentário sobre o que mudou.
+
+Ainda assim, o texto gerado entra no formulário **como sugestão editável**, nunca
+gravado direto no produto. Revisão humana antes de salvar é requisito, não formalidade.
+
+### Limites
+
+Descrição entre 10 e 4.000 caracteres, nome até 150, `temperatura` 0.3 e teto de 1024
+tokens. A temperatura é baixa de propósito: o objetivo é reescrever sem inventar, e
+modelo criativo é exatamente o risco aqui.
+
+> A geração passa pela IA, então o texto original e o reescrito saem da sua
+> infraestrutura. Para descrição de produto isso não é dado sensível, mas é uma
+> decisão consciente do negócio, não um detalhe técnico.
+
+
 
 ---
 
@@ -96,7 +180,7 @@ entidade, então o fluxo foi pensado desde o início.
 
 ## Ordem sugerida
 
-1. **Cloudinary** — sem ela a vitrine fica vazia e o CRUD de produtos não tem sentido.
+1. ~~**Imagens de produto**~~ — concluído (armazenamento local, ver acima).
 2. **Checkout e pedidos** — modelo de endereço já pronto (ver `05`); é o que gera
    receita.
 3. **WhatsApp** — curto, e melhora a percepção do cliente sobre o pedido.
@@ -109,7 +193,6 @@ entidade, então o fluxo foi pensado desde o início.
 Nomes terminados em `Stub` são implementações fictícias:
 
 ```
-CloudinaryServiceStub.cs
 EmailSenderStub.cs
 FocusNfeServiceStub.cs
 WhatsAppServiceStub.cs

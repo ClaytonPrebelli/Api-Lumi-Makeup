@@ -21,6 +21,13 @@ public sealed class ProdutosController : ControllerBase
         return Ok(produtos);
     }
 
+    [HttpGet("destaques")]
+    public async Task<IActionResult> ObterDestaques(CancellationToken cancellationToken)
+    {
+        var produtos = await _catalogoService.ObterProdutosDestaqueAsync(cancellationToken);
+        return Ok(produtos);
+    }
+
     [HttpGet("{slug}")]
     public async Task<IActionResult> ObterPorSlug(string slug, CancellationToken cancellationToken)
     {
