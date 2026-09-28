@@ -7,6 +7,19 @@ using Microsoft.Extensions.Options;
 
 namespace LumiMakeup.Api.Controllers;
 
+/*
+ * VERBOS: esta API nao usa PUT nem DELETE.
+ *
+ * O servidor de producao so encaminha GET, POST, HEAD, OPTIONS e TRACE. Um PUT
+ * ou DELETE e recusado pelo IIS **antes de chegar aqui**, com 405 e
+ * "Allow: GET, HEAD, OPTIONS, TRACE", e sem nenhum header de CORS - o que o
+ * navegador reporta como erro de CORS e mascara a causa real.
+ *
+ * Por isso toda operacao que mudaria ou apaga algo e um POST, com o verbo
+ * escrito no fim da URL: /atualizar, /excluir. Nao e preferencia de estilo: e a
+ * unica forma de a operacao existir neste servidor. Nao voltar para PUT e DELETE
+ * sem confirmar antes que o servidor passou a aceita-los.
+ */
 [ApiController]
 [Authorize(Policy = "SomenteAdministrador")]
 [Route("api/admin/produtos")]
@@ -56,7 +69,7 @@ public sealed class AdminProdutosController : ControllerBase
         }
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPost("{id:long}/atualizar")]
     public async Task<IActionResult> Atualizar(
         long id,
         [FromBody] RequisicaoDeProduto requisicao,
@@ -77,7 +90,7 @@ public sealed class AdminProdutosController : ControllerBase
         }
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpPost("{id:long}/excluir")]
     public async Task<IActionResult> Excluir(long id, CancellationToken cancellationToken)
     {
         try
@@ -148,7 +161,7 @@ public sealed class AdminProdutosController : ControllerBase
         }
     }
 
-    [HttpDelete("{id:long}/imagens/{imagemId:long}")]
+    [HttpPost("{id:long}/imagens/{imagemId:long}/excluir")]
     public async Task<IActionResult> ExcluirImagem(
         long id,
         long imagemId,
@@ -172,7 +185,7 @@ public sealed class AdminProdutosController : ControllerBase
         }
     }
 
-    [HttpPut("{id:long}/imagens/ordem")]
+    [HttpPost("{id:long}/imagens/ordem")]
     public async Task<IActionResult> ReordenarImagens(
         long id,
         [FromBody] RequisicaoDeOrdenacaoDeImagens requisicao,

@@ -5,6 +5,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LumiMakeup.Api.Controllers;
 
+/*
+ * VERBOS: mesma regra de AdminProdutosController. O servidor de producao so
+ * encaminha GET, POST, HEAD, OPTIONS e TRACE; PUT e DELETE sao recusados pelo IIS
+ * antes de chegar aqui. Por isso atualizar e excluir sao POST com o verbo no fim
+ * da URL. Ver a explicacao completa em AdminProdutosController.
+ */
 [ApiController]
 [Authorize(Policy = "SomenteAdministrador")]
 [Route("api/admin/categorias")]
@@ -40,7 +46,7 @@ public sealed class AdminCategoriasController : ControllerBase
         }
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPost("{id:long}/atualizar")]
     public async Task<IActionResult> Atualizar(
         long id,
         [FromBody] RequisicaoDeCategoria requisicao,
@@ -61,7 +67,7 @@ public sealed class AdminCategoriasController : ControllerBase
         }
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpPost("{id:long}/excluir")]
     public async Task<IActionResult> Excluir(long id, CancellationToken cancellationToken)
     {
         try
