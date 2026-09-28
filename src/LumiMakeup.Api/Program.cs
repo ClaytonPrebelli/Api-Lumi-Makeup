@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json.Serialization;
 using LumiMakeup.Infrastructure;
 using LumiMakeup.Infrastructure.Integrations;
-using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -89,8 +88,6 @@ if (opcoesJwt is not null && !string.IsNullOrWhiteSpace(opcoesJwt.Segredo))
 
 var app = builder.Build();
 
-await SemearAdministradorSeConfiguradoAsync(app);
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -135,26 +132,6 @@ static void ServirImagensEmDesenvolvimento(WebApplication app)
     app.Logger.LogWarning(
         "Imagens servidas pela API em /imagens a partir de {Raiz}. Em producao isso fica a cargo do subdominio.",
         raiz);
-}
-
-static async Task SemearAdministradorSeConfiguradoAsync(WebApplication app)
-{
-    using var escopo = app.Services.CreateScope();
-    var configuration = escopo.ServiceProvider.GetRequiredService<IConfiguration>();
-    var logger = escopo.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
-
-    var email = configuration["Autenticacao:SeedAdministrador:Email"];
-    var senha = configuration["Autenticacao:SeedAdministrador:Senha"];
-
-    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(senha))
-    {
-        logger.LogWarning("SeedAdministrador não configurado (Autenticacao:SeedAdministrador:Email/Senha) — administrador não criado.");
-        return;
-    }
-
-    var gerador = escopo.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-    await gerador.SemearAdministradorAsync(new SeedAdministradorOptions(email, senha));
-    logger.LogInformation("SeedAdministrador concluído para {Email}.", email);
 }
 
 internal sealed class TokenJwtOptions

@@ -177,6 +177,13 @@ interrompa a requisição.
 
 ## Seed do administrador
 
-`Program.cs` chama `SemearAdministradorSeConfiguradoAsync` antes de `app.Run()`.
-Se `Autenticacao:SeedAdministrador:Email` e `:Senha` estiverem preenchidos, o
-`DatabaseSeeder` cria o administrador; caso contrário, apenas registra um aviso.
+O `DatabaseSeeder` continua existindo e registrado no DI, mas **não é chamado na
+inicialização**. O `SemearAdministradorSeConfiguradoAsync` foi removido do `Program.cs`
+quando a produção passou a usar o mesmo banco do desenvolvimento: o administrador já
+existe lá, e o seed só gastava uma consulta no banco a cada subida da API.
+
+Para quem precisar dele, `DatabaseSeeder.SemearAdministradorAsync` cria o administrador
+**apenas se não existir nenhum** com papel de administrador — nunca reseta a senha de um
+que já existe. Chame a partir de um `BackgroundService` ou de um endpoint de setup, nunca
+no `Program.cs`: ele roda antes de `app.Run()` e uma falha de banco derrubaria a API
+inteira.

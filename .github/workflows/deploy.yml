@@ -115,8 +115,6 @@ jobs:
           BAILEYS_SEGREDO_COMPARTILHADO: ${{ secrets.BAILEYS_SEGREDO_COMPARTILHADO }}
           FOCUSNFE_ID_CLIENTE: ${{ secrets.FOCUSNFE_ID_CLIENTE }}
           FOCUSNFE_SEGREDO_CLIENTE: ${{ secrets.FOCUSNFE_SEGREDO_CLIENTE }}
-          SEED_ADMINISTRADOR_EMAIL: ${{ secrets.SEED_ADMINISTRADOR_EMAIL }}
-          SEED_ADMINISTRADOR_SENHA: ${{ secrets.SEED_ADMINISTRADOR_SENHA }}
         run: |
           python3 - <<'PY'
           import json, os, sys
@@ -171,12 +169,6 @@ jobs:
                   "FocusNfe": {
                       "IdCliente": texto("FOCUSNFE_ID_CLIENTE"),
                       "SegredoCliente": texto("FOCUSNFE_SEGREDO_CLIENTE")
-                  }
-              },
-              "Autenticacao": {
-                  "SeedAdministrador": {
-                      "Email": texto("SEED_ADMINISTRADOR_EMAIL"),
-                      "Senha": texto("SEED_ADMINISTRADOR_SENHA")
                   }
               }
           }

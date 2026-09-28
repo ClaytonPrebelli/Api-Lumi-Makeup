@@ -34,8 +34,8 @@ src/LumiMakeup.Api/appsettings.*.local.json
 ```
 
 O `appsettings.Development.json` local guarda a connection string, o segredo do JWT,
-as credenciais de SMTP, a chave secreta do reCAPTCHA, o segredo do cliente Google e a
-senha do administrador de seed. Nada disso vai para o git.
+as credenciais de SMTP, a chave secreta do reCAPTCHA e o segredo do cliente Google.
+Nada disso vai para o git.
 
 > Ao adicionar uma chave nova em `appsettings.Development.json`, não a copie para
 > `appsettings.json`. Deixe a chave vazia no arquivo versionado.
@@ -94,8 +94,10 @@ desenvolvimento, `UrlBase` é `http://localhost:4200`.
 "Autenticacao": { "SeedAdministrador": { "Email": "...", "Senha": "..." } }
 ```
 
-Se ambos os campos estiverem preenchidos, o seed roda na inicialização. Sem eles, um
-aviso é registrado e nada acontece.
+> **Seção sem efeito.** O seed não roda mais na inicialização — o `Program.cs` não chama
+> o `DatabaseSeeder`. Ela fica aqui porque a chave continua sendo lida por quem for
+> usar o seeder à mão, e porque o `.gitignore` já separava `appsettings.Production.json`
+> por causa dela. Ver [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
 ### `ExternalServices`
 

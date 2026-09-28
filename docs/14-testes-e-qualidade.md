@@ -15,9 +15,9 @@ capaz de rodar sem banco de dados e sem rede.
 
 | Métrica | Valor |
 |---|---|
-| Testes | **296**, todos passando |
+| Testes | **294**, todos passando |
 | Cobertura de linhas | **97,4%** |
-| Cobertura de branches | **88,7%** |
+| Cobertura de branches | **88,6%** |
 | Banco necessário | nenhum |
 | Rede necessária | nenhuma |
 
@@ -133,7 +133,7 @@ ficou descoberto, medido com o comando de cobertura desta doc:
 | `DependencyInjection` | 93% | linhas 65–68: registro das integrações sem configuração |
 | `DtosDeDominio` | 93,5% | linhas 20–21, 41 e 43: construtores que nenhuma prova usa |
 | `GestaoDeProdutosService` | 95,5% | o `catch` de `DbUpdateException` na exclusão (113–116), a limpeza do arquivo quando o `SaveChanges` falha (158–161) e o slug com base vazia (300–302) |
-| `Program` | 95,9% | blocos de seed e o registro de arquivos estáticos em desenvolvimento (118–127) |
+| `Program` | 95,1% | o registro de arquivos estáticos em desenvolvimento: `CaminhoBase` vazio (115–116) e a criação da pasta (122–124) |
 
 Há duas linhas nessa lista que **não** deveriam estar descobertas, e são a mesma
 história: `ComecaCom` com cabeçalho menor que a assinatura e `SanearNomeOriginal` com
@@ -146,9 +146,9 @@ A parte que **não** é só origem de teste é a dos `catch` dos controllers: el
 exceção em status HTTP, e status errado é contrato de API. A suíte cobre a exceção no
 service, mas não a tradução. Fechar isso exige teste de controller, e o projeto não tem
 biblioteca de teste de integração — decisão que valia para 169 testes e começa a pesar
-em 296.
+em 294.
 
-Branches: 88,7% no total, e os parciais antigos continuam valendo:
+Branches: 88,6% no total, e os parciais antigos continuam valendo:
 
 | Local | Motivo |
 |---|---|
@@ -157,7 +157,8 @@ Branches: 88,7% no total, e os parciais antigos continuam valendo:
 | `JwtTokenService` 93–94 | `JwtRegisteredClaimNames.Typ` / `Sub` ausentes num token forjado |
 | `RecaptchaValidator` 60, 62 | Resposta sem score, e múltiplos códigos de erro |
 | `MelhoradorDeTextoOpenAiCompativel` | formato de resposta inesperado do provedor de IA |
-| `Program` 48, 63 | Blocos de seed e perfil de ambiente |
+| `Program` 49, 64 | `Cors:OrigensPermitidas` ausente, e JWT sem `Segredo` configurado |
+| `Program` 114, 121 | `CaminhoBase` vazio e pasta de imagens já existente |
 
 ### O que foi marcado como não testável
 

@@ -8,12 +8,12 @@ pelo **IIS** com o ASP.NET Core Module.
 
 ```
 push na branch deploy
-   └─ testar     dotnet test -> 296 testes
+   └─ testar     dotnet test -> 294 testes
         └─ publicar    dotnet publish -c Release -> publicacao/
              └─ enviar   FTP em duas passadas -> health check
 ```
 
-Três jobs, na ordem. O deploy só acontece se os **296 testes** passarem, e a pasta
+Três jobs, na ordem. O deploy só acontece se os **294 testes** passarem, e a pasta
 `publicacao/` que vai para o servidor é exatamente a que o job anterior produziu.
 
 ## Os segredos vêm do GitHub e viram configuração no servidor
@@ -43,7 +43,6 @@ ou seja, a integração simplesmente continua desligada, do jeito que foi projet
 | `ExternalServices:Smtp:*` | cai no `EmailSenderStub` — reset de senha não envia e não avisa |
 | `ExternalServices:Google:SegredoCliente` | login social não funciona |
 | `ExternalServices:Ia:Chave` | o botão de melhorar descrição responde "IA não configurada" |
-| `Autenticacao:SeedAdministrador:*` | não cria o admin — só importa na primeira subida |
 | `ExternalServices:Brevo:*`, `Baileys:*`, `FocusNfe:*` | stubs, sem efeito enquanto não houver integração |
 
 > **`Jwt:Segredo` é o mais perigoso da lista.** Sem ele a API **sobe** e todos os
@@ -145,8 +144,11 @@ Além dos três de FTP:
 | `BAILEYS_SEGREDO_COMPARTILHADO` | `ExternalServices:Baileys:SegredoCompartilhado` |
 | `FOCUSNFE_ID_CLIENTE` | `ExternalServices:FocusNfe:IdCliente` |
 | `FOCUSNFE_SEGREDO_CLIENTE` | `ExternalServices:FocusNfe:SegredoCliente` |
-| `SEED_ADMINISTRADOR_EMAIL` | `Autenticacao:SeedAdministrador:Email` |
-| `SEED_ADMINISTRADOR_SENHA` | `Autenticacao:SeedAdministrador:Senha` |
+
+> **Não existe mais `SEED_ADMINISTRADOR_EMAIL` / `SEED_ADMINISTRADOR_SENHA`.** O seed do
+> administrador foi retirado da inicialização quando a produção passou a usar o mesmo
+> banco do desenvolvimento — o admin já existe lá. A classe `DatabaseSeeder` continua no
+> código, mas nada a chama. Ver [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
 > **Chave em *Variable* em vez de *Secret* aparece em texto puro no log.** Todos os itens
 > desta tabela são segredos, mesmo os de integração que ainda não está em uso.

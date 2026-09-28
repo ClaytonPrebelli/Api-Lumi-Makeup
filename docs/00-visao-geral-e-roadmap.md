@@ -38,7 +38,7 @@ LumiMakeup.Domain          entidades, enums — sem dependências externas
 LumiMakeup.Application     interfaces (abstrações) e DTOs
 LumiMakeup.Infrastructure  EF Core, serviços, segurança, integrações
 LumiMakeup.Api             controllers, composition root, Swagger, CORS
-LumiMakeup.Tests           296 testes automatizados
+LumiMakeup.Tests           294 testes automatizados
 ```
 
 A regra é sempre a mesma: **dependências apontam para dentro.**
@@ -104,8 +104,8 @@ Nada. A etapa de produtos foi fechada dos dois lados — API e painel — e a br
 
 ## Estado atual
 
-- **296 testes automatizados, todos passando.**
-- Cobertura de **linhas em 97,4%** e de **branches em 88,7%**. O detalhamento do que
+- **294 testes automatizados, todos passando.**
+- Cobertura de **linhas em 97,4%** e de **branches em 88,6%**. O detalhamento do que
   ficou por fora está em [`14-testes-e-qualidade.md`](14-testes-e-qualidade.md) — o
   número **caiu de 100%** com o código de produtos e ainda não foi fechado.
 - Migrations aplicadas manualmente — a API **não** migra o banco na inicialização.

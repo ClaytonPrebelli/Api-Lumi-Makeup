@@ -57,7 +57,9 @@ resultados inesperados.
 > página de cadastro como oráculo, ignorando completamente o captcha.
 
 O papel é sempre `Cliente`. Ninguém se cadastra como administrador pela API — o
-administrador é criado pelo seed (ver [`02-configuracao-e-ambiente.md`](02-configuracao-e-ambiente.md)).
+`DatabaseSeeder` cria o administrador, mas só quando alguém o chama: hoje **ninguém**
+chama, porque o banco de produção é o mesmo do desenvolvimento e o admin já existe lá.
+Ver [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
 ---
 
