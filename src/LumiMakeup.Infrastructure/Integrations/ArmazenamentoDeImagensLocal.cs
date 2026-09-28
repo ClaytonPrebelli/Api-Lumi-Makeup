@@ -36,10 +36,31 @@ public sealed class ArmazenamentoDeImagensLocal : IArmazenamentoDeImagens
         _raiz = ResolverRaiz(_opcoes.CaminhoBase, ambiente.ContentRootPath);
     }
 
-    public async Task<ImagemArmazenada> ArmazenarAsync(
+    public Task<ImagemArmazenada> ArmazenarAsync(
         Stream conteudo,
         string nomeOriginal,
+        CancellationToken cancellationToken = default) =>
+        ArmazenarInternoAsync(conteudo, nomeOriginal, null, cancellationToken);
+
+    public Task<ImagemArmazenada> ArmazenarEmPastaAsync(
+        Stream conteudo,
+        string nomeOriginal,
+        string pasta,
         CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(pasta))
+        {
+            throw new InvalidOperationException("A pasta de destino da imagem é obrigatória.");
+        }
+
+        return ArmazenarInternoAsync(conteudo, nomeOriginal, pasta, cancellationToken);
+    }
+
+    private async Task<ImagemArmazenada> ArmazenarInternoAsync(
+        Stream conteudo,
+        string nomeOriginal,
+        string? pasta,
+        CancellationToken cancellationToken)
     {
         if (conteudo is null)
         {
@@ -63,7 +84,12 @@ public sealed class ArmazenamentoDeImagensLocal : IArmazenamentoDeImagens
         }
 
         var nomeSanitizado = SanearNomeOriginal(nomeOriginal);
-        var caminhoRelativo = $"{SanearPasta(_opcoes.PastaPadrao)}/{Guid.NewGuid():N}.{extensao}";
+        // A pasta pedida tem prioridade sobre a_padrao. Passar por SanearPasta
+        // mantem a mesma defesa: ".." e barra invertida sao recusados.
+        var pastaEscolhida = string.IsNullOrWhiteSpace(pasta)
+            ? SanearPasta(_opcoes.PastaPadrao)
+            : SanearPasta(pasta);
+        var caminhoRelativo = $"{pastaEscolhida}/{Guid.NewGuid():N}.{extensao}";
         var caminhoAbsoluto = ResolverCaminhoSeguro(caminhoRelativo);
 
         var diretorio = Path.GetDirectoryName(caminhoAbsoluto)!;

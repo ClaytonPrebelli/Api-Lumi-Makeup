@@ -12,7 +12,27 @@ public interface IRecaptchaValidator
 
 public interface IArmazenamentoDeImagens
 {
+    /// <summary>Grava a imagem na <c>PastaPadrao</c> da configuração.</summary>
     Task<ImagemArmazenada> ArmazenarAsync(Stream conteudo, string nomeOriginal, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Grava a imagem numa subpasta própria dentro de <c>CaminhoBase</c>.
+    ///
+    /// É um método separado, e não um parâmetro opcional em
+    /// <see cref="ArmazenarAsync"/>, por dois motivos: acrescentar um parâmetro
+    /// opcional a uma interface já implementada quebra todo chamador de Moq
+    /// (árvore de expressão não aceita argumento omitido), e o nome fica mais
+    /// honesto — quem chama diz em qual pasta quer gravar.
+    ///
+    /// Sem isso, os banners do hero acabariam gravados dentro de
+    /// <c>produtos/</c>, misturados com as fotos dos produtos.
+    /// </summary>
+    Task<ImagemArmazenada> ArmazenarEmPastaAsync(
+        Stream conteudo,
+        string nomeOriginal,
+        string pasta,
+        CancellationToken cancellationToken = default);
+
     Task ExcluirAsync(string caminhoRelativo, CancellationToken cancellationToken = default);
 }
 
