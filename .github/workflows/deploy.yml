@@ -62,6 +62,18 @@ jobs:
       - name: Publicar
         run: dotnet publish src/LumiMakeup.Api/LumiMakeup.Api.csproj -c Release -o publicacao
 
+      - name: Remover a pasta runtimes
+        shell: pwsh
+        run: |
+          # A pasta runtimes/ traz os assemblies especificos por RID (win/lib/net7.0 e
+          # win/lib/net8.0). Numa publicacao sem -r, quem roda e a copia portatil da raiz,
+          # entao ela e dispensavel - e sao 621 KB e quatro niveis de diretorio a menos.
+          if (Test-Path 'publicacao\runtimes') {
+            $tamanho = [math]::Round((Get-ChildItem 'publicacao\runtimes' -Recurse -File | Measure-Object Length -Sum).Sum / 1KB)
+            Remove-Item 'publicacao\runtimes' -Recurse -Force
+            Write-Output "runtimes/ removido ($tamanho KB)"
+          }
+
       - name: Conferir o artefato
         shell: pwsh
         run: |
@@ -71,7 +83,18 @@ jobs:
           if (Test-Path 'publicacao\appsettings.Production.json') {
             throw 'appsettings.Production.json entrou no artefato. Os segredos ficam so no servidor.'
           }
-          Write-Output "ok: $((Get-ChildItem publicacao -Recurse -File).Count) arquivos"
+
+          # O artefato tem que ser PLANO. A action de FTP abre uma conexao de dados nova
+          # por diretorio criado, e o servidor do IIS derruba a partir da terceira com
+          # ECONNRESET - foi assim que este deploy falhou duas vezes. Os outros projetos
+          # que publicam por aqui sao planos, por isso nunca falharam.
+          $subdiretorios = @(Get-ChildItem publicacao -Directory -Recurse)
+          if ($subdiretorios.Count -gt 0) {
+            $nomes = ($subdiretorios | ForEach-Object { $_.FullName.Replace('publicacao\', '') }) -join ', '
+            throw "O artefato tem $($subdiretorios.Count) subdiretorio(s): $nomes. Publique plano ou o FTP vai cair com ECONNRESET."
+          }
+
+          Write-Output "ok: $((Get-ChildItem publicacao -File).Count) arquivos, nenhum subdiretorio"
 
       - name: Guardar o artefato
         uses: actions/upload-artifact@v4

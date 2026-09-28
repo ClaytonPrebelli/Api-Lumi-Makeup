@@ -107,11 +107,22 @@ itens pedidos e para despesa de usuário.
 ### Como aplicar
 
 A API **não** migra o banco na inicialização — não existe chamada a `Migrate()` nem
-`EnsureCreated()` no `Program.cs`. É preciso aplicar manualmente:
+`EnsureCreated()` no `Program.cs`. Também **não** há migration no deploy, e não haverá:
+o workflow não tem nenhum passo de banco, e o servidor não é lugar para aplicar schema.
+
+A aplicação acontece **na máquina de desenvolvimento**, contra o mesmo banco que serve a
+produção:
 
 ```bash
 dotnet ef database update --project src\LumiMakeup.Infrastructure --startup-project src\LumiMakeup.Api
 ```
+
+> **Por que assim.** O banco é único: o de desenvolvimento é o de produção. Não existe
+> cópia para testar migration, então aplicar é um ato local e consciente, com o banco em
+> uso por outros. O que muda o schema é o código — a migration versionada, revisada em pull
+> request — e a aplicação é consequência de puxar esse código, não um passo de deploy.
+> Se someday vier um segundo banco, essa decisão precisa ser revista: aí passa a ter um
+> script de migration separado, com backup, e ainda fora do deploy.
 
 ### Como criar
 

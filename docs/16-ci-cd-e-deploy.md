@@ -111,6 +111,32 @@ o arquivo que a API efetivamente lê.
 > declara o ambiente. O padrão do IIS é `Production`, então a API funcionaria por
 > coincidência. Declarar remove a coincidência da equação.
 
+## O artefato precisa ser plano
+
+O deploy falha com `ECONNRESET` se a publicação tiver ** subdiretórios**, e isso aconteceu
+duas vezes antes de ser descoberto.
+
+A action de FTP abre **uma conexão de dados nova por diretório criado**, e o servidor
+descarta a partir da terceira. O frontend e o outro projeto .NET deste servidor publicam
+listas planas de arquivos, por isso nunca tiveram o problema — a diferença nunca foi
+volume nem TLS, foi a contagem de diretórios.
+
+A publicação do .NET vinha com `runtimes/win/lib/net7.0/` e `runtimes/win/lib/net8.0/`,
+621 KB e quatro níveis, que davam exatamente a terceira conexão que derruba.
+
+A pasta foi removida da publicação, e ela é dispensável: numa publicação **sem `-r`**, quem
+carregado é a cópia portátil dos assemblies, que fica na **raiz** — `System.Management.dll`
+e `System.Security.Cryptography.Pkcs.dll` já estão lá. A pasta `runtimes/` guarda só a
+variante específica por RID. Confirmado na execução: com ela removida, a API sobe,
+`/api/saude` responde 200 e `/api/produtos` falha por **conexão** com o banco
+(`MySqlConnector.MySqlException`), não por assembly faltando — que é o que aconteceria se
+fosse realmente necessária.
+
+O step `Conferir o artefato` **falha o deploy se aparecer qualquer subdiretório**, dizendo
+quais. O motivo é não depender de alguém lembrar dessa regra: se uma dependência nova
+trazer uma pasta aninhada, o erro aparece como `ECONNRESET` no meio de um log de FTP, que
+não liga a causa ao diretório. Falhando ali, o nome da pasta vem junto.
+
 ## Arquivos travados: recicle o pool antes de publicar
 
 Enquanto o `w3wp.exe` está no ar, ele segura os arquivos da aplicação abertos e **o FTP
@@ -180,7 +206,7 @@ montada a partir dos oito campos de `BANCO_*`:
 | `DIRETORIO_DA_API` | pasta de destino, relativa à raiz do FTP — vazio assume `api.lumimakeup.com.br/` |
 | `ENDERECO_DA_API` | endereço do health check — vazio assume `https://api.lumimakeup.com.br` |
 
-> **`CharSet=utf8mb4` não é装饰.** É o que permite gravar emoji e acentuação completa na
+> **`CharSet=utf8mb4` não é decoração.** É o que permite gravar emoji e acentuação completa na
 > descrição do produto. Sem ele, o texto quebra ao salvar — e o problema aparece no
 > painel, dias depois do deploy, sem relação aparente com ele.
 
@@ -212,7 +238,7 @@ primeira execução, e que depois pode exigir aprovação manual.
 
 | O que | Por quê |
 |---|---|
-| **Não aplica migrations** | a API não migra o banco na inicialização (ver `00`). Migration é `dotnet ef database update`, na mão, com backup antes. Automatizar isso colocaria o banco na mesma corrida do deploy. |
+| **Não aplica migrations, nunca** | a API não migra o banco na inicialização, e o workflow não tem nenhum passo de banco. Aplicação é local, em desenvolvimento, contra o mesmo banco que serve a produção — o servidor não recebe schema. Ver [`04-banco-de-dados-e-ef-core.md`](04-banco-de-dados-e-ef-core.md). |
 | **Não envia `.pdb`** | são ~4 MB por assembly e só servem para depurar com símbolos. Estão no `exclude` da action. |
 | **Não publica o `appsettings.Production.json` do repositório** | o arquivo é sempre gerado no deploy. Se alguém versionar um por engano, o `.gitignore` bloqueia e as guardas do workflow falham. |
 
