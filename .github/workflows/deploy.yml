@@ -93,6 +93,101 @@ jobs:
           name: api
           path: artefato
 
+      - name: Conferir que o artefato nao trouxe segredo
+        run: |
+          if [ -e artefato/appsettings.Production.json ]; then
+            echo "::error::O artefato contem appsettings.Production.json. Chave no artifact fica exposta para quem le o repositorio."
+            exit 1
+          fi
+
+      - name: Montar o appsettings de producao
+        env:
+          CONEXAO_PADRAO: ${{ secrets.CONEXAO_PADRAO }}
+          JWT_SEGREDO: ${{ secrets.JWT_SEGREDO }}
+          RECAPTCHA_CHAVE_SECRETA: ${{ secrets.RECAPTCHA_CHAVE_SECRETA }}
+          IA_CHAVE: ${{ secrets.IA_CHAVE }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORTA: ${{ secrets.SMTP_PORTA }}
+          SMTP_USUARIO: ${{ secrets.SMTP_USUARIO }}
+          SMTP_SENHA: ${{ secrets.SMTP_SENHA }}
+          GOOGLE_SEGREDO_CLIENTE: ${{ secrets.GOOGLE_SEGREDO_CLIENTE }}
+          BREVO_CHAVE_API: ${{ secrets.BREVO_CHAVE_API }}
+          BAILEYS_SEGREDO_COMPARTILHADO: ${{ secrets.BAILEYS_SEGREDO_COMPARTILHADO }}
+          FOCUSNFE_ID_CLIENTE: ${{ secrets.FOCUSNFE_ID_CLIENTE }}
+          FOCUSNFE_SEGREDO_CLIENTE: ${{ secrets.FOCUSNFE_SEGREDO_CLIENTE }}
+          SEED_ADMINISTRADOR_EMAIL: ${{ secrets.SEED_ADMINISTRADOR_EMAIL }}
+          SEED_ADMINISTRADOR_SENHA: ${{ secrets.SEED_ADMINISTRADOR_SENHA }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+
+          def texto(nome):
+              return (os.environ.get(nome) or "").strip()
+
+          def obrigatorio(nome):
+              valor = texto(nome)
+              if not valor:
+                  sys.exit("::error::O secret " + nome + " nao esta cadastrado, e a API nao sobe sem ele.")
+              return valor
+
+          def numero(nome, padrao):
+              bruto = texto(nome)
+              if not bruto:
+                  return padrao
+              try:
+                  return int(bruto)
+              except ValueError:
+                  sys.exit("::error::O secret " + nome + " precisa ser um numero inteiro.")
+
+          configuracao = {
+              "ConnectionStrings": {
+                  "ConexaoPadrao": obrigatorio("CONEXAO_PADRAO")
+              },
+              "Jwt": {
+                  "Segredo": obrigatorio("JWT_SEGREDO")
+              },
+              "ExternalServices": {
+                  "Recaptcha": {
+                      "ChaveSecreta": texto("RECAPTCHA_CHAVE_SECRETA")
+                  },
+                  "Ia": {
+                      "Chave": texto("IA_CHAVE")
+                  },
+                  "Smtp": {
+                      "Host": texto("SMTP_HOST"),
+                      "Porta": numero("SMTP_PORTA", 465),
+                      "Usuario": texto("SMTP_USUARIO"),
+                      "Senha": texto("SMTP_SENHA")
+                  },
+                  "Google": {
+                      "SegredoCliente": texto("GOOGLE_SEGREDO_CLIENTE")
+                  },
+                  "Brevo": {
+                      "ChaveApi": texto("BREVO_CHAVE_API")
+                  },
+                  "Baileys": {
+                      "SegredoCompartilhado": texto("BAILEYS_SEGREDO_COMPARTILHADO")
+                  },
+                  "FocusNfe": {
+                      "IdCliente": texto("FOCUSNFE_ID_CLIENTE"),
+                      "SegredoCliente": texto("FOCUSNFE_SEGREDO_CLIENTE")
+                  }
+              },
+              "Autenticacao": {
+                  "SeedAdministrador": {
+                      "Email": texto("SEED_ADMINISTRADOR_EMAIL"),
+                      "Senha": texto("SEED_ADMINISTRADOR_SENHA")
+                  }
+              }
+          }
+
+          with open("artefato/appsettings.Production.json", "w", encoding="utf-8") as arquivo:
+              json.dump(configuracao, arquivo, indent=2, ensure_ascii=False)
+              arquivo.write("\n")
+
+          print("ok: appsettings.Production.json gerado.")
+          PY
+
       - name: Preparar a pagina de manutencao
         run: |
           mkdir -p manutencao
@@ -138,7 +233,6 @@ jobs:
             **/.git*
             **/.git*/**
             **/*.pdb
-            **/appsettings.Production.json
           timeout: 300000
           log-level: standard
 
