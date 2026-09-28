@@ -37,13 +37,35 @@ ou seja, a integração simplesmente continua desligada, do jeito que foi projet
 
 | Chave | Sem ela |
 |---|---|
-| `ConnectionStrings:ConexaoPadrao` | **derruba o deploy** — a API nem sobe |
-| `Jwt:Segredo` | **derruba o deploy** — e sem ele a API subiria sem autenticação nenhuma |
+| `BANCO_SERVIDOR` | **derruba o deploy** — a API nem sobe |
+| `BANCO_NOME` | **derruba o deploy** — idem |
+| `BANCO_USUARIO` | **derruba o deploy** — idem |
+| `BANCO_SENHA` | **derruba o deploy** — idem |
+| `JWT_SEGREDO` | **derruba o deploy** — e sem ele a API subiria sem autenticação nenhuma |
 | `ExternalServices:Recaptcha:ChaveSecreta` | loga aviso e aceita cadastro sem validação |
 | `ExternalServices:Smtp:*` | cai no `EmailSenderStub` — reset de senha não envia e não avisa |
 | `ExternalServices:Google:SegredoCliente` | login social não funciona |
 | `ExternalServices:Ia:Chave` | o botão de melhorar descrição responde "IA não configurada" |
 | `ExternalServices:Brevo:*`, `Baileys:*`, `FocusNfe:*` | stubs, sem efeito enquanto não houver integração |
+
+> **A connection string é montada pelo workflow, não colada.** Não existe um secret
+> `CONEXAO_PADRAO`: entram `BANCO_SERVIDOR`, `BANCO_PORTA`, `BANCO_NOME`, `BANCO_USUARIO` e
+> `BANCO_SENHA` separados, e o step monta
+> `Server=...;Port=...;Database=...;Uid=...;Pwd=...;SslMode=...;AllowPublicKeyRetrieval=...`.
+> É a mesma forma que o SMTP já usava no `appsettings.json`, e evita o erro de colar a
+> string inteira com um `;` a mais ou faltando.
+
+> **Senha com `;`, aspas ou espaço é tratada.** O `;` é o separador da connection string,
+> então uma senha `abc;def` colada na mão quebraria a configuração em silêncio — a API
+> subiria e o acesso ao banco falharia com "acesso negado", sem nenhuma pista de que o
+> problema era a string. O step coloca aspas automaticamente quando o valor tem `;`,
+> `"` ou espaço, e escapa a aspa interna duplicando, que é o que o MySqlConnector aceita
+> (barra invertida **não** é escape aqui). O mesmo vale para servidor, banco e usuário.
+>
+> E o `.strip()` é aplicado em host, porta, nome, usuário e opções, mas **não** em senha
+> nem em chave. Uma senha com espaço no fim é uma senha válida, e aparar as pontas
+> transformaria um segredo correto em um errado — o mesmo "acesso negado" sem
+> explicação. Senha só com espaço é tratada como ausente, que é a única exceção.
 
 > **`Jwt:Segredo` é o mais perigoso da lista.** Sem ele a API **sobe** e todos os
 > endpoints protegidos ficam acessíveis, sem erro e sem aviso no log — o
@@ -126,17 +148,28 @@ falha real vai ser o envio recusando os arquivos.
 ## Segredos e variáveis
 
 ### Segredos (criptografados, ficam mascarados no log)
+**Tudo é secret.** Não há nenhuma *variable* neste repositório: pasta de destino e
+endereço de conferência também são secrets, porque é mais simples ter um lugar só e não
+existe risco em mascarar um caminho.
 
-Além dos três de FTP:
+Além dos três de FTP, o banco e as chaves. `CONEXAO_PADRAO` **não existe** — a string é
+montada a partir dos oito campos de `BANCO_*`:
 
 | Nome | Vai para |
 |---|---|
-| `CONEXAO_PADRAO` | `ConnectionStrings:ConexaoPadrao` |
+| `BANCO_SERVIDOR` | `Server=` da connection string |
+| `BANCO_PORTA` | `Port=` — vazio assume `3306` |
+| `BANCO_NOME` | `Database=` |
+| `BANCO_USUARIO` | `Uid=` |
+| `BANCO_SENHA` | `Pwd=` |
+| `BANCO_CHARSET` | `CharSet=` — vazio assume `utf8mb4` |
+| `BANCO_SSL` | `SslMode=` — vazio assume `Preferred` |
+| `BANCO_ALLOW_PUBLIC_KEY` | `AllowPublicKeyRetrieval=` — vazio assume `true` |
 | `JWT_SEGREDO` | `Jwt:Segredo` |
 | `RECAPTCHA_CHAVE_SECRETA` | `ExternalServices:Recaptcha:ChaveSecreta` |
 | `IA_CHAVE` | `ExternalServices:Ia:Chave` |
 | `SMTP_HOST` | `ExternalServices:Smtp:Host` |
-| `SMTP_PORTA` | `ExternalServices:Smtp:Porta` — número; vazio assume `465` |
+| `SMTP_PORTA` | `ExternalServices:Smtp:Porta` — vazio assume `465` |
 | `SMTP_USUARIO` | `ExternalServices:Smtp:Usuario` |
 | `SMTP_SENHA` | `ExternalServices:Smtp:Senha` |
 | `GOOGLE_SEGREDO_CLIENTE` | `ExternalServices:Google:SegredoCliente` |
@@ -144,21 +177,27 @@ Além dos três de FTP:
 | `BAILEYS_SEGREDO_COMPARTILHADO` | `ExternalServices:Baileys:SegredoCompartilhado` |
 | `FOCUSNFE_ID_CLIENTE` | `ExternalServices:FocusNfe:IdCliente` |
 | `FOCUSNFE_SEGREDO_CLIENTE` | `ExternalServices:FocusNfe:SegredoCliente` |
+| `DIRETORIO_DA_API` | pasta de destino, relativa à raiz do FTP — vazio assume `api.lumimakeup.com.br/` |
+| `ENDERECO_DA_API` | endereço do health check — vazio assume `https://api.lumimakeup.com.br` |
+
+> **`CharSet=utf8mb4` não é装饰.** É o que permite gravar emoji e acentuação completa na
+> descrição do produto. Sem ele, o texto quebra ao salvar — e o problema aparece no
+> painel, dias depois do deploy, sem relação aparente com ele.
 
 > **Não existe mais `SEED_ADMINISTRADOR_EMAIL` / `SEED_ADMINISTRADOR_SENHA`.** O seed do
 > administrador foi retirado da inicialização quando a produção passou a usar o mesmo
 > banco do desenvolvimento — o admin já existe lá. A classe `DatabaseSeeder` continua no
 > código, mas nada a chama. Ver [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
-> **Chave em *Variable* em vez de *Secret* aparece em texto puro no log.** Todos os itens
-> desta tabela são segredos, mesmo os de integração que ainda não está em uso.
+> **Chave em *Variable* em vez de *Secret* aparece em texto puro no log.** Por isso
+> **nada** aqui é variable, nem as pastas e endereços. Todos os itens desta tabela são
+> secrets, mesmo os de integração que ainda não está em uso.
 
-### Variáveis (texto plano, para o que não é segredo)
+### Variables (texto plano, para o que não é segredo)
 
-| Variável | Padrão | Para que serve |
-|---|---|---|
-| `DIRETORIO_DA_API` | `api.lumimakeup.com.br/` | pasta de destino, relativa à raiz do FTP |
-| `ENDERECO_DA_API` | `https://api.lumimakeup.com.br` | endereço das conferências |
+Nenhuma. Todas as configurações deste repositório são secrets — a tabela acima está
+completa. Pasta de destino e endereço de conferência também são secrets: é mais simples
+ter um só lugar, e mascarar um caminho não custa nada.
 
 O job de envio roda no **ambiente `producao`** do GitHub, criado automaticamente na
 primeira execução, e que depois pode exigir aprovação manual.

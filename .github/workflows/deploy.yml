@@ -102,7 +102,14 @@ jobs:
 
       - name: Montar o appsettings de producao
         env:
-          CONEXAO_PADRAO: ${{ secrets.CONEXAO_PADRAO }}
+          BANCO_SERVIDOR: ${{ secrets.BANCO_SERVIDOR }}
+          BANCO_PORTA: ${{ secrets.BANCO_PORTA }}
+          BANCO_NOME: ${{ secrets.BANCO_NOME }}
+          BANCO_USUARIO: ${{ secrets.BANCO_USUARIO }}
+          BANCO_SENHA: ${{ secrets.BANCO_SENHA }}
+          BANCO_CHARSET: ${{ secrets.BANCO_CHARSET }}
+          BANCO_SSL: ${{ secrets.BANCO_SSL }}
+          BANCO_ALLOW_PUBLIC_KEY: ${{ secrets.BANCO_ALLOW_PUBLIC_KEY }}
           JWT_SEGREDO: ${{ secrets.JWT_SEGREDO }}
           RECAPTCHA_CHAVE_SECRETA: ${{ secrets.RECAPTCHA_CHAVE_SECRETA }}
           IA_CHAVE: ${{ secrets.IA_CHAVE }}
@@ -122,9 +129,18 @@ jobs:
           def texto(nome):
               return (os.environ.get(nome) or "").strip()
 
+          def segredo(nome):
+              return os.environ.get(nome) or ""
+
           def obrigatorio(nome):
               valor = texto(nome)
               if not valor:
+                  sys.exit("::error::O secret " + nome + " nao esta cadastrado, e a API nao sobe sem ele.")
+              return valor
+
+          def segredo_obrigatorio(nome):
+              valor = segredo(nome)
+              if not valor.strip():
                   sys.exit("::error::O secret " + nome + " nao esta cadastrado, e a API nao sobe sem ele.")
               return valor
 
@@ -137,38 +153,72 @@ jobs:
               except ValueError:
                   sys.exit("::error::O secret " + nome + " precisa ser um numero inteiro.")
 
+          def opcao(nome, padrao, aceitos):
+              valor = texto(nome) or padrao
+              if valor.lower() not in aceitos:
+                  sys.exit(
+                      "::error::O secret " + nome + " recebeu '" + valor
+                      + "'. Valores aceitos: " + ", ".join(sorted(aceitos)) + "."
+                  )
+              return valor
+
+          def aspas(valor):
+              if valor == "":
+                  return ""
+              precisa = any(c.isspace() or c in ';"' for c in valor)
+              if not precisa:
+                  return valor
+              return '"' + valor.replace('"', '""') + '"'
+
+          def montar_conexao():
+              partes = [
+                  "Server=" + aspas(obrigatorio("BANCO_SERVIDOR")),
+                  "Port=" + str(numero("BANCO_PORTA", 3306)),
+                  "Database=" + aspas(obrigatorio("BANCO_NOME")),
+                  "Uid=" + aspas(obrigatorio("BANCO_USUARIO")),
+                  "Pwd=" + aspas(segredo_obrigatorio("BANCO_SENHA")),
+                  "CharSet=" + aspas(texto("BANCO_CHARSET") or "utf8mb4"),
+                  "SslMode=" + opcao("BANCO_SSL", "Preferred", {
+                      "none", "disabled", "preferred", "required", "verifyca", "verifyfull"
+                  }),
+                  "AllowPublicKeyRetrieval=" + opcao("BANCO_ALLOW_PUBLIC_KEY", "true", {
+                      "true", "false"
+                  })
+              ]
+              return ";".join(partes) + ";"
+
           configuracao = {
               "ConnectionStrings": {
-                  "ConexaoPadrao": obrigatorio("CONEXAO_PADRAO")
+                  "ConexaoPadrao": montar_conexao()
               },
               "Jwt": {
-                  "Segredo": obrigatorio("JWT_SEGREDO")
+                  "Segredo": segredo_obrigatorio("JWT_SEGREDO")
               },
               "ExternalServices": {
                   "Recaptcha": {
-                      "ChaveSecreta": texto("RECAPTCHA_CHAVE_SECRETA")
+                      "ChaveSecreta": segredo("RECAPTCHA_CHAVE_SECRETA")
                   },
                   "Ia": {
-                      "Chave": texto("IA_CHAVE")
+                      "Chave": segredo("IA_CHAVE")
                   },
                   "Smtp": {
                       "Host": texto("SMTP_HOST"),
                       "Porta": numero("SMTP_PORTA", 465),
                       "Usuario": texto("SMTP_USUARIO"),
-                      "Senha": texto("SMTP_SENHA")
+                      "Senha": segredo("SMTP_SENHA")
                   },
                   "Google": {
-                      "SegredoCliente": texto("GOOGLE_SEGREDO_CLIENTE")
+                      "SegredoCliente": segredo("GOOGLE_SEGREDO_CLIENTE")
                   },
                   "Brevo": {
-                      "ChaveApi": texto("BREVO_CHAVE_API")
+                      "ChaveApi": segredo("BREVO_CHAVE_API")
                   },
                   "Baileys": {
-                      "SegredoCompartilhado": texto("BAILEYS_SEGREDO_COMPARTILHADO")
+                      "SegredoCompartilhado": segredo("BAILEYS_SEGREDO_COMPARTILHADO")
                   },
                   "FocusNfe": {
-                      "IdCliente": texto("FOCUSNFE_ID_CLIENTE"),
-                      "SegredoCliente": texto("FOCUSNFE_SEGREDO_CLIENTE")
+                      "IdCliente": segredo("FOCUSNFE_ID_CLIENTE"),
+                      "SegredoCliente": segredo("FOCUSNFE_SEGREDO_CLIENTE")
                   }
               }
           }
@@ -194,13 +244,13 @@ jobs:
           port: ${{ secrets.FTP_PORT || '21' }}
           protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
           local-dir: manutencao/
-          server-dir: ${{ vars.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
+          server-dir: ${{ secrets.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
           timeout: 120000
           log-level: standard
 
       - name: Esperar a API parar
         env:
-          ENDERECO: ${{ vars.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
+          ENDERECO: ${{ secrets.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
         run: |
           for tentativa in $(seq 1 30); do
             if curl --silent --max-time 5 "$ENDERECO/api/saude" | grep --quiet 'atualizando a loja'; then
@@ -220,7 +270,7 @@ jobs:
           port: ${{ secrets.FTP_PORT || '21' }}
           protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
           local-dir: artefato/
-          server-dir: ${{ vars.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
+          server-dir: ${{ secrets.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
           exclude: |
             **/.git*
             **/.git*/**
@@ -230,7 +280,7 @@ jobs:
 
       - name: Conferir a API
         env:
-          ENDERECO: ${{ vars.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
+          ENDERECO: ${{ secrets.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
         run: |
           for tentativa in $(seq 1 30); do
             if curl --fail --silent --max-time 10 "$ENDERECO/api/saude" | grep --quiet '"status":"ok"'; then
