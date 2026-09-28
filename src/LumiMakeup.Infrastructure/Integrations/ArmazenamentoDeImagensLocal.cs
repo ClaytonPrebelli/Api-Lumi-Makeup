@@ -114,7 +114,7 @@ public sealed class ArmazenamentoDeImagensLocal : IArmazenamentoDeImagens
         return Task.CompletedTask;
     }
 
-    private static string ResolverRaiz(string caminhoBase, string contentRootPath)
+    public static string ResolverRaiz(string caminhoBase, string contentRootPath)
     {
         if (string.IsNullOrWhiteSpace(caminhoBase))
         {

@@ -24,3 +24,6 @@ TestResults/
 coverage.*.xml
 coverage.json
 *.trx
+
+# Imagens gravadas em desenvolvimento — conteúdo de usuário, nunca versionar
+src/imagens/
