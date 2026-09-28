@@ -271,6 +271,36 @@ jobs:
           fi
           echo "ok: os tres segredos do FTP estao cadastrados"
 
+      - name: Conferir a conexao do FTP
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_PORT: ${{ secrets.FTP_PORT || '21' }}
+          FTP_PROTOCOL: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+        run: |
+          # ftps = TLS explicito na porta 21 (AUTH TLS). ftps-legacy = TLS implicito na
+          # 990. ftp = sem TLS. Nenhum deles muda o modo passivo: o canal de dados e
+          # aberto com EPSV em IPv6 ou PASV em IPv4, nos tres casos.
+          #
+          # ftps-legacy em 990 so funciona se a porta estiver liberada; fechada, daria
+          # connection refused na conexao de controle, e nao um reset no socket de dados.
+          #
+          # Se o protocolo for ftp, o appsettings.Production.json atravessa em texto
+          # legivel, e ele carrega a senha do banco e o segredo do JWT.
+          echo "host=$FTP_HOST porta=$FTP_PORT protocolo=$FTP_PROTOCOL"
+          if [ "$FTP_PROTOCOL" = "ftp" ]; then
+            echo "::warning::FTP sem TLS: a senha do banco e o segredo do JWT vao em texto legivel."
+          fi
+          if [ "$FTP_PROTOCOL" = "ftps-legacy" ] && [ "$FTP_PORT" = "21" ]; then
+            echo "::error::ftps-legacy e TLS implicito e precisa da porta 990, nao da 21. Ajuste FTP_PORT para 990 ou volte o protocolo para ftps."
+            exit 1
+          fi
+          for endereco in $(getent ahosts "$FTP_HOST" | awk '{print $1}' | sort -u); do
+            familia="IPv4"
+            case "$endereco" in *:*) familia="IPv6";; esac
+            echo "  $familia $endereco"
+          done
+          echo "se aparecer IPv6, e por ele que o canal de dados vai ser aberto (EPSV)."
+
       - name: Enviar a publicacao
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
