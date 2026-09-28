@@ -1,0 +1,157 @@
+name: Deploy da API
+
+on:
+  push:
+    branches:
+      - deploy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-da-api
+  cancel-in-progress: false
+
+jobs:
+  testar:
+    name: Testes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar o .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restaurar
+        run: dotnet restore LumiMakeup.slnx
+
+      - name: Rodar os testes
+        run: >-
+          dotnet test LumiMakeup.slnx
+          -c Release
+          --no-restore
+          --logger "trx;LogFileName=testes.trx"
+          --results-directory Resultados
+
+      - name: Guardar o resultado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultado-dos-testes
+          path: Resultados/*.trx
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publicar:
+    name: Publicar
+    needs: testar
+    runs-on: windows-latest
+    steps:
+      - name: Obter o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar o .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publicar
+        run: dotnet publish src/LumiMakeup.Api/LumiMakeup.Api.csproj -c Release -o publicacao
+
+      - name: Conferir o artefato
+        shell: pwsh
+        run: |
+          foreach ($arquivo in @('LumiMakeup.Api.dll', 'LumiMakeup.Api.runtimeconfig.json', 'web.config')) {
+            if (-not (Test-Path "publicacao\$arquivo")) { throw "Faltou $arquivo na publicacao." }
+          }
+          if (Test-Path 'publicacao\appsettings.Production.json') {
+            throw 'appsettings.Production.json entrou no artefato. Os segredos ficam so no servidor.'
+          }
+          Write-Output "ok: $((Get-ChildItem publicacao -Recurse -File).Count) arquivos"
+
+      - name: Guardar o artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: publicacao
+          if-no-files-found: error
+          retention-days: 7
+
+  enviar:
+    name: Enviar para o servidor
+    needs: publicar
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - name: Baixar o artefato
+        uses: actions/download-artifact@v4
+        with:
+          name: api
+          path: artefato
+
+      - name: Preparar a pagina de manutencao
+        run: |
+          mkdir -p manutencao
+          cp .github/deploy/app_offline.htm manutencao/app_offline.htm
+
+      - name: Baixar a API
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || '21' }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          local-dir: manutencao/
+          server-dir: ${{ vars.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
+          timeout: 120000
+          log-level: standard
+
+      - name: Esperar a API parar
+        env:
+          ENDERECO: ${{ vars.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
+        run: |
+          for tentativa in $(seq 1 30); do
+            if curl --silent --max-time 5 "$ENDERECO/api/saude" | grep --quiet 'atualizando a loja'; then
+              echo "A API parou."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::warning::A API nao confirmou que parou. Seguindo mesmo assim; se o envio falhar com 'arquivo em uso', recicle o pool de aplicacoes."
+
+      - name: Enviar a publicacao
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || '21' }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          local-dir: artefato/
+          server-dir: ${{ vars.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/*.pdb
+            **/appsettings.Production.json
+          timeout: 300000
+          log-level: standard
+
+      - name: Conferir a API
+        env:
+          ENDERECO: ${{ vars.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
+        run: |
+          for tentativa in $(seq 1 30); do
+            if curl --fail --silent --max-time 10 "$ENDERECO/api/saude" | grep --quiet '"status":"ok"'; then
+              echo "ok: a API respondeu ao health check."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::A API nao voltou depois do deploy. Se a pagina de manutencao continua no servidor, apague o app_offline.htm de dentro da pasta da API no IIS."
+          exit 1
