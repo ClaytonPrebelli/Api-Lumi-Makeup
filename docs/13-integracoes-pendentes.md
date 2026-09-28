@@ -116,10 +116,17 @@ da OpenAI, que Groq, OpenRouter, Cerebras e NVIDIA NIM implementam. Provedor e m
 são configuração, não código — ver
 [`02-configuracao-e-ambiente.md`](02-configuracao-e-ambiente.md).
 
-> Groq foi escolhido por ser o free tier mais simples de manter: chave sem cartão,
-> cota de 200K tokens/dia em `openai/gpt-oss-120b` e *prompt caching*, que deixa a
-> instrução de sistema longa fora da conta. Para o volume de um painel de aplicação
-> com um botão, a folga é enorme.
+> **O provedor hoje é o OpenRouter**, com `nvidia/nemotron-3-ultra-550b-a55b:free`. Foi
+> uma troca de chave e de URL, sem tocar em código — que é exatamente o que o formato
+> único permite. O Groq foi o primeiro (cota de 200K tokens/dia em `openai/gpt-oss-120b`
+> e *prompt caching*, que deixa a instrução de sistema longa fora da conta) e continua
+> válido como alternativa: tem free tier sem cartão e é só trocar `UrlBase`, `Modelo` e o
+> secret `IA_CHAVE`.
+>
+> O modelo atual é do plano gratuito. Ele serve bem para desenvolvimento, mas provedores
+> removem do plano gratuito sem avisar, e o botão paramando com "modelo não existe" em
+> produção é o tipo de erro que só alguém conserta percebendo. Para produção, vale um
+> modelo pago.
 >
 > O Gemini foi avaliado antes e ficado de fora: o caminho de Application Default
 > Credentials passa pelo Agent Platform, que exige faturamento habilitado no projeto.
