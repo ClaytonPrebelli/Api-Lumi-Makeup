@@ -1,6 +1,6 @@
 # 13 — Integrações Pendentes
 
-**Status:** ⬜ não iniciado
+**Status:** 🔶 parcial — imagens e IA prontas; WhatsApp e Focus NFe continuam stub
 
 ---
 
@@ -54,17 +54,25 @@ absoluto do servidor, então o dado continua válido se a estrutura mudar.
 |---|---|
 | Contrato | `IArmazenamentoDeImagens` em `Application/Abstractions/IIntegrations.cs` |
 | Implementação | `ArmazenamentoDeImagensLocal` em `Infrastructure/Integrations` |
-| CRUD de produtos/categorias | `GestaoDeProdutosService`, `GestaoDeCategoriasService` |
+| CRUD de produtos/categorias | `GestaoDeProdutosService`, `GestaoDeCategoriasService` — ver [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md) |
 | Rotas | `api/admin/produtos`, `api/admin/categorias` (exigem `SomenteAdministrador`) |
 
 Configuração em `ArmazenamentoDeImagens`:
 
-| Chave | Padrão | Papel |
+| Chave | Valor no `appsettings.json` | Papel |
 |---|---|---|
-| `CaminhoBase` | `""` | **obrigatória**. Absoluta em produção; relativa ao *content root* localmente |
+| `CaminhoBase` | `../imagens` | **obrigatória**. Relativa ao *content root*, para que a pasta fique **irmã** da aplicação e fora do que o FTP publica |
 | `PastaPadrao` | `produtos` | subpasta dentro de `CaminhoBase` |
 | `TamanhoMaximoEmBytes` | `5242880` | 5 MB |
 | `ExtensoesPermitidas` | `jpg`, `jpeg`, `png` | extensões liberadas |
+
+> **Vazio não é "sem configuração".** `ArmazenamentoDeImagensLocal.ResolverRaiz` lança
+> ao encontrar a string vazia, e como o registro é `AddScoped` o construtor só roda no
+> primeiro uso. A API subia normal, a vitrine funcionava, e a falha aparecia como `500`
+> no exato momento de enviar a primeira imagem de produto — o pior tipo de erro, porque
+> quem visse aquilo culparia a imagem, e não a configuração. Daí o valor ser explícito
+> no arquivo. Confirmado: a partir de `C:\wwwroot\api.lumimakeup.com.br`, `../imagens`
+> resolve para `C:\wwwroot\imagens`.
 
 Regras de validação no upload:
 
@@ -181,10 +189,11 @@ entidade, então o fluxo foi pensado desde o início.
 ## Ordem sugerida
 
 1. ~~**Imagens de produto**~~ — concluído (armazenamento local, ver acima).
-2. **Checkout e pedidos** — modelo de endereço já pronto (ver `05`); é o que gera
+2. ~~**Melhoria de texto com IA**~~ — concluído (ver acima).
+3. **Checkout e pedidos** — modelo de endereço já pronto (ver `05`); é o que gera
    receita.
-3. **WhatsApp** — curto, e melhora a percepção do cliente sobre o pedido.
-4. **Focus NFe** — por último, por envolver conformidade.
+4. **WhatsApp** — curto, e melhora a percepção do cliente sobre o pedido.
+5. **Focus NFe** — por último, por envolver conformidade.
 
 ---
 
