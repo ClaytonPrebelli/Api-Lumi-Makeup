@@ -262,7 +262,7 @@ jobs:
             **/.git*
             **/.git*/**
             **/*.pdb
-          timeout: 300000
+          timeout: 900000
           log-level: standard
 
       - name: Conferir a API
