@@ -273,8 +273,17 @@ public sealed class ArmazenamentoDeImagensLocalTests : IDisposable
     {
         var servico = Criar();
 
+        // O caminho tem que ser absoluto **para o sistema que roda o teste**.Um literal
+        // "C:/Windows/..." nao e absoluto no Linux: la vira um simples nome de pasta, o
+        // Path.Combine mantem a raiz, o prefixo bate e a excecao nunca vem. Montar com
+        // Path.GetTempPath() da um caminho absoluto real nos dois sistemas, que e o que
+        // a protecao precisa rejeitar.
+        var foraDaRaiz = Path.Combine(
+            Path.GetTempPath(),
+            $"fora-da-raiz-{Guid.NewGuid():N}.txt");
+
         var excecao = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            servico.ExcluirAsync("C:/Windows/System32/drivers/etc/hosts", CancellationToken.None));
+            servico.ExcluirAsync(foraDaRaiz, CancellationToken.None));
 
         Assert.Contains("inválido", excecao.Message);
     }
