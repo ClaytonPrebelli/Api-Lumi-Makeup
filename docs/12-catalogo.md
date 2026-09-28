@@ -16,11 +16,18 @@ categorias ativas, com as imagens ordenadas.
 | Método | Rota | Resposta |
 |---|---|---|
 | `GET` | `/api/produtos` | Lista de produtos ativos |
+| `GET` | `/api/produtos/destaques` | Lista de produtos ativos **e** marcados como destaque |
 | `GET` | `/api/produtos/{slug}` | Produto ou `404` |
 | `GET` | `/api/categorias` | Lista de categorias ativas |
 
 Rotas públicas, sem `[Authorize]`. A vitrine precisa funcionar para quem ainda não
 entrou na conta.
+
+O literal `destaques` convive com o `{slug}` na mesma rota porque **segmento literal tem
+precedência sobre segmento de parâmetro** no roteamento do ASP.NET Core. A ordem em que
+os métodos são declarados não muda nada — declarar o `{slug}` primeiro também funcionaria
+—, mas a diferença é invisível no código, e depender dela sem saber seria pedir para
+quebrar na próxima reordenação.
 
 ---
 
@@ -107,9 +114,9 @@ para quem consulta.
 
 | DTO | Conteúdo |
 |---|---|
-| `ProdutoDto` | Id, nome, slug, descrição, preço de venda, estoque, ativo, id da categoria, nome da categoria, imagens |
+| `ProdutoDto` | Id, nome, slug, descrição, preço de venda, preço promocional, estoque, ativo, destaque, id da categoria, nome da categoria, imagens |
 | `CategoriaDto` | Id, nome, slug, descrição, ativo |
-| `ImagemProdutoDto` | Id, URL, ordem |
+| `ImagemProdutoDto` | Id, caminho relativo, nome original, ordem |
 
 Os preços e o estoque chegam **prontos no DTO**. O mapeamento acontece na projeção da
 consulta, então o frontend nunca manipula entidade do domínio nem precisa saber como o
@@ -118,22 +125,35 @@ banco guarda o dado.
 `NomeCategoria` vem junto de `ProdutoDto` para evitar uma segunda chamada para
 montar o card do produto.
 
+`precoVenda` continua no DTO mesmo existindo `precoPromocional`, porque é o valor cheio
+e precisa aparecer riscado ao lado do promocional. Fora de promoção, quem manda é o de
+venda.
+
 > O preço de **custo** não vai ao DTO — é dado financeiro interno e não deve chegar ao
-> navegador.
+> navegador. Ele existe em `ProdutoAdministracaoDto`, que só sai pela rota de
+> administração: ver [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md).
+
+---
+
+## Uma projeção, três consultas
+
+`ObterProdutosAtivosAsync`, `ObterProdutoPorSlugAsync` e `ObterProdutosDestaqueAsync`
+usam a **mesma** `Expression<Func<Produto, ProdutoDto>>` privada. A lista de campos
+mudou uma vez — com a entrada do preço promocional e do destaque — e as três consultas
+precisaram mudar junto. Copiar a seleção três vezes é como a próxima mudança no DTO
+deixa de lembrar de uma delas.
 
 ---
 
 ## O que ainda não existe
 
-A API pública é **somente leitura**. A escrita existe, mas atrás de
+A API pública é **somente leitura**, e isso é definitivo: a escrita existe, mas atrás de
 `api/admin/produtos` e `api/admin/categorias`, protegidas pela policy
-`SomenteAdministrador`: criar, editar, ativar/desativar, remover, subir imagem (máximo
-de 3 por produto), reordenar e excluir — ver
-[`13-integracoes-pendentes.md`](13-integracoes-pendentes.md).
+`SomenteAdministrador` — ver [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md).
 
 Ainda falta:
 
+- **Paginação.** As duas listagens trazem tudo de uma vez.
 - Controle de estoque (entrada, saída e ajuste) — hoje `QuantidadeEstoque` é um número
   editável à mão.
-- A tela de administração no frontend.
 

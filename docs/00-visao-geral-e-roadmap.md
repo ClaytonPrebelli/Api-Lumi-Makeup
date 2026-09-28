@@ -38,7 +38,7 @@ LumiMakeup.Domain          entidades, enums — sem dependências externas
 LumiMakeup.Application     interfaces (abstrações) e DTOs
 LumiMakeup.Infrastructure  EF Core, serviços, segurança, integrações
 LumiMakeup.Api             controllers, composition root, Swagger, CORS
-LumiMakeup.Tests           169 testes automatizados
+LumiMakeup.Tests           294 testes automatizados
 ```
 
 A regra é sempre a mesma: **dependências apontam para dentro.**
@@ -61,6 +61,8 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 | 11 | Envio de e-mail transacional via SMTP | [`11-envio-de-email-smtp.md`](11-envio-de-email-smtp.md) |
 | 12 | Catálogo de produtos e categorias (leitura) | [`12-catalogo.md`](12-catalogo.md) |
 | 05 | Endereço de entrega próprio e imutável no pedido | [`05-enderecos-e-pedidos.md`](05-enderecos-e-pedidos.md) |
+| 15 | Gestão de produtos, categorias, imagens, preço promocional e destaque | [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md) |
+| 13 | Melhoria de texto com IA e armazenamento local de imagens | [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md) |
 
 ---
 
@@ -81,20 +83,19 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
 ### Em andamento
 
-**Tela de administração de produtos.** O backend está pronto: CRUD de produtos e
-categorias em `api/admin/*`, upload de até 3 imagens por produto com validação por
-conteúdo, reordenação e exclusão que apaga o arquivo do disco. As imagens vão para uma
-pasta irmã da aplicação, servida por `imagens.lumimakeup.com.br` (ver `13`).
-Falta a tela no frontend.
+Nada. A etapa de produtos foi fechada dos dois lados — API e painel — e a branch
+`feature/produtos` está pronta.
 
 ### Próximos
 
-- **Checkout.** Client-side do carrinho e criação do pedido na API. O modelo de
-  endereço do pedido já está pronto (ver `05`); falta o serviço de pedidos e o
-  cálculo de frete.
-- **Frete.** Cálculo no checkout usando `ConfiguracaoFrete`, com distância
-  geocodificada via Nominatim. No carrinho o frete aparece como "a calcular".
+- **Checkout e pedidos.** É o que gera receita, e é o que falta para a loja fechar a
+  volta. Client-side do carrinho e criação do pedido na API. O modelo de endereço do
+  pedido já está pronto (ver `05`).
+- **Controle de estoque.** Hoje `QuantidadeEstoque` é editável à mão. Entrada, saída e
+  ajuste são o que transformam o painel em operação.
 - **Gestão de endereços.** CRUD da agenda do usuário e reutilização no checkout.
+- **Cálculo de frete.** No checkout, usando `ConfiguracaoFrete`, com distância
+  geocodificada via Nominatim. No carrinho aparece como "a calcular".
 - **Emissão de nota fiscal.** Substituir `FocusNfeServiceStub` pela integração real.
 - **WhatsApp.** Substituir `WhatsAppServiceStub` pelo cliente Baileys.
 - **E-mail transacional.** Ampliar além do reset de senha (confirmação de pedido).
@@ -103,7 +104,16 @@ Falta a tela no frontend.
 
 ## Estado atual
 
-- 169 testes automatizados, todos passando.
-- Cobertura de **linhas em 100%**. Cobertura de branches em 93,5% — 8 branches
-  parciais, a maioria em caminhos de falha de integração externa.
+- **294 testes automatizados, todos passando.**
+- Cobertura de **linhas em 97,4%** e de **branches em 88,6%**. O detalhamento do que
+  ficou por fora está em [`14-testes-e-qualidade.md`](14-testes-e-qualidade.md) — o
+  número **caiu de 100%** com o código de produtos e ainda não foi fechado.
 - Migrations aplicadas manualmente — a API **não** migra o banco na inicialização.
+  Migrations novas: `20260927232105_ImagemProdutoComCaminhoRelativo` e
+  `20260928044006_PrecoPromocionalEDestaque`.
+- Os dois servidores rodam com a pasta de imagens em `../imagens`, para que o FTP não
+  sobrescreva as fotos ao publicar. Em desenvolvimento a API serve essa mesma pasta em
+  `/imagens`; em produção quem serve é `imagens.lumimakeup.com.br`, direto do disco.
+- **Deploy automático pela branch `deploy`** — testes, `dotnet publish` e envio por FTP
+  para `api.lumimakeup.com.br/`, com a API baixada pelo `app_offline.htm` antes de
+  sobrescrever as DLLs. Ver [`16-ci-cd-e-deploy.md`](16-ci-cd-e-deploy.md).

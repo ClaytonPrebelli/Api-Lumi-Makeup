@@ -34,8 +34,8 @@ src/LumiMakeup.Api/appsettings.*.local.json
 ```
 
 O `appsettings.Development.json` local guarda a connection string, o segredo do JWT,
-as credenciais de SMTP, a chave secreta do reCAPTCHA, o segredo do cliente Google e a
-senha do administrador de seed. Nada disso vai para o git.
+as credenciais de SMTP, a chave secreta do reCAPTCHA e o segredo do cliente Google.
+Nada disso vai para o git.
 
 > Ao adicionar uma chave nova em `appsettings.Development.json`, não a copie para
 > `appsettings.json`. Deixe a chave vazia no arquivo versionado.
@@ -94,8 +94,10 @@ desenvolvimento, `UrlBase` é `http://localhost:4200`.
 "Autenticacao": { "SeedAdministrador": { "Email": "...", "Senha": "..." } }
 ```
 
-Se ambos os campos estiverem preenchidos, o seed roda na inicialização. Sem eles, um
-aviso é registrado e nada acontece.
+> **Seção sem efeito.** O seed não roda mais na inicialização — o `Program.cs` não chama
+> o `DatabaseSeeder`. Ela fica aqui porque a chave continua sendo lida por quem for
+> usar o seeder à mão, e porque o `.gitignore` já separava `appsettings.Production.json`
+> por causa dela. Ver [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
 ### `ExternalServices`
 
@@ -144,8 +146,8 @@ Usada por `MelhoradorDeTextoOpenAiCompativel` para reescrever a descrição de u
 | Chave | Padrão | Papel |
 |---|---|---|
 | `Chave` | `""` | Chave do provedor. Sem ela, o botão informa que a IA não está configurada |
-| `UrlBase` | `https://api.groq.com/openai/v1` | Base compatível com a API da OpenAI |
-| `Modelo` | `openai/gpt-oss-120b` | Modelo chamado |
+| `UrlBase` | `https://openrouter.ai/api/v1` | Base compatível com a API da OpenAI |
+| `Modelo` | `nvidia/nemotron-3-ultra-550b-a55b:free` | Modelo chamado |
 | `Temperatura` | `0.3` | Baixa de propósito, para o modelo não inventar |
 | `MaximoDeTokens` | `1024` | teto da resposta |
 | `TimeoutEmSegundos` | `45` | Tempo limite da chamada |
@@ -153,22 +155,32 @@ Usada por `MelhoradorDeTextoOpenAiCompativel` para reescrever a descrição de u
 A chamada é sempre `POST {UrlBase}/chat/completions`, com a chave em
 `Authorization: Bearer`.
 
+> **`UrlBase` e `Chave` precisam concordar com o provedor.** A `Chave` é secret e vem do
+> GitHub, pelo secret `IA_CHAVE`; `UrlBase` e `Modelo` não são segredo e vivem aqui. Se os
+> dois divergirem, a chave de um provedor é enviada para a URL de outro e volta `401` —
+> que é o que aconteceu quando a chave era da OpenRouter e o padrão apontava para o Groq.
+> A chave de um provedor **não** funciona em outro, mesmo com o mesmo formato de API.
+
 ### Trocar de provedor
 
 Groq, OpenRouter, Cerebras e NVIDIA NIM falam o mesmo formato. Trocar de fornecedor é
-mudar **duas linhas de configuração**, sem tocar em código:
+mudar **duas linhas de configuração** neste arquivo, mais trocar o valor do secret
+`IA_CHAVE`, sem tocar em código:
 
 ```json
 "Ia": {
-  "Chave": "...",
-  "UrlBase": "https://openrouter.ai/api/v1",
-  "Modelo": "qwen/qwen3.8-27b"
+  "Chave": "",
+  "UrlBase": "https://api.groq.com/openai/v1",
+  "Modelo": "openai/gpt-oss-120b"
 }
 ```
 
 > **Atenção:** nomes de modelo mudam com frequência, e provedores removem modelos do
-> plano gratuito sem avisar. Por isso o modelo fica em configuração e nunca fixo no
-> código. A mensagem de erro traduz "modelo não existe" para o admin, que é o erro
+> plano gratuito sem avisar. O modelo atual é do plano gratuito do OpenRouter (sufixo
+> `:free`), o que serve para desenvolvimento e pode sumir a qualquer momento. Para
+> produção, um modelo pago é a diferença entre um botão que funciona e um botão que
+> precisa de alguém para arrumá-lo. Por isso o modelo fica em configuração e nunca fixo
+> no código — a mensagem de erro traduz "modelo não existe" para o admin, que é o erro
 > mais provável de um botão parado.
 
 > **Atenção à temperatura:** nunca use `0`. O Groq converte silenciosamente para

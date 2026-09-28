@@ -1,0 +1,311 @@
+name: Deploy da API
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-da-api
+  cancel-in-progress: false
+
+jobs:
+  testar:
+    name: Testes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar o .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restaurar
+        run: dotnet restore LumiMakeup.slnx
+
+      - name: Rodar os testes
+        run: >-
+          dotnet test LumiMakeup.slnx
+          -c Release
+          --no-restore
+          --logger "trx;LogFileName=testes.trx"
+          --results-directory Resultados
+
+      - name: Guardar o resultado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultado-dos-testes
+          path: Resultados/*.trx
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publicar:
+    name: Publicar
+    needs: testar
+    runs-on: windows-latest
+    steps:
+      - name: Obter o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar o .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publicar
+        run: dotnet publish src/LumiMakeup.Api/LumiMakeup.Api.csproj -c Release -o publicacao
+
+      - name: Conferir o artefato
+        shell: pwsh
+        run: |
+          foreach ($arquivo in @('LumiMakeup.Api.dll', 'LumiMakeup.Api.runtimeconfig.json', 'web.config')) {
+            if (-not (Test-Path "publicacao\$arquivo")) { throw "Faltou $arquivo na publicacao." }
+          }
+          if (Test-Path 'publicacao\appsettings.Production.json') {
+            throw 'appsettings.Production.json entrou no artefato. Os segredos ficam so no servidor.'
+          }
+          Write-Output "ok: $((Get-ChildItem publicacao -Recurse -File).Count) arquivos"
+
+      - name: Guardar o artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: publicacao
+          if-no-files-found: error
+          retention-days: 7
+
+  enviar:
+    name: Enviar para o servidor
+    needs: publicar
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - name: Baixar o artefato
+        uses: actions/download-artifact@v4
+        with:
+          name: api
+          path: artefato
+
+      - name: Conferir que o artefato nao trouxe segredo
+        run: |
+          if [ -e artefato/appsettings.Production.json ]; then
+            echo "::error::O artefato contem appsettings.Production.json. Chave no artifact fica exposta para quem le o repositorio."
+            exit 1
+          fi
+
+      - name: Montar o appsettings de producao
+        env:
+          BANCO_SERVIDOR: ${{ secrets.BANCO_SERVIDOR }}
+          BANCO_PORTA: ${{ secrets.BANCO_PORTA }}
+          BANCO_NOME: ${{ secrets.BANCO_NOME }}
+          BANCO_USUARIO: ${{ secrets.BANCO_USUARIO }}
+          BANCO_SENHA: ${{ secrets.BANCO_SENHA }}
+          BANCO_CHARSET: ${{ secrets.BANCO_CHARSET }}
+          BANCO_SSL: ${{ secrets.BANCO_SSL }}
+          BANCO_ALLOW_PUBLIC_KEY: ${{ secrets.BANCO_ALLOW_PUBLIC_KEY }}
+          JWT_SEGREDO: ${{ secrets.JWT_SEGREDO }}
+          RECAPTCHA_CHAVE_SECRETA: ${{ secrets.RECAPTCHA_CHAVE_SECRETA }}
+          IA_CHAVE: ${{ secrets.IA_CHAVE }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORTA: ${{ secrets.SMTP_PORTA }}
+          SMTP_USUARIO: ${{ secrets.SMTP_USUARIO }}
+          SMTP_SENHA: ${{ secrets.SMTP_SENHA }}
+          GOOGLE_SEGREDO_CLIENTE: ${{ secrets.GOOGLE_SEGREDO_CLIENTE }}
+          BREVO_CHAVE_API: ${{ secrets.BREVO_CHAVE_API }}
+          BAILEYS_SEGREDO_COMPARTILHADO: ${{ secrets.BAILEYS_SEGREDO_COMPARTILHADO }}
+          FOCUSNFE_ID_CLIENTE: ${{ secrets.FOCUSNFE_ID_CLIENTE }}
+          FOCUSNFE_SEGREDO_CLIENTE: ${{ secrets.FOCUSNFE_SEGREDO_CLIENTE }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+
+          def texto(nome):
+              return (os.environ.get(nome) or "").strip()
+
+          def segredo(nome):
+              return os.environ.get(nome) or ""
+
+          def obrigatorio(nome):
+              valor = texto(nome)
+              if not valor:
+                  sys.exit("::error::O secret " + nome + " nao esta cadastrado, e a API nao sobe sem ele.")
+              return valor
+
+          def segredo_obrigatorio(nome):
+              valor = segredo(nome)
+              if not valor.strip():
+                  sys.exit("::error::O secret " + nome + " nao esta cadastrado, e a API nao sobe sem ele.")
+              return valor
+
+          def numero(nome, padrao):
+              bruto = texto(nome)
+              if not bruto:
+                  return padrao
+              try:
+                  return int(bruto)
+              except ValueError:
+                  sys.exit("::error::O secret " + nome + " precisa ser um numero inteiro.")
+
+          def opcao(nome, padrao, aceitos):
+              valor = texto(nome) or padrao
+              if valor.lower() not in aceitos:
+                  sys.exit(
+                      "::error::O secret " + nome + " recebeu '" + valor
+                      + "'. Valores aceitos: " + ", ".join(sorted(aceitos)) + "."
+                  )
+              return valor
+
+          def aspas(valor):
+              if valor == "":
+                  return ""
+              precisa = any(c.isspace() or c in ';"' for c in valor)
+              if not precisa:
+                  return valor
+              return '"' + valor.replace('"', '""') + '"'
+
+          def montar_conexao():
+              partes = [
+                  "Server=" + aspas(obrigatorio("BANCO_SERVIDOR")),
+                  "Port=" + str(numero("BANCO_PORTA", 3306)),
+                  "Database=" + aspas(obrigatorio("BANCO_NOME")),
+                  "Uid=" + aspas(obrigatorio("BANCO_USUARIO")),
+                  "Pwd=" + aspas(segredo_obrigatorio("BANCO_SENHA")),
+                  "CharSet=" + aspas(texto("BANCO_CHARSET") or "utf8mb4"),
+                  "SslMode=" + opcao("BANCO_SSL", "Preferred", {
+                      "none", "disabled", "preferred", "required", "verifyca", "verifyfull"
+                  }),
+                  "AllowPublicKeyRetrieval=" + opcao("BANCO_ALLOW_PUBLIC_KEY", "true", {
+                      "true", "false"
+                  })
+              ]
+              return ";".join(partes) + ";"
+
+          configuracao = {
+              "ConnectionStrings": {
+                  "ConexaoPadrao": montar_conexao()
+              },
+              "Jwt": {
+                  "Segredo": segredo_obrigatorio("JWT_SEGREDO")
+              },
+              "ExternalServices": {
+                  "Recaptcha": {
+                      "ChaveSecreta": segredo("RECAPTCHA_CHAVE_SECRETA")
+                  },
+                  "Ia": {
+                      "Chave": segredo("IA_CHAVE")
+                  },
+                  "Smtp": {
+                      "Host": texto("SMTP_HOST"),
+                      "Porta": numero("SMTP_PORTA", 465),
+                      "Usuario": texto("SMTP_USUARIO"),
+                      "Senha": segredo("SMTP_SENHA")
+                  },
+                  "Google": {
+                      "SegredoCliente": segredo("GOOGLE_SEGREDO_CLIENTE")
+                  },
+                  "Brevo": {
+                      "ChaveApi": segredo("BREVO_CHAVE_API")
+                  },
+                  "Baileys": {
+                      "SegredoCompartilhado": segredo("BAILEYS_SEGREDO_COMPARTILHADO")
+                  },
+                  "FocusNfe": {
+                      "IdCliente": segredo("FOCUSNFE_ID_CLIENTE"),
+                      "SegredoCliente": segredo("FOCUSNFE_SEGREDO_CLIENTE")
+                  }
+              }
+          }
+
+          with open("artefato/appsettings.Production.json", "w", encoding="utf-8") as arquivo:
+              json.dump(configuracao, arquivo, indent=2, ensure_ascii=False)
+              arquivo.write("\n")
+
+          print("ok: appsettings.Production.json gerado.")
+          PY
+
+      - name: Preparar a pagina de manutencao
+        run: |
+          mkdir -p manutencao
+          cp .github/deploy/app_offline.htm manutencao/app_offline.htm
+
+      - name: Conferir os segredos do FTP
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          faltando=""
+          [ -n "$FTP_HOST" ] || faltando="$faltando FTP_HOST"
+          [ -n "$FTP_USERNAME" ] || faltando="$faltando FTP_USERNAME"
+          [ -n "$FTP_PASSWORD" ] || faltando="$faltando FTP_PASSWORD"
+          if [ -n "$faltando" ]; then
+            echo "::error::Secret nao cadastrado neste repositorio:$faltando"
+            echo "Settings -> Secrets and variables -> Actions -> aba Repository secrets."
+            echo "Nao e a aba Repository variables: la o valor chega vazio."
+            exit 1
+          fi
+          echo "ok: os tres segredos do FTP estao cadastrados"
+
+      - name: Baixar a API
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || '21' }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          local-dir: manutencao/
+          server-dir: ${{ secrets.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
+          timeout: 120000
+          log-level: standard
+
+      - name: Esperar a API parar
+        env:
+          ENDERECO: ${{ secrets.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
+        run: |
+          for tentativa in $(seq 1 30); do
+            if curl --silent --max-time 5 "$ENDERECO/api/saude" | grep --quiet 'atualizando a loja'; then
+              echo "A API parou."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::warning::A API nao confirmou que parou. Seguindo mesmo assim; se o envio falhar com 'arquivo em uso', recicle o pool de aplicacoes."
+
+      - name: Enviar a publicacao
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || '21' }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          local-dir: artefato/
+          server-dir: ${{ secrets.DIRETORIO_DA_API || 'api.lumimakeup.com.br/' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/*.pdb
+          timeout: 300000
+          log-level: standard
+
+      - name: Conferir a API
+        env:
+          ENDERECO: ${{ secrets.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
+        run: |
+          for tentativa in $(seq 1 30); do
+            if curl --fail --silent --max-time 10 "$ENDERECO/api/saude" | grep --quiet '"status":"ok"'; then
+              echo "ok: a API respondeu ao health check."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::A API nao voltou depois do deploy. Se a pagina de manutencao continua no servidor, apague o app_offline.htm de dentro da pasta da API no IIS."
+          exit 1

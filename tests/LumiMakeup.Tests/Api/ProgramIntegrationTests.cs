@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using LumiMakeup.Domain.Enums;
 using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -43,9 +42,9 @@ public class ProgramIntegrationTests
             });
         }
 
-        public static Dictionary<string, string?> CriarConfiguracao(bool comSeed = true)
+        public static Dictionary<string, string?> CriarConfiguracao()
         {
-            var valores = new Dictionary<string, string?>
+            return new Dictionary<string, string?>
             {
                 ["ConnectionStrings:ConexaoPadrao"] = "Server=localhost;Database=lumimake_testes;User=root;Password=pwd;AllowPublicKeyRetrieval=True;",
                 ["Jwt:Segredo"] = "chave-secreta-super-segura-com-mais-de-32-bytes-0123456789",
@@ -53,19 +52,6 @@ public class ProgramIntegrationTests
                 ["Jwt:Audiencia"] = "lumi-makeup-testes",
                 ["Cors:OrigensPermitidas"] = "http://localhost:4200,http://localhost:5173"
             };
-
-            if (comSeed)
-            {
-                valores["Autenticacao:SeedAdministrador:Email"] = "admin@lumimakeup.com.br";
-                valores["Autenticacao:SeedAdministrador:Senha"] = "Admin@2026!";
-            }
-            else
-            {
-                valores["Autenticacao:SeedAdministrador:Email"] = string.Empty;
-                valores["Autenticacao:SeedAdministrador:Senha"] = string.Empty;
-            }
-
-            return valores;
         }
     }
 
@@ -121,9 +107,7 @@ public class ProgramIntegrationTests
             ["ConnectionStrings:ConexaoPadrao"] = "Server=localhost;Database=lumimake_testes;User=root;Password=pwd;",
             ["Jwt:Segredo"] = "chave-secreta-super-segura-com-mais-de-32-bytes-0123456789",
             ["Jwt:Emissor"] = "lumi-makeup",
-            ["Jwt:Audiencia"] = "lumi-makeup-testes",
-            ["Autenticacao:SeedAdministrador:Email"] = string.Empty,
-            ["Autenticacao:SeedAdministrador:Senha"] = string.Empty
+            ["Jwt:Audiencia"] = "lumi-makeup-testes"
         };
 
         using var fabrica = new FabricaDeTeste(configuracoes, ambiente: "Production");
@@ -132,30 +116,5 @@ public class ProgramIntegrationTests
         var resposta = await cliente.GetAsync("/api/saude");
 
         Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
-    }
-
-    [Fact]
-    public async Task Com_seed_configurado_cria_administrador()
-    {
-        using var fabrica = new FabricaDeTeste(FabricaDeTeste.CriarConfiguracao(comSeed: true));
-        using var escopo = fabrica.Services.CreateScope();
-        var contexto = escopo.ServiceProvider.GetRequiredService<LumiDbContext>();
-
-        var administrador = await contexto.Usuarios.SingleAsync(u => u.Papel == PapelUsuario.Administrador);
-
-        Assert.Equal("admin@lumimakeup.com.br", administrador.Email);
-        Assert.NotNull(administrador.HashSenha);
-    }
-
-    [Fact]
-    public async Task Sem_seed_configurado_nao_cria_administrador()
-    {
-        using var fabrica = new FabricaDeTeste(FabricaDeTeste.CriarConfiguracao(comSeed: false));
-        using var escopo = fabrica.Services.CreateScope();
-        var contexto = escopo.ServiceProvider.GetRequiredService<LumiDbContext>();
-
-        var quantidadeDeAdministradores = await contexto.Usuarios.CountAsync(u => u.Papel == PapelUsuario.Administrador);
-
-        Assert.Equal(0, quantidadeDeAdministradores);
     }
 }

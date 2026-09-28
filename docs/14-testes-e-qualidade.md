@@ -15,11 +15,17 @@ capaz de rodar sem banco de dados e sem rede.
 
 | Métrica | Valor |
 |---|---|
-| Testes | **169**, todos passando |
-| Cobertura de linhas | **100%** |
-| Cobertura de branches | 93,5% (8 branches parciais) |
+| Testes | **294**, todos passando |
+| Cobertura de linhas | **97,4%** |
+| Cobertura de branches | **88,6%** |
 | Banco necessário | nenhum |
 | Rede necessária | nenhuma |
+
+> A cobertura de linhas **caiu de 100%** com o código de produtos. Não foi uma
+> regressão de qualidade dos testes: os 127 testes novos vieram, e o que ficou por
+> fora é o mapeamento de exceção dos controllers novos. Está detalhado em
+> [Branches e linhas parciais restantes](#branches-e-linhas-parciais-restantes), e é a
+> dívida conhecida desta etapa.
 
 ---
 
@@ -88,7 +94,9 @@ Para essas regras seria preciso um banco real.
 | `RecaptchaValidator` | Score, token ausente, resposta de erro |
 | `ViaCepService` | CEP normalizado, CEP inválido, falha de rede |
 | `NominatimService` | Geocodificação |
-| `CatalogoService` | Filtro de ativos, ordenação de imagens, slug inexistente |
+| `CatalogoService` | Filtro de ativos, ordenação de imagens, slug inexistente, destaques |
+| `GestaoDeProdutosService` | Slug, validações, promoção, imagens, reordenação, exclusão |
+| `GestaoDeCategoriasService` | Slug, descrição vazia, exclusão com produto vinculado |
 | `LumiDbContext` | Modelo válido, configurações aplicadas |
 | `DependencyInjection` | Registro de serviços, connection string ausente |
 
@@ -101,12 +109,58 @@ Para essas regras seria preciso um banco real.
 - Score de reCAPTCHA abaixo e acima do limite.
 - Chave secreta de reCAPTCHA ausente — degrada para "aceitar".
 - SMTP não configurado — registro do `EmailSenderStub`.
+- Slug duplicado, com símbolo e a partir de nome que não gera texto útil.
+- Categoria **inativa** recusada como destino de produto.
+- Preço promocional nulo, negativo, igual e maior que o de venda.
+- Reordenação de imagens com conjunto divergente e com ids duplicados.
+- Imagem cujo registro pertence a outro produto.
+- Produto com flag de destaque e inativo **fora** dos destaques.
+- Arquivo com extensão `.png` mas assinatura de JPEG — a extensão gravada é a do
+  conteúdo.
 
 ---
 
-## Cobertura de linhas em 100%
+## Branches e linhas parciais restantes
 
-Atingir 100% exigiu marcar explicitamente o que não tem como ser testado:
+O número de 100% de linhas era verdade até a etapa de produtos e **não é mais**. O que
+ficou descoberto, medido com o comando de cobertura desta doc:
+
+| Local | Linhas | Motivo |
+|---|---|---|
+| `ProdutosController` | 75% | linhas 26–29: o `return Ok` do endpoint de destaques. Nenhum teste exercita controller |
+| `AdminProdutosController` | 87,9% | linhas 102–116 (os `catch` de `MelhorarTexto` e upload) e 140 (o `CreatedAtAction` da criação) |
+| `ArmazenamentoDeImagensLocal` | 91,4% | limpeza do arquivo em falha de gravação (92), cabeçalho menor que a assinatura (192–193), pasta e nome original vazios (236, 254), e os dois `catch` de `File.Delete` (277–285) |
+| `DependencyInjection` | 93% | linhas 65–68: registro das integrações sem configuração |
+| `DtosDeDominio` | 93,5% | linhas 20–21, 41 e 43: construtores que nenhuma prova usa |
+| `GestaoDeProdutosService` | 95,5% | o `catch` de `DbUpdateException` na exclusão (113–116), a limpeza do arquivo quando o `SaveChanges` falha (158–161) e o slug com base vazia (300–302) |
+| `Program` | 95,1% | o registro de arquivos estáticos em desenvolvimento: `CaminhoBase` vazio (115–116) e a criação da pasta (122–124) |
+
+Há duas linhas nessa lista que **não** deveriam estar descobertas, e são a mesma
+história: `ComecaCom` com cabeçalho menor que a assinatura e `SanearNomeOriginal` com
+nome vazio têm teste correspondente no arquivo
+`ArmazenamentoDeImagensLocalTests.cs`. Ou o teste não chega na linha, ou a linha
+reportada está deslocada. Fechar a meta de cobertura exige resolver isso primeiro — e é
+exatamente o tipo de coisa que a meta de 100% servia para expor.
+
+A parte que **não** é só origem de teste é a dos `catch` dos controllers: eles traduzem
+exceção em status HTTP, e status errado é contrato de API. A suíte cobre a exceção no
+service, mas não a tradução. Fechar isso exige teste de controller, e o projeto não tem
+biblioteca de teste de integração — decisão que valia para 169 testes e começa a pesar
+em 294.
+
+Branches: 88,6% no total, e os parciais antigos continuam valendo:
+
+| Local | Motivo |
+|---|---|
+| `AutenticacaoService` linha 222 | `usuario.Enderecos?` nulo — só em entidade sem `Include` |
+| `CadastrarAsync` linha 41 | Nome vazio do Google, ou `TokenRecaptcha` nulo |
+| `JwtTokenService` 93–94 | `JwtRegisteredClaimNames.Typ` / `Sub` ausentes num token forjado |
+| `RecaptchaValidator` 60, 62 | Resposta sem score, e múltiplos códigos de erro |
+| `MelhoradorDeTextoOpenAiCompativel` | formato de resposta inesperado do provedor de IA |
+| `Program` 49, 64 | `Cors:OrigensPermitidas` ausente, e JWT sem `Segredo` configurado |
+| `Program` 114, 121 | `CaminhoBase` vazio e pasta de imagens já existente |
+
+### O que foi marcado como não testável
 
 ```csharp
 [ExcludeFromCodeCoverage]
@@ -122,22 +176,6 @@ isso ele aparecia como 11 linhas descobertas: inalcançável a partir de um mét
 excluído, impossível de cobrir por teste unitário. A exclusão precisa acompanhar o
 caminho de chamada inteiro, não só a entrada.
 
-### Branches parciais restantes
-
-8 branches não ficam em 100%, quase todos em caminhos de falha:
-
-| Local | Motivo |
-|---|---|
-| `AutenticacaoService` linha 222 | `usuario.Enderecos?` nulo — só em entidade sem `Include` |
-| `CadastrarAsync` linha 41 | Nome vazio do Google, ou `TokenRecaptcha` nulo |
-| `JwtTokenService` 93–94 | `JwtRegisteredClaimNames.Typ` / `Sub` ausentes num token forjado |
-| `RecaptchaValidator` 60, 62 | Resposta sem score, e múltiplos códigos de erro |
-| `Program` 48, 63 | Blocos de seed e perfil de ambiente |
-
-Fechar esses 8 exigiria testes que dependem de estado anômalo de biblioteca externa ou
-de configuração — custo alto, valor baixo. A cobertura de linhas em 100% é a meta
-prática; branches ficam como indicador, não como obrigação.
-
 ---
 
 ## O que não é testado
@@ -147,8 +185,10 @@ prática; branches ficam como indicador, não como obrigação.
 | Migrations | Geradas por tooling; exigiria banco real |
 | `Program.cs` (composition root) | Precisa de aplicação de pé |
 | Construtores e getters vazios | Sem comportamento a verificar |
-| Controllers | Cobertos indiretamente pelo service, exceto o mapeamento de exceção |
+| Mapeamento de exceção dos controllers | Ver [acima](#branches-e-linhas-parciais-restantes) |
 | Constraints do MySQL | O provider InMemory não as aplica |
+| `Restrict` na exclusão de produto e de item de pedido | O InMemory não aplica restrição de FK; a exceção nunca acontece no teste |
+| Arquivo bloqueado ou sem permissão ao excluir | Os dois `catch` de `File.Delete` só-discos não são alcançáveis com pasta temporária |
 
 O teste de `EntidadesTests` é a exceção que prova a regra: ele instancia
 `new Pedido()` e confere cada propriedade. Getters de entidade não têm lógica, mas o
@@ -175,3 +215,12 @@ muda, ele está testando coisa errada.
 **Toda exception tem caminho de teste.** `InvalidOperationException` e
 `UnauthorizedAccessException` são contrato de API — cada mensagem que o controller
 traduz em 4xx precisa de teste.
+
+> E o par do teste: a exceção é testada no service, e a **tradução** dela em status HTTP
+> precisa de teste no controller. Testar a exceção sem testar a tradução deixa a camada
+> que o cliente realmente vê sem cobertura nenhuma — foi assim que a cobertura de linha
+> caiu ao entrar o CRUD de produtos.
+
+**Teste a regra, não o exemplo.** "Recusa quando a categoria está inativa" vale mais do
+que "recusa quando a categoria 7 está inativa": a primeira continua valendo quando o id
+muda.
