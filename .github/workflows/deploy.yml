@@ -235,6 +235,24 @@ jobs:
           mkdir -p manutencao
           cp .github/deploy/app_offline.htm manutencao/app_offline.htm
 
+      - name: Conferir os segredos do FTP
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          faltando=""
+          [ -n "$FTP_HOST" ] || faltando="$faltando FTP_HOST"
+          [ -n "$FTP_USERNAME" ] || faltando="$faltando FTP_USERNAME"
+          [ -n "$FTP_PASSWORD" ] || faltando="$faltando FTP_PASSWORD"
+          if [ -n "$faltando" ]; then
+            echo "::error::Secret nao cadastrado neste repositorio:$faltando"
+            echo "Settings -> Secrets and variables -> Actions -> aba Repository secrets."
+            echo "Nao e a aba Repository variables: la o valor chega vazio."
+            exit 1
+          fi
+          echo "ok: os tres segredos do FTP estao cadastrados"
+
       - name: Baixar a API
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
