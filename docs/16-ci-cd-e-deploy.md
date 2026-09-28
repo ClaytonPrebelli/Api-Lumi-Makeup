@@ -1,13 +1,18 @@
 # 16 - CI/CD e deploy
 
 A API é publicada em **produção** pela action `.github/workflows/deploy.yml`, que roda a
-cada **push na branch `deploy`**. O destino é a pasta `api.lumimakeup.com.br/`, servida
+cada **push na branch `main`**. O destino é a pasta `api.lumimakeup.com.br/`, servida
 pelo **IIS** com o ASP.NET Core Module.
+
+> **O workflow precisa existir na `main` para o push na `main` disparar ele.** O GitHub
+> procura os workflows no ref que está sendo enviado, não em qualquer branch. Enquanto o
+> arquivo morar só na `deploy`, trocar o gatilho para `main` não dispara nada — é o
+> motivo de o primeiro merge da `deploy` na `main` ser obrigatório, e não opcional.
 
 ## Fluxo
 
 ```
-push na branch deploy
+push na branch main
    └─ testar     dotnet test -> 294 testes
         └─ publicar    dotnet publish -c Release -> publicacao/
              └─ enviar   FTP em duas passadas -> health check

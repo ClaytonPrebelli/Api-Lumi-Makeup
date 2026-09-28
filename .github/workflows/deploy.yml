@@ -3,7 +3,7 @@ name: Deploy da API
 on:
   push:
     branches:
-      - deploy
+      - main
   workflow_dispatch:
 
 permissions:
