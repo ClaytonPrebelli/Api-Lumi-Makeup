@@ -72,7 +72,7 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 | 02 | [`02-configuracao-e-ambiente.md`](02-configuracao-e-ambiente.md) | `appsettings.json`, seções de configuração, seed |
 | 03 | [`03-nomenclatura-e-padronizacao.md`](03-nomenclatura-e-padronizacao.md) | Português no código, enums como string |
 | 04 | [`04-banco-de-dados-e-ef-core.md`](04-banco-de-dados-e-ef-core.md) | `LumiDbContext`, configurações, migrations |
-| 13 | [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md) | Stubs de Cloudinary, WhatsApp, Focus NFe |
+| 13 | [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md) | Stubs de WhatsApp e Focus NFe; armazenamento local de imagens |
 | 14 | [`14-testes-e-qualidade.md`](14-testes-e-qualidade.md) | Estratégia de testes e cobertura |
 
 ---
@@ -81,10 +81,11 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
 ### Em andamento
 
-**CRUD de produtos com imagens (Cloudinary).**
-`ICloudinaryService` já existe, mas a implementação é um stub. Falta:
-implementação real com upload assinado, endpoints de escrita, edição de produto
-e a tela de administração.
+**Tela de administração de produtos.** O backend está pronto: CRUD de produtos e
+categorias em `api/admin/*`, upload de até 3 imagens por produto com validação por
+conteúdo, reordenação e exclusão que apaga o arquivo do disco. As imagens vão para uma
+pasta irmã da aplicação, servida por `imagens.lumimakeup.com.br` (ver `13`).
+Falta a tela no frontend.
 
 ### Próximos
 

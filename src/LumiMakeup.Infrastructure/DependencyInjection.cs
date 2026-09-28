@@ -60,7 +60,8 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://www.google.com/");
         });
         services.Configure<RecaptchaOptions>(configuration.GetSection("ExternalServices:Recaptcha"));
-        services.AddScoped<ICloudinaryService, CloudinaryServiceStub>();
+        services.Configure<ArmazenamentoDeImagensOptions>(configuration.GetSection("ArmazenamentoDeImagens"));
+        services.AddScoped<IArmazenamentoDeImagens, ArmazenamentoDeImagensLocal>();
         services.AddScoped<IWhatsAppService, WhatsAppServiceStub>();
         services.AddScoped<IFocusNfeService, FocusNfeServiceStub>();
 
@@ -68,6 +69,8 @@ public static class DependencyInjection
         services.AddScoped<IRecuperacaoDeSenhaService, RecuperacaoDeSenhaService>();
 
         services.AddScoped<ICatalogoService, CatalogoService>();
+        services.AddScoped<IGestaoDeProdutosService, GestaoDeProdutosService>();
+        services.AddScoped<IGestaoDeCategoriasService, GestaoDeCategoriasService>();
 
         services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
         services.Configure<TokenJwtOptions>(configuration.GetSection("Jwt"));

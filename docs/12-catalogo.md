@@ -125,9 +125,15 @@ montar o card do produto.
 
 ## O que ainda não existe
 
-A API é **somente leitura**. Não há criação, edição, remoção, upload de imagem, nem
-controle de estoque. `ICloudinaryService` existe com implementação stub — ver
+A API pública é **somente leitura**. A escrita existe, mas atrás de
+`api/admin/produtos` e `api/admin/categorias`, protegidas pela policy
+`SomenteAdministrador`: criar, editar, ativar/desativar, remover, subir imagem (máximo
+de 3 por produto), reordenar e excluir — ver
 [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md).
 
-O CRUD de produtos com imagens é a próxima grande entrega, e é o que vai popular de
-verdade a vitrine.
+Ainda falta:
+
+- Controle de estoque (entrada, saída e ajuste) — hoje `QuantidadeEstoque` é um número
+  editável à mão.
+- A tela de administração no frontend.
+

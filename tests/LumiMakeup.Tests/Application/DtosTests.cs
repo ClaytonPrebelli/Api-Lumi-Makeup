@@ -132,17 +132,18 @@ public class DtosTests
     [Fact]
     public void ImagemProdutoDto_armazena_valores()
     {
-        var dto = new ImagemProdutoDto(1, "https://cdn.example.com/foto.jpg", 2);
+        var dto = new ImagemProdutoDto(1, "produtos/foto.jpg", "foto.jpg", 2);
 
         Assert.Equal(1, dto.Id);
-        Assert.Equal("https://cdn.example.com/foto.jpg", dto.UrlImagem);
+        Assert.Equal("produtos/foto.jpg", dto.CaminhoRelativo);
+        Assert.Equal("foto.jpg", dto.NomeOriginal);
         Assert.Equal(2, dto.Ordem);
     }
 
     [Fact]
     public void ProdutoDto_armazena_valores()
     {
-        var imagens = new List<ImagemProdutoDto> { new(1, "https://cdn.example.com/foto.jpg", 1) };
+        var imagens = new List<ImagemProdutoDto> { new(1, "produtos/foto.jpg", "foto.jpg", 1) };
         var dto = new ProdutoDto(1, "Batom", "batom", "Batom vermelho", 39.9m, 5, true, 1, "Bases", imagens);
 
         Assert.Equal(1, dto.Id);

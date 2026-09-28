@@ -42,7 +42,7 @@ public sealed class CatalogoService : ICatalogoService
                 p.Categoria.Nome,
                 p.Imagens
                     .OrderBy(i => i.Ordem)
-                    .Select(i => new ImagemProdutoDto(i.Id, i.UrlImagem, i.Ordem))
+                    .Select(i => new ImagemProdutoDto(i.Id, i.CaminhoRelativo, i.NomeOriginal, i.Ordem))
                     .ToList()))
             .ToListAsync(cancellationToken);
     }
@@ -64,7 +64,7 @@ public sealed class CatalogoService : ICatalogoService
                 p.Categoria.Nome,
                 p.Imagens
                     .OrderBy(i => i.Ordem)
-                    .Select(i => new ImagemProdutoDto(i.Id, i.UrlImagem, i.Ordem))
+                    .Select(i => new ImagemProdutoDto(i.Id, i.CaminhoRelativo, i.NomeOriginal, i.Ordem))
                     .ToList()))
             .SingleOrDefaultAsync(cancellationToken);
     }

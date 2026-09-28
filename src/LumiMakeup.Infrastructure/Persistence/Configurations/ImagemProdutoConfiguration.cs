@@ -11,7 +11,8 @@ public class ImagemProdutoConfiguration : IEntityTypeConfiguration<ImagemProduto
         builder.ToTable("imagens_produto");
         builder.HasKey(i => i.Id);
 
-        builder.Property(i => i.UrlImagem).HasMaxLength(500).IsRequired();
+        builder.Property(i => i.CaminhoRelativo).HasMaxLength(500).IsRequired();
+        builder.Property(i => i.NomeOriginal).HasMaxLength(255).IsRequired();
         builder.Property(i => i.Ordem).HasColumnType("int");
 
         builder.HasOne(i => i.Produto)

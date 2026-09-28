@@ -126,14 +126,16 @@ public class EntidadesTests
         {
             Id = 6,
             ProdutoId = 7,
-            UrlImagem = "https://cdn.example.com/foto.jpg",
+            CaminhoRelativo = "produtos/foto.jpg",
+            NomeOriginal = "foto.jpg",
             Ordem = 1,
             Produto = new Produto()
         };
 
         Assert.Equal(6, imagem.Id);
         Assert.Equal(7, imagem.ProdutoId);
-        Assert.Equal("https://cdn.example.com/foto.jpg", imagem.UrlImagem);
+        Assert.Equal("produtos/foto.jpg", imagem.CaminhoRelativo);
+        Assert.Equal("foto.jpg", imagem.NomeOriginal);
         Assert.Equal(1, imagem.Ordem);
         Assert.NotNull(imagem.Produto);
     }

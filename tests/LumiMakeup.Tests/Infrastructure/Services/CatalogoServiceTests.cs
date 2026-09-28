@@ -56,8 +56,8 @@ public class CatalogoServiceTests
             CategoriaId = categoria.Id,
             Categoria = categoria
         };
-        produto.Imagens.Add(new ImagemProduto { UrlImagem = "https://cdn.example.com/1.jpg", Ordem = 2 });
-        produto.Imagens.Add(new ImagemProduto { UrlImagem = "https://cdn.example.com/0.jpg", Ordem = 1 });
+        produto.Imagens.Add(new ImagemProduto { CaminhoRelativo = "produtos/1.jpg", NomeOriginal = "1.jpg", Ordem = 2 });
+        produto.Imagens.Add(new ImagemProduto { CaminhoRelativo = "produtos/0.jpg", NomeOriginal = "0.jpg", Ordem = 1 });
         contexto.Produtos.Add(produto);
         contexto.Produtos.Add(new Produto { Nome = "Inativo", Slug = "inativo", Descricao = "", Ativo = false, Categoria = categoria, CategoriaId = categoria.Id });
         await contexto.SaveChangesAsync();
@@ -74,9 +74,9 @@ public class CatalogoServiceTests
         Assert.Equal(categoria.Id, produtoDto.CategoriaId);
         Assert.Equal("Bases", produtoDto.NomeCategoria);
         Assert.Equal(2, produtoDto.Imagens.Count);
-        Assert.Equal("https://cdn.example.com/0.jpg", produtoDto.Imagens[0].UrlImagem);
+        Assert.Equal("produtos/0.jpg", produtoDto.Imagens[0].CaminhoRelativo);
         Assert.Equal(1, produtoDto.Imagens[0].Ordem);
-        Assert.Equal("https://cdn.example.com/1.jpg", produtoDto.Imagens[1].UrlImagem);
+        Assert.Equal("produtos/1.jpg", produtoDto.Imagens[1].CaminhoRelativo);
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class CatalogoServiceTests
             CategoriaId = categoria.Id,
             Categoria = categoria
         };
-        produto.Imagens.Add(new ImagemProduto { UrlImagem = "https://cdn.example.com/foto.jpg", Ordem = 0 });
+        produto.Imagens.Add(new ImagemProduto { CaminhoRelativo = "produtos/foto.jpg", NomeOriginal = "foto.jpg", Ordem = 0 });
         contexto.Produtos.Add(produto);
         await contexto.SaveChangesAsync();
 
@@ -119,7 +119,7 @@ public class CatalogoServiceTests
         Assert.Equal("Corretivo", resultado!.Nome);
         Assert.Equal("Bases", resultado.NomeCategoria);
         var imagem = Assert.Single(resultado.Imagens);
-        Assert.Equal("https://cdn.example.com/foto.jpg", imagem.UrlImagem);
+        Assert.Equal("produtos/foto.jpg", imagem.CaminhoRelativo);
     }
 
     [Fact]

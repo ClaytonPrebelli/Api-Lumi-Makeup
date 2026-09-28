@@ -14,7 +14,6 @@ que ninguém trate stub como funcionalidade pronta.
 ## Stubs registrados
 
 ```csharp
-services.AddScoped<ICloudinaryService, CloudinaryServiceStub>();
 services.AddScoped<IWhatsAppService, WhatsAppServiceStub>();
 services.AddScoped<IFocusNfeService, FocusNfeServiceStub>();
 ```
@@ -25,40 +24,67 @@ existem em `DependencyInjection.cs`. Só a implementação real falta.
 Um stub responde e registra a chamada em log, sem falar com o serviço externo. Isso
 mantém a API compilando e o fluxo executável, mas **nada chega ao destino real**.
 
-> Atenção ao `CloudinaryServiceStub`: ele **devolve uma URL de placeholder** em vez de
-> falhar. O código que chama o upload recebe uma string válida e segue como se tivesse
-> sido feito. Só o `LogWarning` denuncia. É o stub mais enganoso do projeto.
-
 | Integração | Interface | Usada hoje por | Bloqueia |
 |---|---|---|---|
-| Cloudinary | `ICloudinaryService` | nada | CRUD de produtos |
 | WhatsApp (Baileys) | `IWhatsAppService` | nada | avisos de pedido |
 | Focus NFe | `IFocusNfeService` | nada | emissão de nota fiscal |
 | Brevo | — | **nada** | não integrado (ver `02`) |
 
 ---
 
-## Cloudinary — imagens de produto
+## Imagens de produto — armazenamento local (implementado)
 
-É a próxima entrega e a que trava a vitrine. Hoje `ImagemProduto` existe no modelo e as
-URLs vêm do banco, mas não há como cadastrar uma imagem.
+A vitrine deixou de depender de Cloudinary. As imagens ficam no próprio servidor, em uma
+pasta **irmã** da aplicação, para que o deploy via FTP nunca as sobrescreva:
 
-Falta implementar:
+```
+root/
+├── api.lumimakeup.com.br/    → publicação da API
+└── imagens/                  → fora do deploy
+```
 
-1. **Upload assinado.** O `CloudinaryService` precisa gerar uma assinatura
-   (`timestamp` + `api_secret` em SHA-1) para que cada upload seja autorizado.
-2. **Endpoint de upload** que devolva a URL pública e salve `ImagemProduto` com a
-   `Ordem` correspondente.
-3. **Endpoint de exclusão** que remova o asset do Cloudinary e o registro.
-4. **CRUD de produtos** — criar, editar, ativar/desativar, com as imagens.
-5. **Tela de administração** no frontend.
+A leitura pública acontece por `imagens.lumimakeup.com.br`, que aponta via DNS para a
+pasta `imagens`. O upload passa pela API (para autenticar e validar); a leitura é servida
+diretamente pelo servidor web, sem passar pelo app server.
 
-As chaves já têm lugar reservado em `ExternalServices:Cloudinary`
-(`NomeNuvem`, `ChaveApi`, `SegredoApi`).
+O banco guarda apenas o **caminho relativo** (`produtos/abc123.jpg`), nunca o caminho
+absoluto do servidor, então o dado continua válido se a estrutura mudar.
 
-> A assinatura é calculada no servidor justamente para que `api_secret` não vá para o
-> navegador. O mesmo cuidado do reCAPTCHA: qualquer segredo que assine requisição é
-> responsabilidade do backend.
+| Camada | Onde |
+|---|---|
+| Contrato | `IArmazenamentoDeImagens` em `Application/Abstractions/IIntegrations.cs` |
+| Implementação | `ArmazenamentoDeImagensLocal` em `Infrastructure/Integrations` |
+| CRUD de produtos/categorias | `GestaoDeProdutosService`, `GestaoDeCategoriasService` |
+| Rotas | `api/admin/produtos`, `api/admin/categorias` (exigem `SomenteAdministrador`) |
+
+Configuração em `ArmazenamentoDeImagens`:
+
+| Chave | Padrão | Papel |
+|---|---|---|
+| `CaminhoBase` | `""` | **obrigatória**. Absoluta em produção; relativa ao *content root* localmente |
+| `PastaPadrao` | `produtos` | subpasta dentro de `CaminhoBase` |
+| `TamanhoMaximoEmBytes` | `5242880` | 5 MB |
+| `ExtensoesPermitidas` | `jpg`, `jpeg`, `png` | extensões liberadas |
+
+Regras de validação no upload:
+
+- **O formato é decidido pelo conteúdo, não pelo nome.** Os primeiros bytes são
+  comparados com as assinaturas de JPEG (`FF D8 FF`) e PNG (`89 50 4E 47 0D 0A 1A 0A`).
+  Um `.png` disfarçado é recusado com 400.
+- A extensão do arquivo gravado vem do formato detectado, nunca da enviada.
+- O nome do arquivo é um GUID gerado pelo servidor. O nome original é saneado e
+  guardado em `NomeOriginal` só para exibição.
+- Toda gravação passa por `ResolverCaminhoSeguro`, que rejeita `..` e qualquer caminho
+  que resolved para fora de `CaminhoBase`.
+- Máximo de **3 imagens por produto**.
+- Excluir imagem ou produto apaga o arquivo do disco; se o `SaveChanges` falhar depois
+  de gravar, o arquivo é removido para não deixar órfão.
+
+> **Obrigatório no servidor:** desabilitar execução de scripts na pasta `imagens`.
+> Sem isso, um `.aspx`/`.php` enviado por uma sessão comprometida seria executado.
+> Isso é configuração do servidor web, não do código. E as imagens precisam entrar no
+> plano de backup: elas não têm mais cópia em serviço de terceiros.
+
 
 ---
 
@@ -96,7 +122,7 @@ entidade, então o fluxo foi pensado desde o início.
 
 ## Ordem sugerida
 
-1. **Cloudinary** — sem ela a vitrine fica vazia e o CRUD de produtos não tem sentido.
+1. ~~**Imagens de produto**~~ — concluído (armazenamento local, ver acima).
 2. **Checkout e pedidos** — modelo de endereço já pronto (ver `05`); é o que gera
    receita.
 3. **WhatsApp** — curto, e melhora a percepção do cliente sobre o pedido.
@@ -109,7 +135,6 @@ entidade, então o fluxo foi pensado desde o início.
 Nomes terminados em `Stub` são implementações fictícias:
 
 ```
-CloudinaryServiceStub.cs
 EmailSenderStub.cs
 FocusNfeServiceStub.cs
 WhatsAppServiceStub.cs

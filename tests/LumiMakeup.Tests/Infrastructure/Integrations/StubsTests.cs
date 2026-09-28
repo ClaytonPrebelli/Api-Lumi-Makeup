@@ -1,4 +1,3 @@
-using System.Text;
 using LumiMakeup.Infrastructure.Integrations;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -22,25 +21,6 @@ public class StubsTests
         var enviado = await stub.EnviarMensagemAsync("5511999999999", "Olá", CancellationToken.None);
 
         Assert.False(enviado);
-    }
-
-    [Fact]
-    public async Task CloudinaryServiceStub_envia_e_cria_url_do_placeholder()
-    {
-        var stub = new CloudinaryServiceStub(NullLogger<CloudinaryServiceStub>.Instance);
-        using var arquivo = new MemoryStream(Encoding.UTF8.GetBytes("conteudo"));
-
-        var url = await stub.EnviarAsync(arquivo, "foto.jpg", "produtos", CancellationToken.None);
-
-        Assert.Equal("https://placeholder.cloudinary.com/produtos/foto.jpg", url);
-    }
-
-    [Fact]
-    public async Task CloudinaryServiceStub_exclui_sem_erro()
-    {
-        var stub = new CloudinaryServiceStub(NullLogger<CloudinaryServiceStub>.Instance);
-
-        await stub.ExcluirAsync("id-publico", CancellationToken.None);
     }
 
     [Fact]

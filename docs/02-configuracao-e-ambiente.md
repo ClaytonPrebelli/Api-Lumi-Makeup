@@ -104,13 +104,34 @@ aviso é registrado e nada acontece.
 | `Smtp` | `SmtpEmailSender` | ✅ em uso |
 | `Recaptcha` | `RecaptchaValidator` | ✅ em uso |
 | `Google` | `AutenticacaoGoogleService` | ✅ em uso |
-| `Cloudinary` | `CloudinaryServiceStub` | ⬜ stub |
 | `FocusNfe` | `FocusNfeServiceStub` | ⬜ stub |
 | `Baileys` | `WhatsAppServiceStub` | ⬜ stub |
 | `Brevo` | — | ⬜ não integrado |
 
 > O bloco de `Brevo` está reservado e não é usado por nenhum código. O e-mail hoje sai
 > por SMTP, não pela API do Brevo.
+
+---
+
+## `ArmazenamentoDeImagens`
+
+Seção de nível superior (fora de `ExternalServices`) usada por
+`ArmazenamentoDeImagensLocal`.
+
+| Chave | Padrão | Papel |
+|---|---|---|
+| `CaminhoBase` | `""` | **Obrigatória.** Raiz onde as imagens são gravadas |
+| `PastaPadrao` | `produtos` | Subpasta criada dentro de `CaminhoBase` |
+| `TamanhoMaximoEmBytes` | `5242880` | 5 MB por arquivo |
+| `ExtensoesPermitidas` | `jpg`, `jpeg`, `png` | Extensões liberadas |
+
+`CaminhoBase` absoluto é o esperado em produção — por exemplo, a pasta `imagens` que é
+irmã da pasta da aplicação. Se for relativo, é resolvido a partir do *content root*
+(útil em desenvolvimento: `../imagens`).
+
+> Com `CaminhoBase` vazio, `ArmazenamentoDeImagensLocal` lança na construção, e a API
+> não sobe. É proposital: a configuração ausente aparece no deploy, não no primeiro
+> upload de um cliente.
 
 ---
 

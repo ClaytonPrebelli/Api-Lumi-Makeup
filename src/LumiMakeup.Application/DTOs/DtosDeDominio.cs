@@ -4,7 +4,35 @@ namespace LumiMakeup.Application.DTOs;
 
 public sealed record CategoriaDto(long Id, string Nome, string Slug, string? Descricao, bool Ativo);
 
-public sealed record ImagemProdutoDto(long Id, string UrlImagem, int Ordem);
+public sealed record ImagemProdutoDto(long Id, string CaminhoRelativo, string NomeOriginal, int Ordem);
+
+public sealed record ProdutoAdministracaoDto(
+    long Id,
+    string Nome,
+    string Slug,
+    string Descricao,
+    decimal PrecoCusto,
+    decimal PrecoVenda,
+    int QuantidadeEstoque,
+    bool Ativo,
+    DateTime CriadoEm,
+    long CategoriaId,
+    string NomeCategoria,
+    IReadOnlyList<ImagemProdutoDto> Imagens);
+
+public sealed record RequisicaoDeProduto(
+    long CategoriaId,
+    string Nome,
+    string? Slug,
+    string Descricao,
+    decimal PrecoCusto,
+    decimal PrecoVenda,
+    int QuantidadeEstoque,
+    bool Ativo);
+
+public sealed record RequisicaoDeOrdenacaoDeImagens(IReadOnlyList<long> Ordem);
+
+public sealed record RequisicaoDeCategoria(string Nome, string? Slug, string? Descricao, bool Ativo);
 
 public sealed record ProdutoDto(
     long Id,

@@ -1,5 +1,6 @@
 using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 
 namespace LumiMakeup.Tests.Helpers;
 
@@ -12,6 +13,20 @@ internal static class Testes
             .Options;
 
         return new LumiDbContext(opcoes);
+    }
+
+    public sealed class AmbienteSimulado : Microsoft.Extensions.Hosting.IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Development";
+        public string ApplicationName { get; set; } = "LumiMakeup.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; }
+            = new NullFileProvider();
+    }
+
+    public static Microsoft.Extensions.Hosting.IHostEnvironment CriarAmbiente(string contentRootPath)
+    {
+        return new AmbienteSimulado { ContentRootPath = contentRootPath };
     }
 
     public sealed class ManipuladorHttpSimulado : HttpMessageHandler
