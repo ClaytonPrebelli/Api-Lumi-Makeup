@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using LumiMakeup.Application.Abstractions;
@@ -15,16 +15,37 @@ public sealed class BaileysWhatsAppService : IWhatsAppService
     private readonly HttpClient _http;
     private readonly OpcoesDeBaileys _opcoes;
     private readonly ILogger<BaileysWhatsAppService> _logger;
+    private readonly EstadoDoNodeBaileys? _estado;
 
     public BaileysWhatsAppService(
         HttpClient http,
         IOptions<OpcoesDeBaileys> opcoes,
-        ILogger<BaileysWhatsAppService> logger)
+        ILogger<BaileysWhatsAppService> logger,
+        EstadoDoNodeBaileys? estado = null)
     {
         _http = http;
         _opcoes = opcoes.Value;
         _logger = logger;
+        _estado = estado;
     }
+
+    /// <summary>
+    /// Quando o Node nao responde, o motivo vem do supervisor.
+    ///
+    /// O supervisor e quem sabe se a pasta existe, se o executavel foi
+    /// encontrado e se o processo subiu. A tela precisa disso: "o servico esta
+    /// parado" sem causa nao ajuda ninguem a agir, e no servidor de producao
+    /// nao ha console para olhar o log.
+    /// </summary>
+    private StatusDoWhatsApp Parado() =>
+        new(
+            ServicoNoAr: false,
+            Pareado: false,
+            Numero: null,
+            Nome: null,
+            ConectadoDesde: null,
+            UltimoEnvioEm: null,
+            Motivo: _estado?.Explicacao());
 
     /// <summary>
     /// Envia texto pelo numero pareado do Node do Baileys.
@@ -120,7 +141,7 @@ public sealed class BaileysWhatsAppService : IWhatsAppService
         {
             // Node fora do ar nao e excecao: e o estado atual, e o painel precisa
             // mostrar "servico parado" em vez de uma tela de erro.
-            return new StatusDoWhatsApp(false, false, null, null, null, null);
+            return Parado();
         }
 
         if (!resposta.IsSuccessStatusCode)
@@ -129,14 +150,14 @@ public sealed class BaileysWhatsAppService : IWhatsAppService
                 "Leitura do status do Baileys falhou: o Node respondeu {(int)resposta.StatusCode}.",
                 (int)resposta.StatusCode);
 
-            return new StatusDoWhatsApp(true, false, null, null, null, null);
+            return new StatusDoWhatsApp(true, false, null, null, null, null, null);
         }
 
         var corpo = await LerCorpoAsync(resposta, cancellationToken);
 
         if (corpo is null)
         {
-            return new StatusDoWhatsApp(true, false, null, null, null, null);
+            return new StatusDoWhatsApp(true, false, null, null, null, null, null);
         }
 
         try
@@ -150,13 +171,14 @@ public sealed class BaileysWhatsAppService : IWhatsAppService
                 Numero: LerTexto(raiz, "numero"),
                 Nome: LerTexto(raiz, "nome"),
                 ConectadoDesde: LerData(raiz, "inicioEm"),
-                UltimoEnvioEm: LerData(raiz, "ultimoEnvioEm"));
+                UltimoEnvioEm: LerData(raiz, "ultimoEnvioEm"),
+                Motivo: null);
         }
         catch (JsonException excecao)
         {
             _logger.LogError(excecao, "O Node do Baileys devolveu um /status fora do formato.");
 
-            return new StatusDoWhatsApp(true, false, null, null, null, null);
+            return new StatusDoWhatsApp(true, false, null, null, null, null, null);
         }
     }
 

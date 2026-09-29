@@ -169,6 +169,21 @@ public sealed record PedidoDto(
     IReadOnlyList<PedidoItemDto> Itens);
 
 /// <summary>
+/// O que o Node do Baileys devolve para a API guardar a sessao.
+/// </summary>
+/// <param name="VersaoEsperada">
+/// A versao que o Node leu. A API recusa a gravacao se o banco ja estiver
+/// acima: nesse caso outro contêiner escreveu, e o Node recarrega em vez de
+/// sobrescrever.
+/// </param>
+/// <param name="Credenciais">Blob de credenciais do Baileys.</param>
+/// <param name="Chaves">Chaves de sinal em JSON.</param>
+public sealed record RequisicaoDeGravacaoDeSessao(
+    int VersaoEsperada,
+    string Credenciais,
+    string? Chaves);
+
+/// <summary>
 /// Pedido criado pelo checkout. Não leva <c>UsuarioId</c> nem <c>CustoFrete</c>:
 /// o cliente sai do token e o frete é calculado aqui, a partir do endereço.
 ///

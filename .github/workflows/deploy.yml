@@ -148,6 +148,7 @@ jobs:
           BAILEYS_PASTA_DO_NODE: ${{ secrets.BAILEYS_PASTA_DO_NODE }}
           BAILEYS_EXECUTAVEL: ${{ secrets.BAILEYS_EXECUTAVEL }}
           BAILEYS_PORTA: ${{ secrets.BAILEYS_PORTA }}
+          BAILEYS_URL_BASE: ${{ secrets.BAILEYS_URL_BASE }}
           FOCUSNFE_ID_CLIENTE: ${{ secrets.FOCUSNFE_ID_CLIENTE }}
           FOCUSNFE_SEGREDO_CLIENTE: ${{ secrets.FOCUSNFE_SEGREDO_CLIENTE }}
         run: |
@@ -245,6 +246,10 @@ jobs:
                       "Habilitado": texto("BAILEYS_HABILITADO") == "true",
                       "IniciarProcesso": texto("BAILEYS_INICIAR_PROCESSO") == "true",
                       "SegredoCompartilhado": segredo("BAILEYS_SEGREDO_COMPARTILHADO"),
+                      # Endereco do servico do Node no Render. Vem de secret
+                      # porque o Render sorteia o nome do servico na criacao, e
+                      # a API precisa do valor exato para falar com ele.
+                      "UrlBase": texto("BAILEYS_URL_BASE") or "http://127.0.0.1:" + str(numero("BAILEYS_PORTA", 3001)),
                       "PastaDoNode": texto("BAILEYS_PASTA_DO_NODE"),
                       "Executavel": texto("BAILEYS_EXECUTAVEL") or "node.exe",
                       "Porta": numero("BAILEYS_PORTA", 3001)
