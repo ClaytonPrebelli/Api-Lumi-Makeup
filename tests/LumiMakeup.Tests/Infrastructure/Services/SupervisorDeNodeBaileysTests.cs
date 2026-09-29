@@ -49,6 +49,41 @@ public class SupervisorDeNodeBaileysTests
     }
 
     [Fact]
+    public void passa_o_env_file_antes_do_script_quando_o_arquivo_existe()
+    {
+        var informacoes = SupervisorDeNodeBaileys.MontarInformacoesDoProcesso(
+            @"C:\www\whats\node.exe",
+            @"C:\www\whats\src\index.js",
+            @"C:\www\whats",
+            3001,
+            "segredo",
+            usarArquivoEnv: true);
+
+        // A ordem importa: o Node so aplica o --env-file quando ele vem antes do
+        // script. Depois do script, ele trata como argumento, o .env nao e lido,
+        // e o processo sobe sem segredo e morre na largada.
+        Assert.Equal(
+            ["--env-file=.env", @"C:\www\whats\src\index.js"],
+            informacoes.ArgumentList);
+    }
+
+    [Fact]
+    public void nao_passa_o_env_file_quando_ele_nao_foi_pedido()
+    {
+        var informacoes = SupervisorDeNodeBaileys.MontarInformacoesDoProcesso(
+            @"C:\www\whats\node.exe",
+            @"C:\www\whats\src\index.js",
+            @"C:\www\whats",
+            3001,
+            "segredo");
+
+        // Em desenvolvimento o .env nao existe e o Node roda na mao. Sem a flag,
+        // o processo sobe so com o ambiente, e nao falha por causa de um
+        // arquivo que ninguem pediu.
+        Assert.Equal([@"C:\www\whats\src\index.js"], informacoes.ArgumentList);
+    }
+
+    [Fact]
     public void a_pasta_de_dados_fica_dentro_da_pasta_do_node()
     {
         var informacoes = SupervisorDeNodeBaileys.MontarInformacoesDoProcesso(

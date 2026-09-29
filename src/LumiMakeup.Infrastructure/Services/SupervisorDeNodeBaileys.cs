@@ -120,7 +120,8 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
                 entrada,
                 _pastaDoNode,
                 _opcoes.Porta,
-                _opcoes.SegredoCompartilhado);
+                _opcoes.SegredoCompartilhado,
+                UsarArquivoEnv());
 
             var processo = new Process { StartInfo = informacoes, EnableRaisingEvents = true };
 
@@ -146,6 +147,17 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
     }
 
     /// <summary>
+    /// O Node so le o arquivo .env quando recebe a flag <c>--env-file</c>.
+    /// Sem ela o processo sobe sem segredo nenhum e morre na largada.
+    ///
+    /// A flag so entra quando o arquivo existe. Se o .env nao estiver la - em
+    /// desenvolvimento, por exemplo, onde o Node roda na mao - o processo sobe
+    /// so com o ambiente, e nao falha por causa de um arquivo que ninguem pediu.
+    /// </summary>
+    private bool UsarArquivoEnv() =>
+        File.Exists(Path.Combine(_pastaDoNode, ".env"));
+
+    /// <summary>
     /// Monta o comando de subida. Fica separado para o teste poder conferir o
     /// executavel, a pasta de trabalho e as variaveis de ambiente sem precisar
     /// subir um Node de verdade.
@@ -155,7 +167,8 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
         string entrada,
         string pastaDeTrabalho,
         int porta,
-        string segredoCompartilhado)
+        string segredoCompartilhado,
+        bool usarArquivoEnv = false)
     {
         var informacoes = new ProcessStartInfo
         {
@@ -169,11 +182,24 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
             StandardErrorEncoding = Encoding.UTF8
         };
 
+        // A flag vem ANTES do script. O Node so aplica o --env-file quando ele
+        // aparece antes do arquivo de entrada; depois, ele trata como argumento
+        // do script e o processo sobe sem ler o .env.
+        if (usarArquivoEnv)
+        {
+            informacoes.ArgumentList.Add("--env-file=.env");
+        }
+
         informacoes.ArgumentList.Add(entrada);
 
-        // O segredo vai por ambiente, e nao por linha de comando: linha de
-        // comando aparece na lista de processos do Windows, e qualquer usuario
-        // da maquina le la.
+        // O segredo tambem vai por ambiente, e nao so pelo .env. Sao dois
+        // caminhos independentes para o mesmo valor: o .env para subir o Node
+        // na mao, e o ambiente para quando quem sobe e a API. O ultimo a
+        // carregar ganha, e os dois tem o mesmo texto.
+        //
+        // Por ambiente e nao por linha de comando porque argumento aparece na
+        // lista de processos do Windows, visivel para qualquer usuario da
+        // maquina.
         informacoes.Environment["PORT"] = porta.ToString();
         informacoes.Environment["BAILEYS_SEGREDO_COMPARTILHADO"] = segredoCompartilhado;
         informacoes.Environment["PASTA_DE_DADOS"] = Path.Combine(pastaDeTrabalho, "dados");
