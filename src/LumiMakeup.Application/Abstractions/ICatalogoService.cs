@@ -86,3 +86,41 @@ public interface IGestaoDeBannersService
 
     Task<IReadOnlyList<BannerAdministracaoDto>> ReordenarAsync(IReadOnlyList<long> ids, CancellationToken cancellationToken = default);
 }
+
+public interface IGestaoDeCuponsService
+{
+    Task<IReadOnlyList<CupomDto>> ObterTodosAsync(CancellationToken cancellationToken = default);
+    Task<CupomDto> CriarAsync(RequisicaoDeCupom requisicao, CancellationToken cancellationToken = default);
+    Task<CupomDto> AtualizarAsync(long id, RequisicaoDeCupom requisicao, CancellationToken cancellationToken = default);
+    Task<CupomDto> DefinirAtivoAsync(long id, bool ativo, CancellationToken cancellationToken = default);
+    Task ExcluirAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Soma unidades ao estoque de usos, sem reescrever o número. É a operação do
+    /// dia a dia quando o cupom esgota, e é separada da edição porque o campo de
+    /// quantidade na tela é um incremento, não um valor absoluto — reescrever o
+    /// valor absoluto com duas pessoas na tela apagaria o uso da outra.
+    /// </summary>
+    Task<CupomDto> SomarQuantidadeAsync(long id, int quantidade, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Confere o cupom contra o subtotal e devolve o desconto, ou lança com a
+    /// mensagem que o cliente vai ler. Não altera nada: quem consome é o
+    /// <see cref="ConsumirAsync"/>, chamado na transação do pedido.
+    /// </summary>
+    Task<AplicacaoDeCupom> CalcularAsync(
+        string codigo,
+        decimal subtotalDosProdutos,
+        DateTime em,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Consome uma unidade. Entra na transação que o chamador estiver usando — os
+    /// dois serviços compartilham o mesmo <c>LumiDbContext</c> — para que a
+    /// quantidade do cupom e a linha do pedido confirmem ou desfaçam juntas.
+    /// </summary>
+    Task ConsumirAsync(long cupomId, CancellationToken cancellationToken = default);
+
+    /// <summary>Devolve uma unidade. Chamado no cancelamento do pedido.</summary>
+    Task DevolverAsync(long cupomId, CancellationToken cancellationToken = default);
+}

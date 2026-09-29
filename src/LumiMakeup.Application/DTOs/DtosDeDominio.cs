@@ -67,6 +67,40 @@ public sealed record RequisicaoDeOrdenacaoDeBanners(IReadOnlyList<long> Ordem);
 
 public sealed record RequisicaoDeAtivacaoDeBanner(bool Ativo);
 
+public sealed record CupomDto(
+    long Id,
+    string Codigo,
+    decimal Percentual,
+    int QuantidadeDisponivel,
+    decimal ValorMinimo,
+    DateTime? ValidadeAte,
+    bool Ativo,
+    DateTime CriadoEm);
+
+public sealed record RequisicaoDeCupom(
+    string Codigo,
+    decimal Percentual,
+    int QuantidadeDisponivel,
+    decimal ValorMinimo,
+    DateTime? ValidadeAte,
+    bool Ativo);
+
+public sealed record RequisicaoDeSomaDeQuantidadeDeCupom(int Quantidade);
+
+/// <summary>
+/// O que um cupom válido produz em um pedido: qual cupom foi, e quanto desconto
+/// ele gera sobre o subtotal dos produtos.
+///
+/// É separado do <see cref="CupomDto"/> porque o painel precisa do cadastro inteiro,
+/// com validade e chave ativa, e o checkout só precisa do desconto. O que se
+/// calcula no caminho é o desconto; o que se cadastra é a regra.
+/// </summary>
+public sealed record AplicacaoDeCupom(
+    long CupomId,
+    string Codigo,
+    decimal Percentual,
+    decimal Desconto);
+
 public sealed record RequisicaoDeCategoria(string Nome, string? Slug, string? Descricao, bool Ativo);
 
 public sealed record RequisicaoDeMelhoriaDeTexto(string? Nome, string Descricao);
