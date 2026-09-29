@@ -89,6 +89,7 @@ public static class DependencyInjection
         services.AddScoped<IGestaoDeFreteService, GestaoDeFreteService>();
         services.AddScoped<IGestaoDePedidosService, GestaoDePedidosService>();
         services.AddScoped<INotificadorDePedido, NotificadorDePedido>();
+        services.AddScoped<RepositorioDeSessaoWhatsApp>();
 
         services.Configure<NotificacoesDePedidoOptions>(
             configuration.GetSection("NotificacoesDePedido"));
@@ -119,6 +120,11 @@ public static class DependencyInjection
     private static void RegistrarWhatsApp(IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<OpcoesDeBaileys>(configuration.GetSection("ExternalServices:Baileys"));
+
+        // Singleton: o supervisor escreve o motivo da falha e a tela le. Sao
+        // duas pontas do mesmo processo, e o estado nao pode depender do
+        // escopo do request.
+        services.AddSingleton<EstadoDoNodeBaileys>();
 
         var secao = configuration.GetSection("ExternalServices:Baileys");
 

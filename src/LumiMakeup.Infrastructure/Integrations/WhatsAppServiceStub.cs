@@ -26,7 +26,7 @@ public sealed class WhatsAppServiceStub : IWhatsAppService
     /// instalar, e nao escanear QR.
     /// </summary>
     public Task<StatusDoWhatsApp> ObterStatusAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(new StatusDoWhatsApp(false, false, null, null, null, null));
+        Task.FromResult(new StatusDoWhatsApp(false, false, null, null, null, null, WhatsAppDesligado));
 
     /// <summary>
     /// Sem Node nao ha QR. A tela mostra que o servico esta desligado, em vez
@@ -34,4 +34,16 @@ public sealed class WhatsAppServiceStub : IWhatsAppService
     /// </summary>
     public Task<string?> ObterQrDePareamentoAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<string?>(null);
+
+    /// <summary>
+    /// A frase diz o que fazer, nao so o que aconteceu.
+    ///
+    /// O stub existe porque o Baileys esta desligado por configuracao, e a
+    /// acao depende do motivo: pode ser o Node parado no Render, ou o secret
+    /// sem Habilitado. Sem esta frase, a tela mostraria "parado" e a
+    /// administradora nao saberia nem por onde comecar.
+    /// </summary>
+    private const string WhatsAppDesligado =
+        "O WhatsApp esta desligado por configuracao. Confira se Habilitado e BAILEYS_SEGREDO_COMPARTILHADO " +
+        "estao no secret do GitHub, e se o servico do Node esta no ar no Render.";
 }

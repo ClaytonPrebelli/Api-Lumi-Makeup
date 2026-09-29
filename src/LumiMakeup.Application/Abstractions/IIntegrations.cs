@@ -72,13 +72,19 @@ public interface IWhatsAppService
 /// <param name="Nome">Nome do perfil, quando houver.</param>
 /// <param name="ConectadoDesde">Desde quando a sessao esta aberta.</param>
 /// <param name="UltimoEnvioEm">Ultimo envio que deu certo.</param>
+/// <param name="Motivo">
+/// Quando o servico nao esta no ar, a causa em linguagem de acao: "a pasta do
+/// Node nao existe" ou "falta o segredo". Sem isso a tela mostraria so
+/// "parado", e sem console no servidor nao haveria como descobrir o motivo.
+/// </param>
 public sealed record StatusDoWhatsApp(
     bool ServicoNoAr,
     bool Pareado,
     string? Numero,
     string? Nome,
     DateTime? ConectadoDesde,
-    DateTime? UltimoEnvioEm);
+    DateTime? UltimoEnvioEm,
+    string? Motivo);
 
 public interface IFocusNfeService
 {

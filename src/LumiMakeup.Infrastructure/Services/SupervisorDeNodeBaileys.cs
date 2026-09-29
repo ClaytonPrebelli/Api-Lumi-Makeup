@@ -23,6 +23,7 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
     private readonly OpcoesDeBaileys _opcoes;
     private readonly IHostEnvironment _ambiente;
     private readonly ILogger<SupervisorDeNodeBaileys> _logger;
+    private readonly EstadoDoNodeBaileys _estado;
     private readonly string _pastaDoNode;
 
     private Process? _processo;
@@ -30,10 +31,12 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
     public SupervisorDeNodeBaileys(
         IOptions<OpcoesDeBaileys> opcoes,
         IHostEnvironment ambiente,
+        EstadoDoNodeBaileys estado,
         ILogger<SupervisorDeNodeBaileys> logger)
     {
         _opcoes = opcoes.Value;
         _ambiente = ambiente;
+        _estado = estado;
         _logger = logger;
         _pastaDoNode = ResolverPastaDoNode(_opcoes.PastaDoNode, ambiente.ContentRootPath);
     }
@@ -49,6 +52,8 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
 
             return;
         }
+
+        _estado.RegistrarSupervisorAtivo(_pastaDoNode);
 
         _logger.LogInformation("Supervisor do Baileys iniciado. Pasta do Node: {Pasta}.", _pastaDoNode);
 
@@ -97,19 +102,32 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
         var executavel = Path.GetFullPath(Path.Combine(_pastaDoNode, _opcoes.Executavel));
         var entrada = Path.Combine(_pastaDoNode, "src", "index.js");
 
+        // Cada motivo vira frase que a administradora le na tela. Todas as
+        // causas produzem o mesmo sintoma - Node parado - e sem isso nao
+        // haveria como saber qual delas aconteceu, sem console no servidor.
+        if (string.IsNullOrWhiteSpace(_pastaDoNode))
+        {
+            Falhar("A pasta do Node nao esta configurada. Cadastre BAILEYS_PASTA_DO_NODE no secret do GitHub.");
+            return;
+        }
+
+        if (!Directory.Exists(_pastaDoNode))
+        {
+            Falhar(
+                $"A pasta do Node nao existe: {_pastaDoNode}. Envie os arquivos do servico por FTP para essa pasta.");
+            return;
+        }
+
         if (!File.Exists(executavel))
         {
-            _logger.LogError(
-                "Node do Baileys nao subiu: {Executavel} nao existe. Confira ExternalServices:Baileys:PastaDoNode e Executavel. O WhatsApp fica sem envio ate isso ser resolvido.",
-                executavel);
-
+            Falhar(
+                $"O node.exe nao esta em {_pastaDoNode}. Envie a versao PORTATIL do Node por FTP, junto do codigo do servico.");
             return;
         }
 
         if (!File.Exists(entrada))
         {
-            _logger.LogError("Node do Baileys nao subiu: {Entrada} nao existe.", entrada);
-
+            Falhar($"O codigo do servico nao esta em {entrada}. Envie a pasta src/ por FTP.");
             return;
         }
 
@@ -134,6 +152,10 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
 
             _processo = processo;
 
+            // Limpa o problema anterior: o Node subiu, entao o que houve antes
+            // nao interessa mais para quem olha a tela.
+            _estado.RegistrarNodeNoAr();
+
             _logger.LogInformation(
                 "Node do Baileys iniciado (pid {Pid}) em {Pasta}.",
                 processo.Id,
@@ -141,9 +163,22 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
         }
         catch (Exception excecao)
         {
-            _logger.LogError(excecao, "Falha ao iniciar o Node do Baileys.");
+            // Este e o motivo mais comum em producao: o pool do IIS roda com
+            // permissao restrita, e o Windows recusa executar um .exe de fora
+            // da propria pasta. A mensagem diz o que fazer.
+            Falhar(
+                $"A API nao conseguiu executar o Node: {excecao.Message}. " +
+                "Se for acesso negado, o pool do IIS precisa de permissao de execucao nessa pasta.");
+
             _processo = null;
         }
+    }
+
+    /// <summary>Registra o motivo e deixa claro no log. Usado em toda falha de subida.</summary>
+    private void Falhar(string motivo)
+    {
+        _estado.RegistrarProblema(motivo);
+        _logger.LogError("Node do Baileys nao subiu. {Motivo}", motivo);
     }
 
     /// <summary>
@@ -221,7 +256,16 @@ public sealed class SupervisorDeNodeBaileys : BackgroundService
         {
             await processo.WaitForExitAsync(cancellationToken);
 
-            _logger.LogWarning("O Node do Baileys saiu com codigo {Codigo}.", processo.ExitCode);
+            // Node que sai sozinho reaparece logo: quase sempre e o .env que o
+            // processo subiu sem ler. A tela precisa mostrar isso, e nao um
+            // "parado" sem pista.
+            var causaProvavel = string.IsNullOrWhiteSpace(_opcoes.SegredoCompartilhado)
+                ? "O Node subiu e saiu. Quase sempre e o segredo ausente: confira BAILEYS_SEGREDO_COMPARTILHADO no GitHub e o .env na pasta do Node."
+                : $"O Node subiu e saiu com codigo {processo.ExitCode}. Veja o log da API, na linha que comeca com 'baileys:', para o motivo.";
+
+            _estado.RegistrarProblema(causaProvavel);
+
+            _logger.LogWarning("O Node do Baileys saiu com codigo {Codigo}. {Causa}", processo.ExitCode, causaProvavel);
 
             return true;
         }
