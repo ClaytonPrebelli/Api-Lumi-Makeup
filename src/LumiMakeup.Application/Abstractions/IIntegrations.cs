@@ -45,7 +45,40 @@ public sealed record ImagemArmazenada(
 public interface IWhatsAppService
 {
     Task<bool> EnviarMensagemAsync(string telefone, string mensagem, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Situacao do numero da loja. Serve para o painel mostrar se o WhatsApp
+    /// esta pareado, e nao para o envio: <see cref="EnviarMensagemAsync"/>
+    /// pergunta isso para si mesmo e devolve <c>false</c>.
+    /// </summary>
+    Task<StatusDoWhatsApp> ObterStatusAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// QR de pareamento, em PNG base64, ou <c>null</c> se ainda nao houver.
+    ///
+    /// O segredo nunca chega ao navegador. O painel pede o QR a API, a API
+    /// repassa: e o que impede que o QR do numero da loja, que e o proprio
+    /// acesso a conta, fique exposto em qualquer pagina aberta pelo navegador.
+    /// </summary>
+    Task<string?> ObterQrDePareamentoAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Como esta o WhatsApp da loja, para o painel.
+/// </summary>
+/// <param name="ServicoNoAr">O Node respondeu. False significa Node parado.</param>
+/// <param name="Pareado">O numero foi pareado e a sessao esta aberta.</param>
+/// <param name="Numero">Numero conectado, quando houver.</param>
+/// <param name="Nome">Nome do perfil, quando houver.</param>
+/// <param name="ConectadoDesde">Desde quando a sessao esta aberta.</param>
+/// <param name="UltimoEnvioEm">Ultimo envio que deu certo.</param>
+public sealed record StatusDoWhatsApp(
+    bool ServicoNoAr,
+    bool Pareado,
+    string? Numero,
+    string? Nome,
+    DateTime? ConectadoDesde,
+    DateTime? UltimoEnvioEm);
 
 public interface IFocusNfeService
 {

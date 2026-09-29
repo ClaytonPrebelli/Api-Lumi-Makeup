@@ -135,7 +135,6 @@ public class DependencyInjectionTests
             typeof(ITokenService),
             typeof(IAutenticacaoGoogleService),
             typeof(IAutenticacaoService),
-            typeof(IRecuperacaoDeSenhaService),
             typeof(IEnviadorDeEmailSmtp),
             typeof(DatabaseSeeder)
         };
@@ -144,5 +143,118 @@ public class DependencyInjectionTests
         {
             Assert.Contains(services, d => d.ServiceType == tipo);
         }
+    }
+
+    [Fact]
+    public void AddInfrastructure_registra_o_stub_de_whatsapp_quando_o_baileys_nao_esta_habilitado()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Testes.CriarAmbiente(AppContext.BaseDirectory));
+
+        services.AddInfrastructure(
+            CriarConfiguracao(),
+            _ => new MySqlServerVersion(new Version(8, 0, 11)));
+
+        var provedor = services.BuildServiceProvider();
+
+        // Padrao: sem Habilitado, o stub. O WhatsApp e acessorio e nao pode
+        // derrubar a loja por estar fora do ar.
+        Assert.IsType<WhatsAppServiceStub>(provedor.GetRequiredService<IWhatsAppService>());
+    }
+
+    [Fact]
+    public void AddInfrastructure_registra_o_stub_quando_habilitado_mas_sem_segredo()
+    {
+        var valores = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:ConexaoPadrao"] = "Server=localhost;Database=lumimake_testes;User=root;Password=pwd;",
+            ["ExternalServices:Baileys:Habilitado"] = "true",
+            ["ExternalServices:Baileys:SegredoCompartilhado"] = ""
+        };
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Testes.CriarAmbiente(AppContext.BaseDirectory));
+
+        services.AddInfrastructure(
+            new ConfigurationBuilder().AddInMemoryCollection(valores).Build(),
+            _ => new MySqlServerVersion(new Version(8, 0, 11)));
+
+        var provedor = services.BuildServiceProvider();
+
+        // Habilitado sem segredo e o pior caso: a API subiria achando que envia,
+        // e todo pedido perderia o aviso sem erro. O stub mantem a loja inteira.
+        Assert.IsType<WhatsAppServiceStub>(provedor.GetRequiredService<IWhatsAppService>());
+    }
+
+    [Fact]
+    public void AddInfrastructure_registra_o_cliente_http_quando_o_baileys_esta_habilitado_com_segredo()
+    {
+        var valores = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:ConexaoPadrao"] = "Server=localhost;Database=lumimake_testes;User=root;Password=pwd;",
+            ["ExternalServices:Baileys:Habilitado"] = "true",
+            ["ExternalServices:Baileys:SegredoCompartilhado"] = "segredo-de-teste"
+        };
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Testes.CriarAmbiente(AppContext.BaseDirectory));
+
+        services.AddInfrastructure(
+            new ConfigurationBuilder().AddInMemoryCollection(valores).Build(),
+            _ => new MySqlServerVersion(new Version(8, 0, 11)));
+
+        var provedor = services.BuildServiceProvider();
+
+        Assert.IsType<BaileysWhatsAppService>(provedor.GetRequiredService<IWhatsAppService>());
+
+        var opcoes = provedor.GetRequiredService<IOptions<OpcoesDeBaileys>>().Value;
+
+        Assert.True(opcoes.Habilitado);
+        Assert.Equal("segredo-de-teste", opcoes.SegredoCompartilhado);
+    }
+
+    [Fact]
+    public void AddInfrastructure_so_registra_o_supervisor_quando_o_node_debe_ser_subido_pela_api()
+    {
+        // Em desenvolvimento o Node roda na mao, com npm start. Sem este teste,
+        // o supervisor subiria um segundo Node na mesma porta e um dos dois
+        // ficaria com EADDRINUSE.
+        var valores = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:ConexaoPadrao"] = "Server=localhost;Database=lumimake_testes;User=root;Password=pwd;",
+            ["ExternalServices:Baileys:Habilitado"] = "true",
+            ["ExternalServices:Baileys:SegredoCompartilhado"] = "segredo-de-teste"
+        };
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Testes.CriarAmbiente(AppContext.BaseDirectory));
+
+        services.AddInfrastructure(
+            new ConfigurationBuilder().AddInMemoryCollection(valores).Build(),
+            _ => new MySqlServerVersion(new Version(8, 0, 11)));
+
+        Assert.DoesNotContain(
+            services,
+            d => d.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)
+                 && d.ImplementationType == typeof(SupervisorDeNodeBaileys));
+
+        valores.Add("ExternalServices:Baileys:IniciarProcesso", "true");
+
+        var comSupervisor = new ServiceCollection();
+        comSupervisor.AddLogging();
+        comSupervisor.AddSingleton(Testes.CriarAmbiente(AppContext.BaseDirectory));
+
+        comSupervisor.AddInfrastructure(
+            new ConfigurationBuilder().AddInMemoryCollection(valores).Build(),
+            _ => new MySqlServerVersion(new Version(8, 0, 11)));
+
+        Assert.Contains(
+            comSupervisor,
+            d => d.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)
+                 && d.ImplementationType == typeof(SupervisorDeNodeBaileys));
     }
 }
