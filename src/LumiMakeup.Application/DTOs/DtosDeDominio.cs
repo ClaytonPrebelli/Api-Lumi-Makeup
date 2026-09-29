@@ -218,6 +218,53 @@ public sealed record RequisicaoDeVendaDeBalcao(
 
 public sealed record RequisicaoDePagamentoDePedido(MetodoPagamento MetodoPagamento);
 
+/// <summary>Endereço da agenda do cliente, como o checkout lista.</summary>
+public sealed record EnderecoDto(
+    long Id,
+    string Cep,
+    string Logradouro,
+    string Numero,
+    string? Complemento,
+    string Bairro,
+    string Cidade,
+    string Estado,
+    bool Padrao);
+
+/// <summary>
+/// Endereço digitado no checkout.
+///
+/// Só CEP, número e complemento chegam da tela. Logradouro, bairro, cidade e
+/// estado vêm do ViaCEP: pedir que a pessoa digite bairro e cidade só cria chance
+/// de ela escrever diferente do registro, e o erro de entrega aparece depois.
+/// O <c>Logradouro</c> fica no pedido por causa de apartamento e bloco, em que o
+/// ViaCEP devolve "de cima" e não sabe do número.
+///
+/// É o mesmo tipo de <c>RequisicaoDeEndereco</c> do cadastro de perfil, estendido
+/// com os campos que o checkout aceita deixar em branco.
+public sealed record RequisicaoDeEnderecoDoPedido(
+    string Cep,
+    string Numero,
+    string? Complemento,
+    string? Logradouro = null,
+    string? Bairro = null,
+    string? Cidade = null,
+    string? Estado = null);
+
+/// <summary>
+/// Troca de endereço em um pedido que ainda não saiu.
+///
+/// Existe porque o carrinho guarda o preço do momento em que o item entrou, e o
+/// pedido nasce assim que o checkout confirma. Se a pessoa lembrar do número errado
+/// logo depois, a correção tem de ser possível sem refazer a compra — mas só
+/// enquanto o pedido não saiu, porque o endereço é o registro do que foi entregue.
+public sealed record RequisicaoDeAtualizacaoDeEnderecoDePedido(
+    long PedidoId,
+    RequisicaoDeEnderecoDoPedido Endereco);
+
+public sealed record RequisicaoDeCriacaoDeEndereco(RequisicaoDeEnderecoDoPedido Endereco);
+
+public sealed record ExclusaoDeEndereco(long EnderecoId);
+
 /// <summary>
 /// Cliente na lista de busca do painel. Não traz e-mail nem documento de pessoa
 /// física em destaque porque a busca é por iniciais, e a tela mostra o bastante

@@ -135,6 +135,47 @@ public interface IGestaoDeCuponsService
 /// token e não devolve sessão. Misturar os dois faria o painel depender de reCAPTCHA
 /// e de fluxo de token para registrar uma venda.
 /// </summary>
+/// <summary>
+/// Agenda de endereços do cliente.
+///
+/// O endereço entra na agenda quando o cliente usa um endereço novo no checkout.
+/// A regra está no roadmap desde o começo: o checkout nunca perde um endereço que
+/// a pessoa digitou, porque ela teria que digitá-lo de novo na próxima compra.
+///
+/// O pedido guarda cópia própria do endereço, então apagar ou editar aqui nunca
+/// altera um pedido antigo — ver <c>Pedido</c>.
+/// </summary>
+public interface IGestaoDeEnderecosService
+{
+    /// <summary>Agenda do cliente, com o padrão primeiro.</summary>
+    Task<IReadOnlyList<EnderecoDto>> ListarDoUsuarioAsync(long usuarioId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cadastra um endereço. O primeiro da agenda vira o padrão automaticamente,
+    /// porque é o que o checkout oferece por primeiro.
+    /// </summary>
+    Task<EnderecoDto> CriarAsync(
+        long usuarioId,
+        RequisicaoDeEnderecoDoPedido requisicao,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Aplica a mudança de endereço ao pedido que ainda não saiu para entrega.
+    ///
+    /// O pedido tem cópia própria do endereço, e a cópia é o que vale. Trocar o
+    /// endereço depois que o pedido saiu mudaria o registro do que foi entregue, e
+    /// a pessoa não estaria mais no lugar que recebeu.
+    /// </summary>
+    Task<EnderecoDto> AtualizarNoPedidoAsync(
+        long usuarioId,
+        long pedidoId,
+        RequisicaoDeEnderecoDoPedido requisicao,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Apaga da agenda. Não toca em pedido nenhum, porque o pedido tem cópia.</summary>
+    Task ExcluirAsync(long usuarioId, long enderecoId, CancellationToken cancellationToken = default);
+}
+
 public interface IGestaoDeClientesService
 {
     /// <summary>

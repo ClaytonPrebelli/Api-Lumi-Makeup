@@ -82,6 +82,7 @@ public static class DependencyInjection
         services.AddScoped<IGestaoDeBannersService, GestaoDeBannersService>();
         services.AddScoped<IGestaoDeCuponsService, GestaoDeCuponsService>();
         services.AddScoped<IGestaoDeClientesService, GestaoDeClientesService>();
+        services.AddScoped<IGestaoDeEnderecosService, GestaoDeEnderecosService>();
         services.AddScoped<IGestaoDePedidosService, GestaoDePedidosService>();
         services.AddScoped<INotificadorDePedido, NotificadorDePedido>();
 
