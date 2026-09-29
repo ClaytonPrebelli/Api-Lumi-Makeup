@@ -27,7 +27,10 @@ public sealed class VerboHttpDasRotasTests
         typeof(AdminBannersController),
         typeof(AdminCuponsController),
         typeof(AdminPedidosController),
-        typeof(AdminClientesController)
+        typeof(AdminClientesController),
+        typeof(AdminFreteController),
+        typeof(AdminWhatsAppController),
+        typeof(SessaoWhatsAppController)
     };
 
     [Theory]
@@ -73,7 +76,12 @@ public sealed class VerboHttpDasRotasTests
             (typeof(AdminCuponsController), "Excluir", "api/admin/cupons/{id:long}/excluir"),
             (typeof(AdminPedidosController), "CriarVendaDeBalcao", "api/admin/pedidos/balcao"),
             (typeof(AdminPedidosController), "RegistrarPagamento", "api/admin/pedidos/{id:long}/pagamento"),
-            (typeof(AdminPedidosController), "Cancelar", "api/admin/pedidos/{id:long}/cancelar")
+            (typeof(AdminPedidosController), "Cancelar", "api/admin/pedidos/{id:long}/cancelar"),
+            (typeof(AdminFreteController), "Salvar", "api/admin/frete"),
+            (typeof(AdminFreteController), "Simular", "api/admin/frete/simular"),
+            (typeof(AdminWhatsAppController), "Pareamento", "api/admin/whatsapp/pareamento"),
+            (typeof(SessaoWhatsAppController), "Gravar", "api/whatsapp-sessao"),
+            (typeof(SessaoWhatsAppController), "Apagar", "api/whatsapp-sessao/apagar")
         };
 
         foreach (var (tipoController, nomeMetodo, template) in esperados)
@@ -94,7 +102,13 @@ public sealed class VerboHttpDasRotasTests
                 .Single();
 
             Assert.Equal("POST", atributo.HttpMethods.Single());
-            Assert.Equal(template, $"{prefixo}/{atributo.Template}");
+
+            // [HttpPost] sem template devolve string vazia, e a composicao
+            // ingenua viraria "api/admin/frete/". A barra a mais faz o
+            // servidor responder 404 numa rota que existe.
+            var rota = $"{prefixo}/{atributo.Template}".TrimEnd('/');
+
+            Assert.Equal(template, rota);
         }
     }
 }
