@@ -67,6 +67,32 @@ sem alguém perceber.
 garantida no banco, não apenas na aplicação. `HashToken` é único para tornar a busca
 do token de redefinição um índice direto, e evitar colisão.
 
+## Tabela `banners`
+
+Criada na migration `CriacaoDaTabelaDeBanners`, aplicada **localmente** — ver
+[16 — CI/CD e deploy](16-ci-cd-e-deploy.md) para por que ela nunca roda no deploy.
+
+| Coluna | Tipo | Observação |
+|---|---|---|
+| `Id` | `bigint` | identidade |
+| `CaminhoRelativoDesktop` | `varchar(500)` | arte de telas largas |
+| `CaminhoRelativoMobile` | `varchar(500)` | arte de telas estreitas |
+| `NomeOriginalDesktop` | `varchar(255)` | só o painel usa |
+| `NomeOriginalMobile` | `varchar(255)` | só o painel usa |
+| `TextoAlternativo` | `varchar(160)` | nulo quando não informado |
+| `Ordem` | `int` | posição no carrossel, 0-based |
+| `Ativo` | `tinyint(1)` | tira o slide do ar sem apagar |
+| `CriadoEm` | `datetime(6)` | UTC |
+
+Índices em `Ordem` e em `Ativo`, os dois da consulta da vitrine
+(`WHERE Ativo ORDER BY Ordem`). Nenhum é único: `Ordem` é gravada como posição a
+cada reordenação, e dois banners podem legitidamente estar inativos.
+
+`Ordem` guarda a **posição**, não um número escolhido pelo cliente. É o que impede
+"ordem 47" órfã quando um banner é excluído no meio da lista.
+
+Ver [`17-banners.md`](17-banners.md).
+
 > O índice único em `Cpf` convive com `Cpf` anulável: múltiplos `NULL` são aceitos
 > pelo MySQL, o que permite que usuários sem CPF completo existam até a conclusão
 > do perfil.
