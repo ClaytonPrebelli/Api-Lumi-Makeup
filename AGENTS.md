@@ -6,10 +6,22 @@
 carregadas e a sobrescrita do arquivo é recusada enquanto o Application Pool
 está de pé. Quem para é o Clayton, manualmente.
 
-Por isso: **não verificar se a API está no ar depois do deploy.** A janela entre
-parar a aplicação, enviar os arquivos e subir de novo deixa a API fora do ar por
-padrão, e um health check nesse intervalo só gera alarme falso. Se o usuário
-dissipar que o deploy foi feito, considere feito.
+### A ordem, que não pode ser invertida
+
+1. **Parar a aplicação** no painel da hospedagem. Sem isso o FTP falha ao
+   sobrescrever as DLLs, e o workflow acusa erro mesmo com tudo certo.
+2. **Disparar o workflow** (push na `main`, ou `Actions → Deploy da API →
+   Run workflow`).
+3. **Levantar a aplicação de novo**, ainda pelo painel.
+4. Conferir em `https://api.lumimakeup.com.br/api/saude` se quiser.
+
+O passo 4 é opcional e manual. **O workflow não faz health check**, e a ausência
+é proposital: enquanto o pool está parado, a API está fora do ar por padrão, e
+um check nesse intervalo falha sempre — faz parecer que o deploy quebrou quando
+o único problema é a aplicação estar parada.
+
+Por isso: **não verificar se a API está no ar depois do deploy.** Se o usuário
+disser que o deploy foi feito, considere feito.
 
 Depois de um deploy da API, a pasta de imagens pode ter ficado inconsistente com
 o banco. Vale um olhar só se o usuário pedir.

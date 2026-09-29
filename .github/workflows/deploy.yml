@@ -333,19 +333,21 @@ jobs:
           timeout: 900000
           log-level: standard
 
-      - name: Conferir a API
-        env:
-          ENDERECO: ${{ secrets.ENDERECO_DA_API || 'https://api.lumimakeup.com.br' }}
+      # NAO existe passo de health check aqui, e a ausencia e proposital.
+      #
+      # A aplicacao precisa estar parada antes do deploy: o IIS segura as DLLs
+      # carregadas e recusa a sobrescrita enquanto o Application Pool esta no
+      # ar. Quem para e o Clayton, manualmente, pelo painel da hospedagem.
+      #
+      # Logo, no instante em que o FTP termina, a API esta fora do ar por
+      # padrao - ate o pool ser levantado de novo. Um health check nesse
+      # intervalo falha sempre, e um deploy que falha por isso e pior do que
+      # um deploy que nao verifica nada: faz parecer que algo quebrou quando o
+      # unico problema e a aplicacao estar parada.
+      #
+      # A regra esta escrita no AGENTS.md, na secao Deploy. Para saber se a API
+      # subiu, abra https://api.lumimakeup.com.br/api/saude no navegador depois
+      # de levantar o pool.
+      - name: Aviso sobre o pool
         run: |
-          for tentativa in $(seq 1 30); do
-            if curl --fail --silent --max-time 10 "$ENDERECO/api/saude" | grep --quiet '"status":"ok"'; then
-              echo "ok: a API respondeu ao health check."
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "::error::A API nao voltou depois do deploy. As causas mais provaveis:"
-          echo "  - o envio falhou e sobrou arquivo antigo: veja o passo anterior no log"
-          echo "  - a API subiu mas a configuracao esta errada: confira ConnectionStrings e Jwt no appsettings.Production.json no servidor"
-          echo "  - o pool de aplicacoes precisa ser reciclado no IIS para carregar a versao nova"
-          exit 1
+          echo "::notice::Arquivos enviados. A API sobe quando o Application Pool for levantado de novo - nao ha health check porque a aplicacao estava parada durante o envio."
