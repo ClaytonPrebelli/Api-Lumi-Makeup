@@ -26,7 +26,8 @@ public sealed class VerboHttpDasRotasTests
         typeof(AdminCategoriasController),
         typeof(AdminBannersController),
         typeof(AdminCuponsController),
-        typeof(AdminPedidosController)
+        typeof(AdminPedidosController),
+        typeof(AdminClientesController)
     };
 
     [Theory]

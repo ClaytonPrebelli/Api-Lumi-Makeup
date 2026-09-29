@@ -210,12 +210,37 @@ public sealed record PedidoListaDto(
 /// do próprio pedido ordenaria a fila de relatórios.
 /// </summary>
 public sealed record RequisicaoDeVendaDeBalcao(
+    long UsuarioId,
     IReadOnlyList<ItemDePedidoRequisicao> Itens,
     string? CupomCodigo,
     string? Observacoes,
     DateTime? CriadoEm);
 
 public sealed record RequisicaoDePagamentoDePedido(MetodoPagamento MetodoPagamento);
+
+/// <summary>
+/// Cliente na lista de busca do painel. Não traz e-mail nem documento de pessoa
+/// física em destaque porque a busca é por iniciais, e a tela mostra o bastante
+/// para distinguir duas homônimas.
+/// </summary>
+public sealed record ClienteResumoDto(
+    long Id,
+    string Nome,
+    string Email,
+    string? Telefone,
+    string? Cpf,
+    bool TemSenha);
+
+/// <summary>
+/// Cadastro de cliente feito pela administradora, na venda de balcão. E-mail e
+/// telefone são obrigatórios porque são por eles que o aviso de WhatsApp e o
+/// e-mail de confirmação saem depois que o pedido existe.
+/// </summary>
+public sealed record RequisicaoDeCliente(
+    string Nome,
+    string Email,
+    string Telefone,
+    string? Cpf);
 
 public sealed record RequisicaoDeCategoria(string Nome, string? Slug, string? Descricao, bool Ativo);
 

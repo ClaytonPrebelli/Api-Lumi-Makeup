@@ -126,6 +126,31 @@ public interface IGestaoDeCuponsService
     Task DevolverAsync(long cupomId, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Busca e cadastro de cliente para o painel.
+///
+/// Separado do <see cref="IAutenticacaoService"/> porque o cadastro de balcão não
+/// é o mesmo que o cadastro da loja: ele não passa por reCAPTCHA (a administradora
+/// está autenticada, e o reCAPTCHA existe para bloquear robô, não ela), não gera
+/// token e não devolve sessão. Misturar os dois faria o painel depender de reCAPTCHA
+/// e de fluxo de token para registrar uma venda.
+/// </summary>
+public interface IGestaoDeClientesService
+{
+    /// <summary>
+    /// Procura por nome, e-mail, telefone ou CPF. Vazio traz os mais recentes,
+    /// que é o que a tela mostra antes de a administradora digitar qualquer coisa.
+    /// </summary>
+    Task<IReadOnlyList<ClienteResumoDto>> BuscarAsync(string? termo, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cadastra um cliente sem senha. Sem senha é o caso normal da venda de balcão:
+    /// a pessoa compra, e só vai ter senha se algum dia se cadastrar no site.
+    /// Criar senha aqui seria inventar uma credencial que ninguém escolheu.
+    /// </summary>
+    Task<ClienteResumoDto> CriarAsync(RequisicaoDeCliente requisicao, CancellationToken cancellationToken = default);
+}
+
 public interface IGestaoDePedidosService
 {
     /// <summary>

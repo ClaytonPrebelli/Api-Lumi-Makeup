@@ -69,27 +69,29 @@ public sealed class AdminPedidosController : ControllerBase
     /// como a de online. Passando por um caminho próprio, uma das duas formas
     /// acabaria esquecendo de baixar o estoque ou de avisar o cliente.
     ///
-    /// O cliente é o do token. A administradora cadastra a pessoa primeiro, como
-    /// quem registra um cliente novo, e só então registra a venda — sem conta não
-    /// há telefone, e o telefone é por onde o WhatsApp chega.
+    /// O cliente vem do corpo, escolhido pela administradora: um cadastro
+    /// existente ou um que ela acabou de fazer na própria tela. Sem telefone
+    /// cadastrado a venda não tem por onde ser confirmada, e é o telefone que
+    /// o cliente recebe para finalizar.
     /// </summary>
     [HttpPost("balcao")]
     public async Task<IActionResult> CriarVendaDeBalcao(
         [FromBody] RequisicaoDeVendaDeBalcao requisicao,
         CancellationToken cancellationToken)
     {
-        var usuarioId = User.ObterId();
-
-        if (usuarioId is null)
-        {
-            return Unauthorized();
-        }
-
         try
         {
+            // Aqui o cliente vem do **corpo**, e não do token. É a diferença
+            // entre a rota do checkout e esta: no checkout o cliente é quem está
+            // comprando, e tirar o id do corpo impede que ele registre a compra
+            // na conta de outra pessoa. Na venda de balcão quem compra é a
+            // administradora, e o cliente é quem ela escolheu na tela — que
+            // pode ser um cadastro existente ou um cadastro que ela acabou de
+            // fazer. Vir o id do token registraria a venda na conta da própria
+            // administradora, toda vez.
             var pedido = await _pedidos.CriarAsync(
                 new RequisicaoDePedido(
-                    usuarioId.Value,
+                    requisicao.UsuarioId,
                     requisicao.Itens,
                     null,
                     requisicao.CupomCodigo,
