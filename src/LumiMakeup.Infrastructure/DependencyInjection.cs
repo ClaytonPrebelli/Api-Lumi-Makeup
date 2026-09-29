@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<ICatalogoService, CatalogoService>();
         services.AddScoped<IGestaoDeProdutosService, GestaoDeProdutosService>();
         services.AddScoped<IGestaoDeCategoriasService, GestaoDeCategoriasService>();
+        services.AddScoped<IGestaoDeBannersService, GestaoDeBannersService>();
 
         services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
         services.Configure<TokenJwtOptions>(configuration.GetSection("Jwt"));
