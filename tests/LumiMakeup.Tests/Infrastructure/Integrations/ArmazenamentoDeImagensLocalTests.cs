@@ -55,6 +55,91 @@ public sealed class ArmazenamentoDeImagensLocalTests : IDisposable
         new([.. CabecalhoJpeg, .. Enumerable.Repeat((byte)0x11, bytesExtras)]);
 
     [Fact]
+    public async Task ArmazenarEmPastaAsync_grava_na_pasta_pedida_e_nao_na_padrao()
+    {
+        var servico = Criar(pastaPadrao: "produtos");
+        using var conteudo = ImagemPng();
+
+        var resultado = await servico.ArmazenarEmPastaAsync(conteudo, "hero.png", "banners", CancellationToken.None);
+
+        Assert.StartsWith("banners/", resultado.CaminhoRelativo);
+        Assert.True(File.Exists(Path.Combine(_raiz, resultado.CaminhoRelativo)));
+        Assert.False(Directory.Exists(Path.Combine(_raiz, "produtos")));
+    }
+
+    [Fact]
+    public async Task ArmazenarAsync_continua_usando_a_pasta_padrao()
+    {
+        // O metodo novo nao pode ter alterado o comportamento antigo: as fotos de
+        // produto seguem em produtos/.
+        var servico = Criar(pastaPadrao: "produtos");
+        using var conteudo = ImagemPng();
+
+        var resultado = await servico.ArmazenarAsync(conteudo, "batom.png", CancellationToken.None);
+
+        Assert.StartsWith("produtos/", resultado.CaminhoRelativo);
+    }
+
+    [Fact]
+    public async Task ArmazenarEmPastaAsync_aceita_subpasta_interna()
+    {
+        var servico = Criar();
+        using var conteudo = ImagemPng();
+
+        var resultado = await servico.ArmazenarEmPastaAsync(conteudo, "hero.png", "banners/2026", CancellationToken.None);
+
+        Assert.StartsWith("banners/2026/", resultado.CaminhoRelativo);
+        Assert.True(File.Exists(Path.Combine(_raiz, resultado.CaminhoRelativo)));
+    }
+
+    [Fact]
+    public async Task ArmazenarEmPastaAsync_neutraliza_tentativa_de_sair_da_raiz()
+    {
+        // SanearPasta deixa passar "/" e descarta ".", entao "../../segredo" vira
+        // "segredo". O arquivo tem de ficar dentro da raiz, nunca ao lado dela.
+        var baseDeTeste = Path.Combine(_raiz, "base");
+        Directory.CreateDirectory(baseDeTeste);
+        var servico = Criar(caminhoBase: baseDeTeste);
+        using var conteudo = ImagemPng();
+
+        var resultado = await servico.ArmazenarEmPastaAsync(conteudo, "hero.png", "../../segredo", CancellationToken.None);
+
+        Assert.StartsWith("segredo/", resultado.CaminhoRelativo);
+        Assert.True(File.Exists(Path.Combine(baseDeTeste, resultado.CaminhoRelativo)));
+        Assert.False(File.Exists(Path.Combine(_raiz, resultado.CaminhoRelativo)));
+    }
+
+    [Fact]
+    public async Task ArmazenarEmPastaAsync_recusa_pasta_vazia()
+    {
+        var servico = Criar();
+        using var conteudo = ImagemPng();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.ArmazenarEmPastaAsync(conteudo, "hero.png", "   ", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ArmazenarEmPastaAsync_aplica_o_mesmo_limite_de_tamanho()
+    {
+        var servico = Criar(tamanhoMaximo: 64);
+        using var conteudo = ImagemPng(bytesExtras: 512);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.ArmazenarEmPastaAsync(conteudo, "hero.png", "banners", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ArmazenarEmPastaAsync_recusa_formato_nao_permitido()
+    {
+        var servico = Criar(extensoes: ["png"]);
+        using var conteudo = ImagemJpeg();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.ArmazenarEmPastaAsync(conteudo, "hero.jpg", "banners", CancellationToken.None));
+    }
+
+    [Fact]
     public void Construtor_lanca_quando_caminho_base_nao_configurado()
     {
         var opcoes = Options.Create(new ArmazenamentoDeImagensOptions { CaminhoBase = "  " });
@@ -203,7 +288,10 @@ public sealed class ArmazenamentoDeImagensLocalTests : IDisposable
         var excecao = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             servico.ArmazenarAsync(conteudo, "foto.png", CancellationToken.None));
 
-        Assert.Contains("PastaPadrao", excecao.Message);
+        // A mensagem e generica de proposito: a mesma validacao agora protege
+        // tambem a pasta pedida em ArmazenarEmPastaAsync, onde dizer
+        // "PastaPadrao" apontaria para a opcao que o chamador nem usou.
+        Assert.Contains("pasta de destino", excecao.Message);
     }
 
     [Fact]

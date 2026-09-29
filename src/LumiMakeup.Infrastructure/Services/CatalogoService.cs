@@ -25,6 +25,22 @@ public sealed class CatalogoService : ICatalogoService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<BannerDto>> ObterBannersAtivosAsync(CancellationToken cancellationToken = default)
+    {
+        return await _contexto.Banners
+            .AsNoTracking()
+            .Where(b => b.Ativo)
+            .OrderBy(b => b.Ordem)
+            .ThenBy(b => b.Id)
+            .Select(b => new BannerDto(
+                b.Id,
+                b.CaminhoRelativoDesktop,
+                b.CaminhoRelativoMobile,
+                b.TextoAlternativo,
+                b.Ordem))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ProdutoDto>> ObterProdutosAtivosAsync(CancellationToken cancellationToken = default)
     {
         return await ProjetarAsync(

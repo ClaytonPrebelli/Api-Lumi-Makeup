@@ -297,7 +297,7 @@ public sealed class ArmazenamentoDeImagensLocal : IArmazenamentoDeImagens
 
         if (string.IsNullOrWhiteSpace(resultado) || resultado.Contains("..", StringComparison.Ordinal))
         {
-            throw new InvalidOperationException("ArmazenamentoDeImagens:PastaPadrao inválida.");
+            throw new InvalidOperationException("ArmazenamentoDeImagens: pasta de destino inválida.");
         }
 
         return resultado;

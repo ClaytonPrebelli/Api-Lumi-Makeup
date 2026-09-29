@@ -23,7 +23,8 @@ public sealed class VerboHttpDasRotasTests
     public static TheoryData<Type> ControllersDoPainel => new()
     {
         typeof(AdminProdutosController),
-        typeof(AdminCategoriasController)
+        typeof(AdminCategoriasController),
+        typeof(AdminBannersController)
     };
 
     [Theory]
@@ -58,7 +59,11 @@ public sealed class VerboHttpDasRotasTests
             (typeof(AdminProdutosController), "ExcluirImagem", "api/admin/produtos/{id:long}/imagens/{imagemId:long}/excluir"),
             (typeof(AdminProdutosController), "ReordenarImagens", "api/admin/produtos/{id:long}/imagens/ordem"),
             (typeof(AdminCategoriasController), "Atualizar", "api/admin/categorias/{id:long}/atualizar"),
-            (typeof(AdminCategoriasController), "Excluir", "api/admin/categorias/{id:long}/excluir")
+            (typeof(AdminCategoriasController), "Excluir", "api/admin/categorias/{id:long}/excluir"),
+            (typeof(AdminBannersController), "Atualizar", "api/admin/banners/{id:long}/atualizar"),
+            (typeof(AdminBannersController), "DefinirAtivo", "api/admin/banners/{id:long}/ativo"),
+            (typeof(AdminBannersController), "Excluir", "api/admin/banners/{id:long}/excluir"),
+            (typeof(AdminBannersController), "Reordenar", "api/admin/banners/ordem")
         };
 
         foreach (var (tipoController, nomeMetodo, template) in esperados)

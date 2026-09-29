@@ -36,6 +36,37 @@ public sealed record RequisicaoDeProduto(
 
 public sealed record RequisicaoDeOrdenacaoDeImagens(IReadOnlyList<long> Ordem);
 
+/// <summary>
+/// Banner do hero visto pelo painel. Leva os dois caminhos porque o upload é feito
+/// em campos separados e a tela de edicao precisa mostrar os dois arquivos.
+/// </summary>
+public sealed record BannerAdministracaoDto(
+    long Id,
+    string CaminhoRelativoDesktop,
+    string CaminhoRelativoMobile,
+    string NomeOriginalDesktop,
+    string NomeOriginalMobile,
+    string? TextoAlternativo,
+    int Ordem,
+    bool Ativo,
+    DateTime CriadoEm);
+
+/// <summary>
+/// Banner ativo do carrossel, para a vitrine publica. Fica de fora
+/// <c>NomeOriginal</c> e <c>CriadoEm</c>: sao dados do painel, e a vitrine nao
+/// precisa deles.
+/// </summary>
+public sealed record BannerDto(
+    long Id,
+    string CaminhoRelativoDesktop,
+    string CaminhoRelativoMobile,
+    string? TextoAlternativo,
+    int Ordem);
+
+public sealed record RequisicaoDeOrdenacaoDeBanners(IReadOnlyList<long> Ordem);
+
+public sealed record RequisicaoDeAtivacaoDeBanner(bool Ativo);
+
 public sealed record RequisicaoDeCategoria(string Nome, string? Slug, string? Descricao, bool Ativo);
 
 public sealed record RequisicaoDeMelhoriaDeTexto(string? Nome, string Descricao);
