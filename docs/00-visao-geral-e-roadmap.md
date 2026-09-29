@@ -84,22 +84,102 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
 ### Em andamento
 
-Nada. A etapa de produtos foi fechada dos dois lados — API e painel — e a branch
-`feature/produtos` está pronta.
+Nada. A etapa de banner foi fechada dos dois lados, e a de produtos antes dela.
 
 ### Próximos
 
-- **Checkout e pedidos.** É o que gera receita, e é o que falta para a loja fechar a
-  volta. Client-side do carrinho e criação do pedido na API. O modelo de endereço do
-  pedido já está pronto (ver `05`).
-- **Controle de estoque.** Hoje `QuantidadeEstoque` é editável à mão. Entrada, saída e
-  ajuste são o que transformam o painel em operação.
-- **Gestão de endereços.** CRUD da agenda do usuário e reutilização no checkout.
-- **Cálculo de frete.** No checkout, usando `ConfiguracaoFrete`, com distância
-  geocodificada via Nominatim. No carrinho aparece como "a calcular".
-- **Emissão de nota fiscal.** Substituir `FocusNfeServiceStub` pela integração real.
-- **WhatsApp.** Substituir `WhatsAppServiceStub` pelo cliente Baileys.
-- **E-mail transacional.** Ampliar além do reset de senha (confirmação de pedido).
+A ordem mudou depois de decidir cupom e venda de balcão. **As duas features dependem
+de criação de pedido, que não existe** — não há nenhum `new Pedido` na API, e nada
+decrementa estoque. Por isso o **núcleo de pedido vem primeiro**, e é o caminho
+crítico da loja inteira.
+
+1. **Núcleo de pedido.** Cálculo de subtotal, frete, desconto e total; baixa de
+   estoque; mudança de status. Vira o serviço único usado pelo checkout, pelo cupom e
+   pela venda de balcão — sem lógica de total duplicada em três lugares.
+2. **Checkout e pedidos.** Telas de checkout, confirmação, meus pedidos e detalhe. É o
+   que gera receita. O modelo de endereço do pedido já está pronto (ver `05`).
+3. **Cupom de desconto.** Ver as decisões abaixo.
+4. **Venda de balcão.** Ver as decisões abaixo.
+5. **Controle de estoque.** A baixa vem com o núcleo de pedido. Falta entrada, saída
+   e ajuste, e o formulário de produto ganhar **somar unidades** em vez de só reescrever
+   a quantidade absoluta.
+6. **Gestão de endereços.** CRUD da agenda do usuário e reutilização no checkout.
+7. **Cálculo de frete.** No checkout, usando `ConfiguracaoFrete`, com distância
+   geocodificada via Nominatim. No carrinho aparece como "a calcular".
+8. **Emissão de nota fiscal.** Substituir `FocusNfeServiceStub` pela integração real.
+9. **WhatsApp.** Substituir `WhatsAppServiceStub` pelo cliente Baileys.
+10. **E-mail transacional.** Ampliar além do reset de senha (confirmação de pedido).
+
+---
+
+## Cupom de desconto
+
+**Decidido.** Vai para o checkout, e o desconto incide sobre o **subtotal dos
+produtos** — nunca sobre o frete.
+
+| Campo | Regra |
+|---|---|
+| `Codigo` | O que o cliente digita. Único |
+| `Percentual` | Desconto em % |
+| `QuantidadeDisponivel` | Pool total; **decrementa a cada uso** |
+| `ValorMinimo` | Subtotal mínimo de produtos para o cupom valer |
+| `ValidadeAte` | Data de término |
+| `Ativo` | Chave liga/desliga |
+
+**Regras de validação**, na ordem em que são checadas:
+
+| Situação | Mensagem |
+|---|---|
+| Código inexistente | "Cupom inválido." |
+| Desativado | "Cupom inválido." |
+| Esgotado (`QuantidadeDisponivel == 0`) | "Cupom inválido." |
+| Vencido | "Cupom expirado." |
+| Subtotal abaixo do mínimo | "Cupom válido para compras acima de R$ X." |
+
+Desativado e esgotado dão a **mesma** mensagem ("Cupom inválido."), e não messages
+diferentes: os dois significam, para quem está comprando, que o código não vale.
+Divergir só entregaria informação de negócio de graça.
+
+**Quando a quantidade volta:** ao aumentar `QuantidadeDisponivel` no painel. Não há
+reposição automática, e "quantidade" é o controle escolhido, não um contador de uso.
+
+**Cálculo:** `(subtotal dos produtos) × percentual`, aplicado **depois** do preço
+promocional, e arredondado para centavos. O frete entra no total depois do desconto,
+sem ser afetado por ele.
+
+> **O desconto é sobre produtos, e isso é regra de negócio, não detalhe de layout.** Cupom
+> sobre frete subsidia o transporte e não a mercadoria, que é a intenção de uma
+> promoção. Também muda a base de cálculo: `Total = Subtotal − Desconto + Frete`, e não
+> `Total = (Subtotal + Frete) × (1 − p)`.
+
+**A baixa da quantidade e a criação do pedido precisam ser atômicas.** Se a linha do
+cupom for decrementada e a do pedido falhar, o cliente perde um cupom que não usou. As
+duas gravações vão na mesma transação.
+
+---
+
+## Venda de balcão
+
+**Decidido.** O admin registra uma venda presencial pelo painel, para que ela componha
+estoque e relatório como qualquer outro pedido.
+
+| Item | Decisão |
+|---|---|
+| Cliente | **Avulso permitido.** Venda sem conta, com nome e documento digitados |
+| Baixa de estoque | Sim, igual à de qualquer pedido |
+| Data | Informada, para registrar venda de dia anterior |
+| Pagamento | Pix, cartão, dinheiro ou outro |
+
+**Exige um campo de origem no pedido** (`Online` / `Balcao`). Sem ele a venda de balcão
+entra misturada no relatório de receita e não dá para separar o que veio do site.
+
+**Cliente avulso muda o schema:** hoje `Pedido.UsuarioId` é obrigatório e o endereço
+também. Uma venda de balcão não tem nem um nem o outro. `UsuarioId` passa a ser
+anulável, e nome e documento do cliente guardado no próprio pedido — na linha do
+endereço, que já é cópia imutável, e que não deve mudar se o cadastro do cliente
+mudar depois.
+
+**Cancelamento devolve o estoque**, e o mesmo vale para venda de balcão.
 
 ---
 
@@ -113,8 +193,9 @@ Nada. A etapa de produtos foi fechada dos dois lados — API e painel — e a br
   na inicialização, o workflow não tem passo de banco, e o servidor não recebe schema.
   Aplicação é local, na máquina de desenvolvimento, contra o mesmo banco que serve a
   produção. Ver [`04-banco-de-dados-e-ef-core.md`](04-banco-de-dados-e-ef-core.md).
-  Migrations novas: `20260927232105_ImagemProdutoComCaminhoRelativo` e
-  `20260928044006_PrecoPromocionalEDestaque`, ambas já aplicadas.
+  Migrations aplicadas: `20260927232105_ImagemProdutoComCaminhoRelativo`,
+  `20260928044006_PrecoPromocionalEDestaque` e
+  `20260928235512_CriacaoDaTabelaDeBanners`.
 - Os dois servidores rodam com a pasta de imagens em `../imagens`, para que o FTP não
   sobrescreva as fotos ao publicar. Em desenvolvimento a API serve essa mesma pasta em
   `/imagens`; em produção quem serve é `imagens.lumimakeup.com.br`, direto do disco.
