@@ -145,6 +145,21 @@ public interface IGestaoDeCuponsService
 /// O pedido guarda cópia própria do endereço, então apagar ou editar aqui nunca
 /// altera um pedido antigo — ver <c>Pedido</c>.
 /// </summary>
+/// <summary>
+/// Cálculo do frete pelo endereço de entrega.
+///
+/// Roda no checkout, depois que o endereço está escolhido — o carrinho mostra
+/// "a calcular no checkout" porque sem endereço não há o que calcular. O valor
+/// devolvido aqui é o que o servidor recalcula ao criar o pedido; a prévia
+/// serve para mostrar, não para cobrar.
+/// </summary>
+public interface ICalculoDeFreteService
+{
+    Task<CalculoDeFreteDto> CalcularAsync(
+        EnderecoDeEntregaRequisicao destino,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IGestaoDeEnderecosService
 {
     /// <summary>Agenda do cliente, com o padrão primeiro.</summary>

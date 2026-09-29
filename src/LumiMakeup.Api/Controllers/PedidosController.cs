@@ -13,10 +13,12 @@ namespace LumiMakeup.Api.Controllers;
 public sealed class PedidosController : ControllerBase
 {
     private readonly IGestaoDePedidosService _pedidos;
+    private readonly ICalculoDeFreteService _frete;
 
-    public PedidosController(IGestaoDePedidosService pedidos)
+    public PedidosController(IGestaoDePedidosService pedidos, ICalculoDeFreteService frete)
     {
         _pedidos = pedidos;
+        _frete = frete;
     }
 
     /// <summary>
@@ -26,6 +28,30 @@ public sealed class PedidosController : ControllerBase
     /// forma de pagamento: quem anota é a administradora, depois de falar com o
     /// cliente. Por isso a rota não aceita pagamento nenhum.
     /// </summary>
+    /// <summary>
+    /// Calcula o frete de um endereço, para o checkout mostrar antes de confirmar.
+    ///
+    /// O valor devolvido aqui é **prévia**. O cobrado é recalculado em
+    /// <see cref="Criar"/>, sobre o endereço que o próprio servidor gravou. Confiar
+    /// no número que o navegador mandaria seria deixar o cliente escolher o
+    /// próprio frete.
+    /// </summary>
+    [HttpPost("frete")]
+    public async Task<IActionResult> CalcularFrete(
+        [FromBody] EnderecoDeEntregaRequisicao endereco,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var calculo = await _frete.CalcularAsync(endereco, cancellationToken);
+            return Ok(calculo);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> Criar(
         [FromBody] RequisicaoDeCriacaoDePedido requisicao,
@@ -40,15 +66,24 @@ public sealed class PedidosController : ControllerBase
 
         try
         {
+            // O frete é calculado aqui, com o endereço que o corpo traz, e não
+            // lido do corpo como `CustoFrete`. A razão é a mesma do cupom: o
+            // número que o navegador manda não é conferido, e frete inventado pelo
+            // cliente é frete grátis.
+            var endereco = requisicao.Endereco
+                ?? throw new InvalidOperationException("Escolha o endereço de entrega.");
+
+            var calculo = await _frete.CalcularAsync(endereco, cancellationToken);
+
             var pedido = await _pedidos.CriarAsync(
                 new RequisicaoDePedido(
                     usuarioId.Value,
                     requisicao.Itens,
-                    requisicao.Endereco,
+                    endereco,
                     requisicao.CupomCodigo,
                     requisicao.Observacoes,
-                    requisicao.CustoFrete,
-                    requisicao.DistanciaKm,
+                    calculo.Custo,
+                    calculo.DistanciaKm,
                     null),
                 OrigemPedido.Online,
                 cancellationToken);

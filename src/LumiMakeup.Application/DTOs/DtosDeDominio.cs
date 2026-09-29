@@ -169,20 +169,17 @@ public sealed record PedidoDto(
     IReadOnlyList<PedidoItemDto> Itens);
 
 /// <summary>
-/// Pedido criado pelo checkout. Não leva <c>UsuarioId</c>: ele sai do token.
+/// Pedido criado pelo checkout. Não leva <c>UsuarioId</c> nem <c>CustoFrete</c>:
+/// o cliente sai do token e o frete é calculado aqui, a partir do endereço.
 ///
-/// A rota de balcão é a mesma requisição, e por isso o registro de venda também
-/// não escolhe o cliente pelo corpo — a administradora escolhe na tela, e é o
-/// mesmo mecanismo de token que garante que ela não registre a venda na conta
-/// errada por engano de campo.
+/// Mandar o custo no corpo faria a API confiar no valor do navegador, e um
+/// cliente poderia finalizar a compra pagando frete zero.
 /// </summary>
 public sealed record RequisicaoDeCriacaoDePedido(
     IReadOnlyList<ItemDePedidoRequisicao> Itens,
     EnderecoDeEntregaRequisicao? Endereco,
     string? CupomCodigo,
-    string? Observacoes,
-    decimal CustoFrete,
-    decimal DistanciaKm);
+    string? Observacoes);
 
 /// <summary>
 /// Pedido na listagem do painel. Sem os itens: a lista mostra resumo, e puxar os
@@ -217,6 +214,19 @@ public sealed record RequisicaoDeVendaDeBalcao(
     DateTime? CriadoEm);
 
 public sealed record RequisicaoDePagamentoDePedido(MetodoPagamento MetodoPagamento);
+
+/// <summary>
+/// Frete de um endereço, para mostrar na tela antes de o cliente fechar.
+///
+/// <c>PrecoPorKm</c> e <c>TaxaMinima</c> vêm junto para o checkout poder
+/// explicar o número em vez de mostrar um total que ninguém entende: "12,40 de
+/// frete (7,8 km a R$ 1,20/km, mínimo de R$ 9,00)" diz de onde saiu o valor.
+/// </summary>
+public sealed record CalculoDeFreteDto(
+    decimal DistanciaKm,
+    decimal Custo,
+    decimal PrecoPorKm,
+    decimal TaxaMinima);
 
 /// <summary>Endereço da agenda do cliente, como o checkout lista.</summary>
 public sealed record EnderecoDto(
