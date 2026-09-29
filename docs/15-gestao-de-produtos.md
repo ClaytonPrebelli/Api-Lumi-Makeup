@@ -1,4 +1,4 @@
-# 15 — Gestão de Produtos e Categorias
+﻿# 15 — Gestão de Produtos e Categorias
 
 **Status:** ✅ concluído
 
@@ -23,12 +23,12 @@ Detalhamento do armazenamento de imagens e da melhoria de texto por IA:
 | `GET` | `/api/admin/produtos` | Todos, ativos e inativos |
 | `GET` | `/api/admin/produtos/{id}` | Um produto pelo **id** |
 | `POST` | `/api/admin/produtos` | Cria |
-| `PUT` | `/api/admin/produtos/{id}` | Atualiza |
-| `DELETE` | `/api/admin/produtos/{id}` | Exclui e apaga os arquivos do disco |
+| `POST` | `/api/admin/produtos/{id}/atualizar` | Atualiza |
+| `POST` | `/api/admin/produtos/{id}/excluir` | Exclui e apaga os arquivos do disco |
 | `POST` | `/api/admin/produtos/texto/melhorar` | Reescreve a descrição por IA |
 | `POST` | `/api/admin/produtos/{id}/imagens` | Envia uma imagem (`multipart/form-data`, campo `arquivo`) |
-| `DELETE` | `/api/admin/produtos/{id}/imagens/{imagemId}` | Exclui imagem e reindexa a ordem |
-| `PUT` | `/api/admin/produtos/{id}/imagens/ordem` | Reordena pelo conjunto de ids |
+| `POST` | `/api/admin/produtos/{id}/imagens/{imagemId}/excluir` | Exclui imagem e reindexa a ordem |
+| `POST` | `/api/admin/produtos/{id}/imagens/ordem` | Reordena pelo conjunto de ids |
 
 ### Categorias — `api/admin/categorias`
 
@@ -36,14 +36,26 @@ Detalhamento do armazenamento de imagens e da melhoria de texto por IA:
 |---|---|---|
 | `GET` | `/api/admin/categorias` | Todas, ativas e inativas |
 | `POST` | `/api/admin/categorias` | Cria |
-| `PUT` | `/api/admin/categorias/{id}` | Atualiza |
-| `DELETE` | `/api/admin/categorias/{id}` | Exclui, se não houver produto vinculado |
+| `POST` | `/api/admin/categorias/{id}/atualizar` | Atualiza |
+| `POST` | `/api/admin/categorias/{id}/excluir` | Exclui, se não houver produto vinculado |
 
 Todas exigem `[Authorize(Policy = "SomenteAdministrador")]`.
 
-`DELETE` responde `204` sem corpo. Os controllers traduzem as exceções do service em
+Excluir responde `204` sem corpo. Os controllers traduzem as exceções do service em
 `404` (`KeyNotFoundException`) e `400` (`InvalidOperationException`), com `{ message }` —
 a mensagem é escrita para a pessoa que vai ler na tela, não para o log.
+
+### Por que não há `PUT` nem `DELETE`
+
+O servidor de produção só encaminha `GET`, `POST`, `HEAD`, `OPTIONS` e `TRACE`.
+`PUT` e `DELETE` são recusados pelo IIS **antes de chegar na API**, com `405` e sem
+nenhum header de CORS — o navegador reporta isso como "bloqueado pela política de
+CORS", mensagem que aponta para o lado errado e esconde a causa.
+
+Atualizar, excluir e reordenar são `POST` com o verbo no fim da URL.
+`VerboHttpDasRotasTests` trava a regra e falha se um controller do painel declarar
+`PUT`, `DELETE` ou `PATCH`. **Voltar para `DELETE` parece só uma melhoria de estilo
+REST, e a quebra só aparece em produção, no painel, como erro de CORS.**
 
 ---
 
@@ -170,7 +182,7 @@ no texto padrão em vez de mostrar um parágrafo em branco.
 ## Testes
 
 `GestaoDeProdutosServiceTests` (32 casos) e `GestaoDeCategoriasServiceTests` são as
-suítes novas. A suíte do projeto foi de 169 para **296 testes**, todos passando.
+suítes novas. A suíte do projeto foi de 169 para **296 testes** no momento desta entrega, todos passando.
 
 | Grupo | Casos |
 |---|---|
@@ -209,6 +221,6 @@ teste.
   `QuantidadeEstoque` é um número que o admin edita à mão, e é o que impede o painel de
   ser operação.
 - **Endpoint dedicado para o destaque.** A tela alterna a estrela reenviando o produto
-  inteiro. Funciona porque o `PUT` é idempotente e substitui todos os campos, mas
+  inteiro. Funciona porque a atualização substitui todos os campos, mas
   qualquer campo novo que a tela não conheça passa a poder ser apagado por essa troca.
 - **Paginação** em `GET /api/admin/produtos` e em `GET /api/produtos`.

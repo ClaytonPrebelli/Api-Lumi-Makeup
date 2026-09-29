@@ -13,13 +13,32 @@ pelo **IIS** com o ASP.NET Core Module.
 
 ```
 push na branch main
-   └─ testar     dotnet test -> 294 testes
+   └─ testar     dotnet test -> 330 testes
         └─ publicar    dotnet publish -c Release -> publicacao/
              └─ enviar   FTP -> health check
 ```
 
-Três jobs, na ordem. O deploy só acontece se os **294 testes** passarem, e a pasta
+Três jobs, na ordem. O deploy só acontece se os **330 testes** passarem, e a pasta
 `publicacao/` que vai para o servidor é exatamente a que o job anterior produziu.
+
+## A aplicação precisa estar parada antes do push
+
+O IIS mantém as DLLs carregadas e **recusa a sobrescrita** enquanto o Application
+Pool está de pé. A sobida do `LumiMakeup.Api.dll` falha, e o log do FTP mostra a
+recusa sem dizer o motivo.
+
+Quem para a aplicação é o Clayton, manualmente, antes do push. Não há passo no
+workflow que faça isso: parar o pool do lado do GitHub exigiria acesso ao servidor
+que o repositório não tem.
+
+Depois do envio, o health check (`GET /api/saude`, 30 tentativas de 2 em 2
+segundos) é o que confirma que a API voltou - normalmente o IIS sobe o pool a
+partir do próprio pedido do health check, já com os arquivos novos em disco.
+
+> **O health check é do workflow, e só dele.** Ninguém precisa conferir a API na mão
+> depois do deploy. A janela em que ela responde é esperada, e uma verificação
+> manual nesse intervalo só gera alarme falso. Se o Clayton disser que o deploy foi
+> feito, considere feito.
 
 ## Os segredos vêm do GitHub e viram configuração no servidor
 

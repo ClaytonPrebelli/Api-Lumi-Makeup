@@ -1,4 +1,4 @@
-# 00 — Visão Geral e Roadmap
+﻿# 00 — Visão Geral e Roadmap
 
 > Documento equivalente do frontend: `LumiMakeup/docs/00-visao-geral-e-roadmap.md`.
 
@@ -38,7 +38,7 @@ LumiMakeup.Domain          entidades, enums — sem dependências externas
 LumiMakeup.Application     interfaces (abstrações) e DTOs
 LumiMakeup.Infrastructure  EF Core, serviços, segurança, integrações
 LumiMakeup.Api             controllers, composition root, Swagger, CORS
-LumiMakeup.Tests           294 testes automatizados
+LumiMakeup.Tests           330 testes automatizados
 ```
 
 A regra é sempre a mesma: **dependências apontam para dentro.**
@@ -62,6 +62,7 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 | 12 | Catálogo de produtos e categorias (leitura) | [`12-catalogo.md`](12-catalogo.md) |
 | 05 | Endereço de entrega próprio e imutável no pedido | [`05-enderecos-e-pedidos.md`](05-enderecos-e-pedidos.md) |
 | 15 | Gestão de produtos, categorias, imagens, preço promocional e destaque | [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md) |
+| 17 | Banners do hero (dois formatos por slide, ativação e ordem) | [`17-banners.md`](17-banners.md) |
 | 13 | Melhoria de texto com IA e armazenamento local de imagens | [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md) |
 
 ---
@@ -104,7 +105,7 @@ Nada. A etapa de produtos foi fechada dos dois lados — API e painel — e a br
 
 ## Estado atual
 
-- **294 testes automatizados, todos passando.**
+- **330 testes automatizados, todos passando.**
 - Cobertura de **linhas em 97,4%** e de **branches em 88,6%**. O detalhamento do que
   ficou por fora está em [`14-testes-e-qualidade.md`](14-testes-e-qualidade.md) — o
   número **caiu de 100%** com o código de produtos e ainda não foi fechado.

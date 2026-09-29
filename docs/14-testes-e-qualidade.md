@@ -1,4 +1,4 @@
-# 14 — Testes e Qualidade
+﻿# 14 — Testes e Qualidade
 
 **Status:** ✅ concluído
 
@@ -15,7 +15,7 @@ capaz de rodar sem banco de dados e sem rede.
 
 | Métrica | Valor |
 |---|---|
-| Testes | **294**, todos passando |
+| Testes | **330**, todos passando |
 | Cobertura de linhas | **97,4%** |
 | Cobertura de branches | **88,6%** |
 | Banco necessário | nenhum |
