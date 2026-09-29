@@ -160,6 +160,33 @@ public interface ICalculoDeFreteService
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Configuração do frete pela administradora.
+///
+/// O cálculo de frete é recusado enquanto a loja não tiver uma linha aqui, e a
+/// tela mostra o motivo. Editar a tarifa direto no banco seria possível, mas
+/// ninguém lembraria depois que ela mudou.
+/// </summary>
+public interface IGestaoDeFreteService
+{
+    /// <summary>
+    /// A configuração atual, ou uma vazia quando ainda não há nenhuma — que é o
+    /// estado inicial de uma loja abrindo, e não um erro.
+    /// </summary>
+    Task<ConfiguracaoDeFreteDto> ObterAsync(CancellationToken cancellationToken = default);
+
+    Task<ConfiguracaoDeFreteDto> SalvarAsync(
+        RequisicaoDeConfiguracaoDeFrete requisicao,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Frete para um CEP, sem criar pedido. Serve para a tela mostrar o valor
+    /// antes de a administradora gravar a tarifa, e usa o mesmo cálculo do
+    /// checkout — o número da tela é o número que o cliente vai ver.
+    /// </summary>
+    Task<CalculoDeFreteDto> SimularAsync(string cep, CancellationToken cancellationToken = default);
+}
+
 public interface IGestaoDeEnderecosService
 {
     /// <summary>Agenda do cliente, com o padrão primeiro.</summary>

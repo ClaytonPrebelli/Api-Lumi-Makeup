@@ -228,6 +228,29 @@ public sealed record CalculoDeFreteDto(
     decimal PrecoPorKm,
     decimal TaxaMinima);
 
+/// <summary>
+/// Configuração de frete da loja, como o painel mostra e edita.
+///
+/// <c>Latitude</c> e <c>Longitude</c> não são digitadas: entram pela consulta de
+/// CEP, pelo mesmo motivo de bairro e cidade no endereço. Pedir coordenada na
+/// tela faria a administradora colar um número de mapa no lugar errado sem
+/// nenhuma pista de erro.
+/// </summary>
+public sealed record ConfiguracaoDeFreteDto(
+    long Id,
+    string CepOrigem,
+    decimal PrecoPorKm,
+    decimal TaxaMinima,
+    decimal? DistanciaDeExemplo,
+    decimal? FreteDeExemplo);
+
+public sealed record RequisicaoDeConfiguracaoDeFrete(
+    string CepOrigem,
+    decimal PrecoPorKm,
+    decimal TaxaMinima);
+
+public sealed record RequisicaoDeSimulacaoDeFrete(string Cep);
+
 /// <summary>Endereço da agenda do cliente, como o checkout lista.</summary>
 public sealed record EnderecoDto(
     long Id,
