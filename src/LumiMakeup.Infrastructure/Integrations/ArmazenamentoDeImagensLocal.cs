@@ -104,11 +104,40 @@ public sealed class ArmazenamentoDeImagensLocal : IArmazenamentoDeImagens
             return Task.CompletedTask;
         }
 
-        var caminhoAbsoluto = ResolverCaminhoSeguro(caminhoRelativo);
+        /*
+         * Apagar o arquivo e melhor esforço; apagar a referencia no banco e o que a
+         * pessoa pediu. Se o caminho guardado for invalido - veio de outro ambiente,
+         * tem "..", ou aponta para fora da raiz - a excecao do ResolverCaminhoSeguro
+         * deixava a referencia impossivel de remover: o registro ficava orfao no
+         * banco para sempre, sem nenhuma tela onde pudesse ser limpo.
+         *
+         * O caminho segue sendo validado, so nao derruba a operacao. O arquivo
+         * orfao no disco, se houver, e problema menor do que um registro que
+         * ninguem consegue apagar.
+         */
+        string caminhoAbsoluto;
+        try
+        {
+            caminhoAbsoluto = ResolverCaminhoSeguro(caminhoRelativo);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Caminho invalido para remocao ({CaminhoRelativo}); a referencia sera removida e o arquivo, se existir, fica orfao.",
+                caminhoRelativo);
+            return Task.CompletedTask;
+        }
 
         if (ApagarSeExistir(caminhoAbsoluto))
         {
             _logger.LogInformation("Imagem removida do disco: {CaminhoRelativo}.", caminhoRelativo);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Arquivo ja nao existia no disco ({CaminhoRelativo}); apenas a referencia foi removida.",
+                caminhoRelativo);
         }
 
         return Task.CompletedTask;

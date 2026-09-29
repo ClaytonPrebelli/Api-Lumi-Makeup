@@ -258,22 +258,23 @@ public sealed class ArmazenamentoDeImagensLocalTests : IDisposable
     }
 
     [Fact]
-    public async Task ExcluirAsync_rejeita_path_traversal()
+    public async Task ExcluirAsync_nao_falha_com_path_traversal()
     {
         var servico = Criar();
 
-        var excecao = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            servico.ExcluirAsync("../../segredo.txt", CancellationToken.None));
-
-        Assert.Contains("inválido", excecao.Message);
+        // Apagar o arquivo e melhor esforco; apagar a referencia no banco e o que a
+        // pessoa pediu. Quando o caminho guardado e invalido, lancar aqui impedia a
+        // remocao e deixava o registro orfao no banco, sem tela onde pudesse ser
+        // limpo. O caminho continua sendo validado, so nao derruba a operacao.
+        await servico.ExcluirAsync("../../segredo.txt", CancellationToken.None);
     }
 
     [Fact]
-    public async Task ExcluirAsync_rejeita_caminho_absoluto_fora_da_raiz()
+    public async Task ExcluirAsync_nao_falha_com_caminho_absoluto_fora_da_raiz()
     {
         var servico = Criar();
 
-        // O caminho tem que ser absoluto **para o sistema que roda o teste**.Um literal
+        // O caminho tem que ser absoluto **para o sistema que roda o teste**. Um literal
         // "C:/Windows/..." nao e absoluto no Linux: la vira um simples nome de pasta, o
         // Path.Combine mantem a raiz, o prefixo bate e a excecao nunca vem. Montar com
         // Path.GetTempPath() da um caminho absoluto real nos dois sistemas, que e o que
@@ -282,9 +283,42 @@ public sealed class ArmazenamentoDeImagensLocalTests : IDisposable
             Path.GetTempPath(),
             $"fora-da-raiz-{Guid.NewGuid():N}.txt");
 
-        var excecao = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            servico.ExcluirAsync(foraDaRaiz, CancellationToken.None));
+        await servico.ExcluirAsync(foraDaRaiz, CancellationToken.None);
+    }
 
-        Assert.Contains("inválido", excecao.Message);
+    [Fact]
+    public async Task ExcluirAsync_remove_o_arquivo_quando_o_caminho_e_valido()
+    {
+        var raiz = Path.Combine(
+            Path.GetTempPath(),
+            "lumi-exclusao-valida",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(raiz, "produtos"));
+
+        try
+        {
+            var arquivo = Path.Combine(raiz, "produtos", "existe.jpg");
+            await File.WriteAllTextAsync(arquivo, "conteudo");
+
+            var opcoes = Options.Create(new ArmazenamentoDeImagensOptions
+            {
+                CaminhoBase = raiz,
+                PastaPadrao = "produtos",
+                TamanhoMaximoEmBytes = 5_242_880,
+                ExtensoesPermitidas = new[] { "jpg", "jpeg", "png" }
+            });
+            var servico = new ArmazenamentoDeImagensLocal(
+                opcoes,
+                LumiMakeup.Tests.Helpers.Testes.CriarAmbiente(AppContext.BaseDirectory),
+                NullLogger<ArmazenamentoDeImagensLocal>.Instance);
+
+            await servico.ExcluirAsync("produtos/existe.jpg", CancellationToken.None);
+
+            Assert.False(File.Exists(arquivo));
+        }
+        finally
+        {
+            Directory.Delete(raiz, recursive: true);
+        }
     }
 }
