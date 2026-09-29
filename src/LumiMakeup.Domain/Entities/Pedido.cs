@@ -7,11 +7,12 @@ public class Pedido
     public long Id { get; set; }
 
     /// <summary>
-    /// Nulo quando a venda é de balcão para cliente avulso, que não tem conta.
-    /// A venda de balcão com cliente cadastrado mantém o vínculo, para que o
-    /// histórico de compras continue na agenda da pessoa.
+    /// Todo pedido tem cliente. Na venda de balcão não existe cliente sem conta:
+    /// a admin cadastra a pessoa primeiro, como quem registra um cliente novo, e
+    /// só depois registra a venda. Sem isso o pedido não teria telefone para o
+    /// WhatsApp — que é justamente o canal por onde a venda se conclui.
     /// </summary>
-    public long? UsuarioId { get; set; }
+    public long UsuarioId { get; set; }
 
     /// <summary>
     /// Nome do cliente no momento da compra. Vai aqui, e não como referência ao
@@ -21,7 +22,7 @@ public class Pedido
     /// </summary>
     public string NomeCliente { get; set; } = string.Empty;
 
-    /// <summary>CPF ou documento do cliente. Nulo em venda de balcão sem documento.</summary>
+    /// <summary>CPF do cliente no momento da compra. Nulo só se o cadastro não tiver.</summary>
     public string? DocumentoCliente { get; set; }
 
     public OrigemPedido Origem { get; set; } = OrigemPedido.Online;
@@ -38,9 +39,21 @@ public class Pedido
     public string? EnderecoCidade { get; set; }
     public string? EnderecoEstado { get; set; }
 
+    /// <summary>
+    /// Estado inicial. O pedido nasce aguardando pagamento e fica assim até a
+    /// admin registrar a forma de pagamento e aceitar a venda, ou cancelar.
+    /// Não há verificação de compensação bancária: quem dá o aceite é a admin.
+    /// </summary>
     public StatusPedido Status { get; set; } = StatusPedido.AguardandoPagamento;
+
     public StatusEntrega StatusEntrega { get; set; } = StatusEntrega.NaoEnviado;
+
+    /// <summary>
+    /// Preenchido pela admin, nunca pelo cliente. Fica nulo enquanto o pedido
+    /// aguarda, e é a última informação que falta para o pedido virar pago.
+    /// </summary>
     public MetodoPagamento? MetodoPagamento { get; set; }
+
     public decimal DistanciaKm { get; set; }
     public decimal CustoFrete { get; set; }
 
@@ -56,12 +69,19 @@ public class Pedido
     /// <summary><c>Subtotal − Desconto + Frete</c>. Nunca <c>(Subtotal + Frete) × p</c>.</summary>
     public decimal Total { get; set; }
 
+    /// <summary>
+    /// Telefone usado para a mensagem de WhatsApp, copiado do cadastro no momento
+    /// do pedido. Precisa ser cópia: o aviso vai para o cliente depois que o
+    /// pedido existe, e o número do cadastro pode ter mudado nesse meio tempo.
+    /// </summary>
+    public string? TelefoneContato { get; set; }
+
     public string? Observacoes { get; set; }
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     public DateTime? PagoEm { get; set; }
     public DateTime? EntregueEm { get; set; }
 
-    public Usuario? Usuario { get; set; }
+    public Usuario Usuario { get; set; } = null!;
     public ICollection<ItemPedido> Itens { get; set; } = new List<ItemPedido>();
     public ICollection<NotaFiscal> NotasFiscais { get; set; } = new List<NotaFiscal>();
     public ICollection<RegistroWhatsApp> RegistrosWhatsApp { get; set; } = new List<RegistroWhatsApp>();
