@@ -4,6 +4,7 @@ using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LumiMakeup.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LumiDbContext))]
-    partial class LumiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929050331_CupomDeDesconto")]
+    partial class CupomDeDesconto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -157,7 +160,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<int>("QuantidadeDisponivel")
-                        .IsConcurrencyToken()
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("ValidadeAte")
@@ -414,10 +416,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
-                    b.Property<string>("EmailContato")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
                     b.Property<string>("EnderecoBairro")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
@@ -457,12 +455,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
-
-                    b.Property<bool>("NotaFiscalGerada")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime?>("NotaFiscalGeradaEm")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Observacoes")
                         .HasColumnType("text");
@@ -508,8 +500,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UsuarioId");
 
-                    b.HasIndex("NotaFiscalGerada", "Status");
-
                     b.ToTable("pedidos", (string)null);
                 });
 
@@ -552,7 +542,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<int>("QuantidadeEstoque")
-                        .IsConcurrencyToken()
                         .HasColumnType("int");
 
                     b.Property<string>("Slug")

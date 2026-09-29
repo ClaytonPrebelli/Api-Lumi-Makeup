@@ -1,4 +1,5 @@
 using LumiMakeup.Application.DTOs;
+using LumiMakeup.Domain.Enums;
 
 namespace LumiMakeup.Application.Abstractions;
 
@@ -85,4 +86,178 @@ public interface IGestaoDeBannersService
     Task ExcluirAsync(long id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<BannerAdministracaoDto>> ReordenarAsync(IReadOnlyList<long> ids, CancellationToken cancellationToken = default);
+}
+
+public interface IGestaoDeCuponsService
+{
+    Task<IReadOnlyList<CupomDto>> ObterTodosAsync(CancellationToken cancellationToken = default);
+    Task<CupomDto> CriarAsync(RequisicaoDeCupom requisicao, CancellationToken cancellationToken = default);
+    Task<CupomDto> AtualizarAsync(long id, RequisicaoDeCupom requisicao, CancellationToken cancellationToken = default);
+    Task<CupomDto> DefinirAtivoAsync(long id, bool ativo, CancellationToken cancellationToken = default);
+    Task ExcluirAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Soma unidades ao estoque de usos, sem reescrever o número. É a operação do
+    /// dia a dia quando o cupom esgota, e é separada da edição porque o campo de
+    /// quantidade na tela é um incremento, não um valor absoluto — reescrever o
+    /// valor absoluto com duas pessoas na tela apagaria o uso da outra.
+    /// </summary>
+    Task<CupomDto> SomarQuantidadeAsync(long id, int quantidade, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Confere o cupom contra o subtotal e devolve o desconto, ou lança com a
+    /// mensagem que o cliente vai ler. Não altera nada: quem consome é o
+    /// <see cref="ConsumirAsync"/>, chamado na transação do pedido.
+    /// </summary>
+    Task<AplicacaoDeCupom> CalcularAsync(
+        string codigo,
+        decimal subtotalDosProdutos,
+        DateTime em,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Consome uma unidade. Entra na transação que o chamador estiver usando — os
+    /// dois serviços compartilham o mesmo <c>LumiDbContext</c> — para que a
+    /// quantidade do cupom e a linha do pedido confirmem ou desfaçam juntas.
+    /// </summary>
+    Task ConsumirAsync(long cupomId, CancellationToken cancellationToken = default);
+
+    /// <summary>Devolve uma unidade. Chamado no cancelamento do pedido.</summary>
+    Task DevolverAsync(long cupomId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Busca e cadastro de cliente para o painel.
+///
+/// Separado do <see cref="IAutenticacaoService"/> porque o cadastro de balcão não
+/// é o mesmo que o cadastro da loja: ele não passa por reCAPTCHA (a administradora
+/// está autenticada, e o reCAPTCHA existe para bloquear robô, não ela), não gera
+/// token e não devolve sessão. Misturar os dois faria o painel depender de reCAPTCHA
+/// e de fluxo de token para registrar uma venda.
+/// </summary>
+/// <summary>
+/// Agenda de endereços do cliente.
+///
+/// O endereço entra na agenda quando o cliente usa um endereço novo no checkout.
+/// A regra está no roadmap desde o começo: o checkout nunca perde um endereço que
+/// a pessoa digitou, porque ela teria que digitá-lo de novo na próxima compra.
+///
+/// O pedido guarda cópia própria do endereço, então apagar ou editar aqui nunca
+/// altera um pedido antigo — ver <c>Pedido</c>.
+/// </summary>
+/// <summary>
+/// Cálculo do frete pelo endereço de entrega.
+///
+/// Roda no checkout, depois que o endereço está escolhido — o carrinho mostra
+/// "a calcular no checkout" porque sem endereço não há o que calcular. O valor
+/// devolvido aqui é o que o servidor recalcula ao criar o pedido; a prévia
+/// serve para mostrar, não para cobrar.
+/// </summary>
+public interface ICalculoDeFreteService
+{
+    Task<CalculoDeFreteDto> CalcularAsync(
+        EnderecoDeEntregaRequisicao destino,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IGestaoDeEnderecosService
+{
+    /// <summary>Agenda do cliente, com o padrão primeiro.</summary>
+    Task<IReadOnlyList<EnderecoDto>> ListarDoUsuarioAsync(long usuarioId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cadastra um endereço. O primeiro da agenda vira o padrão automaticamente,
+    /// porque é o que o checkout oferece por primeiro.
+    /// </summary>
+    Task<EnderecoDto> CriarAsync(
+        long usuarioId,
+        RequisicaoDeEnderecoDoPedido requisicao,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Aplica a mudança de endereço ao pedido que ainda não saiu para entrega.
+    ///
+    /// O pedido tem cópia própria do endereço, e a cópia é o que vale. Trocar o
+    /// endereço depois que o pedido saiu mudaria o registro do que foi entregue, e
+    /// a pessoa não estaria mais no lugar que recebeu.
+    /// </summary>
+    Task<EnderecoDto> AtualizarNoPedidoAsync(
+        long usuarioId,
+        long pedidoId,
+        RequisicaoDeEnderecoDoPedido requisicao,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Apaga da agenda. Não toca em pedido nenhum, porque o pedido tem cópia.</summary>
+    Task ExcluirAsync(long usuarioId, long enderecoId, CancellationToken cancellationToken = default);
+}
+
+public interface IGestaoDeClientesService
+{
+    /// <summary>
+    /// Procura por nome, e-mail, telefone ou CPF. Vazio traz os mais recentes,
+    /// que é o que a tela mostra antes de a administradora digitar qualquer coisa.
+    /// </summary>
+    Task<IReadOnlyList<ClienteResumoDto>> BuscarAsync(string? termo, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cadastra um cliente sem senha. Sem senha é o caso normal da venda de balcão:
+    /// a pessoa compra, e só vai ter senha se algum dia se cadastrar no site.
+    /// Criar senha aqui seria inventar uma credencial que ninguém escolheu.
+    /// </summary>
+    Task<ClienteResumoDto> CriarAsync(RequisicaoDeCliente requisicao, CancellationToken cancellationToken = default);
+}
+
+public interface IGestaoDePedidosService
+{
+    /// <summary>
+    /// Cria o pedido, baixa o estoque e consome o cupom **na mesma transação**, e
+    /// só depois avisa o cliente e a administradora.
+    ///
+    /// A ordem entre essas duas coisas é o ponto: se o aviso saísse antes da
+    /// gravação e a gravação falhasse, o cliente teria recebido a confirmação de um
+    /// pedido que não existe.
+    /// </summary>
+    Task<PedidoDto> CriarAsync(
+        RequisicaoDePedido requisicao,
+        OrigemPedido origem,
+        CancellationToken cancellationToken = default);
+
+    Task<PedidoDto?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>Pedidos do cliente do token, do mais novo para o mais antigo.</summary>
+    Task<IReadOnlyList<PedidoDto>> ListarDoUsuarioAsync(long usuarioId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Listagem do painel. Os filtros são opcionais: sem nenhum, traz todos.
+    ///
+    /// <paramref name="notaFiscalGerada"/> é o valor da flag, e não "sem nota": com
+    /// nome invertido, quem passasse <c>true</c> para "só os pendentes" receberia os
+    /// já emitidos, que é o resultado oposto do pedido.
+    /// </summary>
+    Task<IReadOnlyList<PedidoListaDto>> ListarAsync(
+        StatusPedido? status = null,
+        OrigemPedido? origem = null,
+        bool? notaFiscalGerada = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A administradora registra a forma de pagamento e aceita a venda. É o
+    /// "finalizar" do fluxo: o pedido sai de <c>AguardandoPagamento</c> para
+    /// <c>Pago</c>.
+    ///
+    /// Não há verificação de compensação bancária. Quem confirma o recebimento é a
+    /// administradora, e uma checagem automática aqui só criaria um segundo critério
+    /// disputando com o dela.
+    /// </summary>
+    Task<PedidoDto> RegistrarPagamentoAsync(
+        long id,
+        MetodoPagamento metodoPagamento,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cancela o pedido, devolvendo o estoque e a unidade de cupom consumida.
+    /// Não há o que devolver em venda de balcão sem cupom, e por isso a devolução
+    /// é condicional.
+    /// </summary>
+    Task<PedidoDto> CancelarAsync(long id, CancellationToken cancellationToken = default);
 }

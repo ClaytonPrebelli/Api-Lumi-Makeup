@@ -161,30 +161,61 @@ public class DtosTests
     [Fact]
     public void PedidoDto_armazena_valores()
     {
-        var itens = new List<ItemPedidoDto> { new(1, 2, "Batom", 35m, 2, 70m) };
-        var dto = new PedidoDto(1, StatusPedido.Pago, StatusEntrega.Enviado, MetodoPagamento.Pix, 200m, 15m, 215m, new DateTime(2026, 1, 6), itens);
+        var itens = new List<PedidoItemDto> { new(2, "Batom", 2, 35m, null, 70m) };
+        var dto = new PedidoDto(
+            1,
+            7,
+            "Ana",
+            "123.456.789-00",
+            "11999999999",
+            "ana@exemplo.com",
+            OrigemPedido.Online,
+            StatusPedido.Pago,
+            MetodoPagamento.Pix,
+            "NATAL20",
+            200m,
+            40m,
+            15m,
+            175m,
+            null,
+            new DateTime(2026, 1, 6),
+            new DateTime(2026, 1, 7),
+            itens);
 
         Assert.Equal(1, dto.Id);
+        Assert.Equal(7, dto.UsuarioId);
+        Assert.Equal("Ana", dto.NomeCliente);
+        Assert.Equal("11999999999", dto.TelefoneContato);
+        // Telefone e e-mail vao copiados para o pedido: o aviso sai depois que o
+        // pedido existe, e o cadastro pode ter mudado no meio do caminho.
+        Assert.Equal("ana@exemplo.com", dto.EmailContato);
+        Assert.Equal(OrigemPedido.Online, dto.Origem);
         Assert.Equal(StatusPedido.Pago, dto.Status);
-        Assert.Equal(StatusEntrega.Enviado, dto.StatusEntrega);
         Assert.Equal(MetodoPagamento.Pix, dto.MetodoPagamento);
+        Assert.Equal("NATAL20", dto.CupomCodigo);
         Assert.Equal(200m, dto.Subtotal);
+        // Desconto e subtotal sao campos separados de proposito: e o que permite
+        // dizer quanto da receita veio de promocao e quanto de cupom.
+        Assert.Equal(40m, dto.Desconto);
         Assert.Equal(15m, dto.CustoFrete);
-        Assert.Equal(215m, dto.Total);
+        Assert.Equal(175m, dto.Total);
         Assert.Equal(new DateTime(2026, 1, 6), dto.CriadoEm);
+        Assert.Equal(new DateTime(2026, 1, 7), dto.PagoEm);
         Assert.Single(dto.Itens);
     }
 
     [Fact]
-    public void ItemPedidoDto_armazena_valores()
+    public void PedidoItemDto_guarda_o_preco_promocional_alem_do_de_venda()
     {
-        var dto = new ItemPedidoDto(1, 2, "Batom", 35m, 2, 70m);
+        var dto = new PedidoItemDto(2, "Batom", 2, 35m, 25m, 50m);
 
-        Assert.Equal(1, dto.Id);
+        // Os dois precos ficam: com so o cobrado, o relatorio nao diria quanto a
+        // loja concessionou em promocao.
         Assert.Equal(2, dto.ProdutoId);
-        Assert.Equal("Batom", dto.NomeProduto);
+        Assert.Equal("Batom", dto.Nome);
         Assert.Equal(35m, dto.PrecoVendaUnitario);
+        Assert.Equal(25m, dto.PrecoPromocionalUnitario);
         Assert.Equal(2, dto.Quantidade);
-        Assert.Equal(70m, dto.Subtotal);
+        Assert.Equal(50m, dto.Subtotal);
     }
 }
