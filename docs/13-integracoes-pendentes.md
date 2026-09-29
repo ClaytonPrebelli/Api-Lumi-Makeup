@@ -55,16 +55,47 @@ absoluto do servidor, então o dado continua válido se a estrutura mudar.
 | Contrato | `IArmazenamentoDeImagens` em `Application/Abstractions/IIntegrations.cs` |
 | Implementação | `ArmazenamentoDeImagensLocal` em `Infrastructure/Integrations` |
 | CRUD de produtos/categorias | `GestaoDeProdutosService`, `GestaoDeCategoriasService` — ver [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md) |
-| Rotas | `api/admin/produtos`, `api/admin/categorias` (exigem `SomenteAdministrador`) |
+| CRUD de banners | `GestaoDeBannersService` — ver [`17-banners.md`](17-banners.md) |
+| Rotas | `api/admin/produtos`, `api/admin/categorias`, `api/admin/banners` (exigem `SomenteAdministrador`) |
 
 Configuração em `ArmazenamentoDeImagens`:
 
 | Chave | Valor no `appsettings.json` | Papel |
 |---|---|---|
 | `CaminhoBase` | `../imagens` | **obrigatória**. Relativa ao *content root*, para que a pasta fique **irmã** da aplicação e fora do que o FTP publica |
-| `PastaPadrao` | `produtos` | subpasta dentro de `CaminhoBase` |
+| `PastaPadrao` | `produtos` | subpasta dentro de `CaminhoBase`, usada por `ArmazenarAsync` |
 | `TamanhoMaximoEmBytes` | `5242880` | 5 MB |
 | `ExtensoesPermitidas` | `jpg`, `jpeg`, `png` | extensões liberadas |
+
+## `ArmazenarEmPastaAsync`: quando a pasta não é a padrão
+
+`ArmazenarAsync` grava sempre na `PastaPadrao`. Os banners precisavam de uma pasta
+própria — `banners/` — para não ficarem misturados com as fotos de produto, e
+receberam um método à parte em vez de um parâmetro opcional.
+
+O método novo grava em subpasta informada pelo chamador, e a pasta passa pelo mesmo
+`SanearPasta` da padrão: `".."` e barra invertida são recusados, e `"../../segredo"`
+vira `segredo` porque o ponto não é caractere aceito. Subpasta interna é aceita
+(`banners/2026`).
+
+Subdiretório é criado sob demanda (`Directory.CreateDirectory` antes de gravar), então
+`banners/` **não precisa de preparação manual** no servidor de imagens, e herda as
+mesmas permissões da raiz que já aceita `produtos/`.
+
+> **Por que método separado e não parâmetro opcional:** acrescentar um parâmetro
+> opcional a uma interface já implementada quebra todo chamador de Moq — árvore de
+> expressão não aceita argumento omitido (`CS0854`). O nome também fica mais honesto:
+> quem chama diz em qual pasta quer gravar.
+
+## A exclusão é melhor esforço
+
+`ExcluirAsync` **não lança** quando o arquivo já sumiu ou quando o caminho
+armazenado é inválido. Devolve sucesso nos dois casos.
+
+A referência no banco é o que precisa sair. Sem isso, apagar uma imagem cujo arquivo
+tinha sido removido fora do sistema derrubava a requisição com erro — o painel
+mostrava falha por um arquivo que não existia mais, e a referência continuava no
+banco, que é o oposto do que se queria.
 
 > **Vazio não é "sem configuração".** `ArmazenamentoDeImagensLocal.ResolverRaiz` lança
 > ao encontrar a string vazia, e como o registro é `AddScoped` o construtor só roda no
