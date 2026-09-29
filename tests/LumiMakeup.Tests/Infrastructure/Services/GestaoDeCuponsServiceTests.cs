@@ -3,6 +3,7 @@ using LumiMakeup.Domain.Entities;
 using LumiMakeup.Infrastructure.Persistence;
 using LumiMakeup.Infrastructure.Services;
 using LumiMakeup.Tests.Helpers;
+using Microsoft.EntityFrameworkCore;
 
 namespace LumiMakeup.Tests.Infrastructure.Services;
 
@@ -356,6 +357,48 @@ public sealed class GestaoDeCuponsServiceTests
             servico.ConsumirAsync(cupom.Id, CancellationToken.None));
 
         Assert.Equal("Cupom inválido.", erro.Message);
+    }
+
+    [Fact]
+    public async Task ConsumirAsync_baixa_uma_unidade()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var cupom = await SemearAsync(contexto, quantidade: 3);
+        var servico = Servico(contexto);
+
+        await servico.ConsumirAsync(cupom.Id, CancellationToken.None);
+
+        Assert.Equal(2, await contexto.Cupons.AsNoTracking().Select(c => c.QuantidadeDisponivel).SingleAsync());
+    }
+
+    [Fact]
+    public async Task ConsumirAsync_barra_duas_compras_da_ultima_unidade()
+    {
+        // Mesmo banco, dois contextos: e assim que uma concorrencia real se
+        // apresenta, com as duas requisicoes tendo lido a mesma quantidade.
+        var nomeDoBanco = Guid.NewGuid().ToString();
+        using var primeiro = Testes.CriarContextoInMemory(nomeDoBanco);
+        var cupom = await SemearAsync(primeiro, quantidade: 1);
+
+        using var segundo = Testes.CriarContextoInMemory(nomeDoBanco);
+
+        // Os dois leem antes de qualquer um escrever.
+        var antesDoPrimeiro = await primeiro.Cupons.AsNoTracking().SingleAsync();
+        var antesDoSegundo = await segundo.Cupons.AsNoTracking().SingleAsync();
+        Assert.Equal(1, antesDoPrimeiro.QuantidadeDisponivel);
+        Assert.Equal(1, antesDoSegundo.QuantidadeDisponivel);
+
+        await new GestaoDeCuponsService(primeiro).ConsumirAsync(cupom.Id, CancellationToken.None);
+
+        // O segundo ainda tem 1 em memória e tenta consumir. A quantidade e token
+        // de concorrencia, entao o UPDATE dele leva o valor antigo no WHERE,
+        // afeta zero linhas, e o cliente recebe "cupom invalido" em vez de dois
+        // pedidos com o mesmo cupom.
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new GestaoDeCuponsService(segundo).ConsumirAsync(cupom.Id, CancellationToken.None));
+
+        Assert.Equal("Cupom inválido.", erro.Message);
+        Assert.Equal(0, await primeiro.Cupons.AsNoTracking().Select(c => c.QuantidadeDisponivel).SingleAsync());
     }
 
     [Fact]

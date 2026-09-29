@@ -24,6 +24,12 @@ public class ProdutoConfiguration : IEntityTypeConfiguration<Produto>
         // inteira a cada visita à vitrine.
         builder.HasIndex(p => p.Destaque);
         builder.Property(p => p.QuantidadeEstoque).HasColumnType("int");
+
+        // Token de concorrencia, pelo mesmo motivo do cupom: duas compras da
+        // ultima unidade nao podem passar as duas. O UPDATE do EF leva o valor
+        // lido no WHERE, e o segundo vira DbUpdateConcurrencyException em vez de
+        // deixar o estoque negativo.
+        builder.Property(p => p.QuantidadeEstoque).IsConcurrencyToken();
         builder.Property(p => p.Ativo).HasColumnType("tinyint(1)");
         builder.Property(p => p.CriadoEm).HasColumnType("datetime");
 

@@ -63,6 +63,11 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
         builder.HasIndex(o => o.Status);
         builder.HasIndex(o => o.CriadoEm);
 
+        // E o indice que o painel usa para achar o que ainda precisa de nota
+        // fiscal. Composto com o status, porque so faz sentido listar pendentes de
+        // pedido que chegou a ser pago.
+        builder.HasIndex(o => new { o.NotaFiscalGerada, o.Status });
+
         builder.HasOne(o => o.Usuario)
             .WithMany(u => u.Pedidos)
             .HasForeignKey(o => o.UsuarioId)

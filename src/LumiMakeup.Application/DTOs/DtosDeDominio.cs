@@ -101,6 +101,64 @@ public sealed record AplicacaoDeCupom(
     decimal Percentual,
     decimal Desconto);
 
+public sealed record ItemDePedidoRequisicao(long ProdutoId, int Quantidade);
+
+public sealed record EnderecoDeEntregaRequisicao(
+    string Cep,
+    string Logradouro,
+    string Numero,
+    string? Complemento,
+    string Bairro,
+    string Cidade,
+    string Estado);
+
+/// <summary>
+/// Pedido a ser criado, comum ao checkout e à venda de balcão. O que muda entre
+/// os dois é a <c>Origem</c> e o que vem preenchido: venda de balcão não traz
+/// endereço e o frete é zero.
+///
+/// <paramref name="CustoFrete"/> entra como valor pronto, e não como cálculo.
+/// Calcular a distância e a tarifa é do checkout, e essa regra ainda não existe
+/// (ver <c>ConfiguracaoFrete</c> no roadmap). Trazer a fórmula para dentro do
+/// pedido deixaria meio-cálculo em dois lugares.
+/// </summary>
+public sealed record RequisicaoDePedido(
+    long UsuarioId,
+    IReadOnlyList<ItemDePedidoRequisicao> Itens,
+    EnderecoDeEntregaRequisicao? Endereco,
+    string? CupomCodigo,
+    string? Observacoes,
+    decimal CustoFrete,
+    decimal DistanciaKm,
+    DateTime? CriadoEm);
+
+public sealed record PedidoItemDto(
+    long ProdutoId,
+    string Nome,
+    int Quantidade,
+    decimal PrecoVendaUnitario,
+    decimal? PrecoPromocionalUnitario,
+    decimal Subtotal);
+
+public sealed record PedidoDto(
+    long Id,
+    long UsuarioId,
+    string NomeCliente,
+    string? DocumentoCliente,
+    string? TelefoneContato,
+    OrigemPedido Origem,
+    StatusPedido Status,
+    MetodoPagamento? MetodoPagamento,
+    string? CupomCodigo,
+    decimal Subtotal,
+    decimal Desconto,
+    decimal CustoFrete,
+    decimal Total,
+    string? Observacoes,
+    DateTime CriadoEm,
+    DateTime? PagoEm,
+    IReadOnlyList<PedidoItemDto> Itens);
+
 public sealed record RequisicaoDeCategoria(string Nome, string? Slug, string? Descricao, bool Ativo);
 
 public sealed record RequisicaoDeMelhoriaDeTexto(string? Nome, string Descricao);
@@ -124,22 +182,3 @@ public sealed record ProdutoDto(
     long CategoriaId,
     string NomeCategoria,
     IReadOnlyList<ImagemProdutoDto> Imagens);
-
-public sealed record PedidoDto(
-    long Id,
-    StatusPedido Status,
-    StatusEntrega StatusEntrega,
-    MetodoPagamento? MetodoPagamento,
-    decimal Subtotal,
-    decimal CustoFrete,
-    decimal Total,
-    DateTime CriadoEm,
-    IReadOnlyList<ItemPedidoDto> Itens);
-
-public sealed record ItemPedidoDto(
-    long Id,
-    long ProdutoId,
-    string NomeProduto,
-    decimal PrecoVendaUnitario,
-    int Quantidade,
-    decimal Subtotal);

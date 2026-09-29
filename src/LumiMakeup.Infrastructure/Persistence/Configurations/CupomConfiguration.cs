@@ -13,8 +13,15 @@ public class CupomConfiguration : IEntityTypeConfiguration<Cupom>
 
         builder.Property(c => c.Codigo).HasMaxLength(40).IsRequired();
         builder.Property(c => c.Percentual).HasColumnType("decimal(5,2)");
-        builder.Property(c => c.QuantidadeDisponivel).HasColumnType("int");
-        builder.Property(c => c.ValorMinimo).HasColumnType("decimal(10,2)");
+        // Token de concorrencia: o UPDATE do EF inclui o valor lido no WHERE. Se
+        // outra requisicao mexeu na quantidade no meio, o UPDATE afeta zero linhas
+        // e o EF lanca DbUpdateConcurrencyException — o que barra dois clientes
+        // com a ultima unidade sobrando de levarem os dois.
+        //
+        // Era um UPDATE guardado por "QuantidadeDisponivel > 0", mas esse jeito nao
+        // roda no provedor InMemory e deixava a criacao de pedido com cupom sem
+        // teste nenhum. Aqui a protecao e a mesma e o caminho continua testavel.
+        builder.Property(c => c.QuantidadeDisponivel).IsConcurrencyToken();        builder.Property(c => c.ValorMinimo).HasColumnType("decimal(10,2)");
         builder.Property(c => c.ValidadeAte).HasColumnType("datetime");
         builder.Property(c => c.Ativo).HasColumnType("tinyint(1)");
         builder.Property(c => c.CriadoEm).HasColumnType("datetime(6)");

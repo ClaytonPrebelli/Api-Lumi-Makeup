@@ -1,4 +1,5 @@
 using LumiMakeup.Application.DTOs;
+using LumiMakeup.Domain.Enums;
 
 namespace LumiMakeup.Application.Abstractions;
 
@@ -123,4 +124,43 @@ public interface IGestaoDeCuponsService
 
     /// <summary>Devolve uma unidade. Chamado no cancelamento do pedido.</summary>
     Task DevolverAsync(long cupomId, CancellationToken cancellationToken = default);
+}
+
+public interface IGestaoDePedidosService
+{
+    /// <summary>
+    /// Cria o pedido, baixa o estoque e consome o cupom **na mesma transação**, e
+    /// só depois avisa o cliente e a administradora.
+    ///
+    /// A ordem entre essas duas coisas é o ponto: se o aviso saísse antes da
+    /// gravação e a gravação falhasse, o cliente teria recebido a confirmação de um
+    /// pedido que não existe.
+    /// </summary>
+    Task<PedidoDto> CriarAsync(
+        RequisicaoDePedido requisicao,
+        OrigemPedido origem,
+        CancellationToken cancellationToken = default);
+
+    Task<PedidoDto?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A administradora registra a forma de pagamento e aceita a venda. É o
+    /// "finalizar" do fluxo: o pedido sai de <c>AguardandoPagamento</c> para
+    /// <c>Pago</c>.
+    ///
+    /// Não há verificação de compensação bancária. Quem confirma o recebimento é a
+    /// administradora, e uma checagem automática aqui só criaria um segundo critério
+    /// disputando com o dela.
+    /// </summary>
+    Task<PedidoDto> RegistrarPagamentoAsync(
+        long id,
+        MetodoPagamento metodoPagamento,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cancela o pedido, devolvendo o estoque e a unidade de cupom consumida.
+    /// Não há o que devolver em venda de balcão sem cupom, e por isso a devolução
+    /// é condicional.
+    /// </summary>
+    Task<PedidoDto> CancelarAsync(long id, CancellationToken cancellationToken = default);
 }

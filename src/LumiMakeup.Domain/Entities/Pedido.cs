@@ -77,6 +77,24 @@ public class Pedido
     public string? TelefoneContato { get; set; }
 
     public string? Observacoes { get; set; }
+
+    /// <summary>
+    /// Se a nota fiscal deste pedido já foi gerada.
+    ///
+    /// Fica no pedido, e não só na coleção de notas, porque a pergunta que o painel
+    /// faz é "quais pedidos estão sem nota?" — e responder isso varrendo as notas
+    /// de cada pedido seria trocar uma coluna por uma consulta em cada linha da
+    /// listagem.
+    ///
+    /// Começa falso e vira verdadeiro quando a emissão dá certo. Enquanto a emissão
+    /// não existir (o Focus NFe ainda é stub), todo pedido nasce aqui e o painel
+    /// mostra a fila inteira como pendente, que é a leitura correta.
+    /// </summary>
+    public bool NotaFiscalGerada { get; set; }
+
+    /// <summary>Quando a nota foi gerada. Nulo enquanto pendente.</summary>
+    public DateTime? NotaFiscalGeradaEm { get; set; }
+
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     public DateTime? PagoEm { get; set; }
     public DateTime? EntregueEm { get; set; }

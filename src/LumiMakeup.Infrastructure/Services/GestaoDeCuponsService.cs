@@ -183,14 +183,15 @@ public sealed class GestaoDeCuponsService : IGestaoDeCuponsService
     /// <summary>
     /// Consome uma unidade do cupom.
     ///
-    /// A checagem de "ainda tem" vem **antes** do UPDATE, e o UPDATE em si é
-    /// guardado por <c>QuantidadeDisponivel &gt; 0</c>. Só o guarda bastaria para
-    /// barrar o excesso, mas a checagem antes existe para a exceção chegar já
-    /// formatada, e para permitir o teste sem banco relacional.
+    /// A quantidade é token de concorrência (ver <c>CupomConfiguration</c>), então o
+    /// UPDATE do EF leva o valor lido no WHERE. Se outra requisição alterou a
+    /// quantidade no meio, o UPDATE afeta zero linhas e o EF lança
+    /// <see cref="DbUpdateConcurrencyException"/>, que aqui vira a mesma mensagem de
+    /// cupom inválido.
     ///
-    /// Sem o guarda, dois clientes validando o cupom ao mesmo tempo com uma única
-    /// unidade sobrando conseguiriam os dois: a validação não reserva, e a escrita
-    /// posterior leria o mesmo número.
+    /// Sem isso, dois clientes validando o mesmo código com uma única unidade
+    /// sobrando levariam os dois: a validação não reserva, e a escrita posterior
+    /// leria o mesmo número.
     /// </summary>
     public async Task ConsumirAsync(long cupomId, CancellationToken cancellationToken = default)
     {
@@ -202,17 +203,19 @@ public sealed class GestaoDeCuponsService : IGestaoDeCuponsService
             throw new InvalidOperationException(MensagemDeCupomInvalido);
         }
 
-        var afetadas = await _contexto.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE cupons SET QuantidadeDisponivel = QuantidadeDisponivel - 1 WHERE Id = {cupomId} AND QuantidadeDisponivel > 0",
-            cancellationToken);
+        cupom.QuantidadeDisponivel--;
 
-        if (afetadas == 0)
+        try
         {
-            // A outra requisição levou a última unidade entre a checagem e o UPDATE.
+            await _contexto.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A outra requisição levou a última unidade. A mensagem é a de sempre,
+            // porque para o cliente o código deixou de valer — e o motivo exato é
+            // informação de negócio.
             throw new InvalidOperationException(MensagemDeCupomInvalido);
         }
-
-        _contexto.ChangeTracker.Clear();
     }
 
     public async Task DevolverAsync(long cupomId, CancellationToken cancellationToken = default)
