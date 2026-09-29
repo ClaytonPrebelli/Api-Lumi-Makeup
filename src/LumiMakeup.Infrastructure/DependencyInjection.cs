@@ -70,7 +70,9 @@ public static class DependencyInjection
         services.Configure<OpcoesDeIa>(configuration.GetSection("ExternalServices:Ia"));
         services.Configure<ArmazenamentoDeImagensOptions>(configuration.GetSection("ArmazenamentoDeImagens"));
         services.AddScoped<IArmazenamentoDeImagens, ArmazenamentoDeImagensLocal>();
-        services.AddScoped<IWhatsAppService, WhatsAppServiceStub>();
+
+        RegistrarWhatsApp(services, configuration);
+
         services.AddScoped<IFocusNfeService, FocusNfeServiceStub>();
 
         services.Configure<FrontendOptions>(configuration.GetSection("Frontend"));
@@ -103,5 +105,52 @@ public static class DependencyInjection
         services.AddScoped<DatabaseSeeder>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Escolhe entre o cliente HTTP do Baileys e o stub.
+    ///
+    /// O stub continua sendo o padrao porque o WhatsApp e acessorio: sem
+    /// segredo, sem pasta do Node ou com <c>Habilitado</c> desligado, a loja
+    /// precisa vender do mesmo jeito, so sem o aviso. Subir o Node e opcional
+    /// (<c>IniciarProcesso</c>), porque em desenvolvimento ele roda na mao, com
+    /// <c>npm start</c>.
+    /// </summary>
+    private static void RegistrarWhatsApp(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<OpcoesDeBaileys>(configuration.GetSection("ExternalServices:Baileys"));
+
+        var secao = configuration.GetSection("ExternalServices:Baileys");
+
+        var habilitado = secao.GetValue("Habilitado", defaultValue: false);
+        var segredo = secao["SegredoCompartilhado"] ?? string.Empty;
+
+        if (!habilitado || string.IsNullOrWhiteSpace(segredo))
+        {
+            services.AddScoped<IWhatsAppService, WhatsAppServiceStub>();
+
+            return;
+        }
+
+        var porta = secao.GetValue("Porta", defaultValue: 3001);
+        var urlBase = secao["UrlBase"];
+        var timeout = secao.GetValue("TimeoutDoEnvioEmSegundos", defaultValue: 15);
+
+        // A porta vem do mesmo lugar que a URL: o Node escuta em uma e a API
+        // fala na outra, e divergir entre as duas so produz "nao conecta".
+        var baseAddress = string.IsNullOrWhiteSpace(urlBase)
+            ? $"http://127.0.0.1:{porta}"
+            : urlBase.TrimEnd('/') + "/";
+
+        services.AddHttpClient<IWhatsAppService, BaileysWhatsAppService>(client =>
+        {
+            client.BaseAddress = new Uri(baseAddress);
+            client.Timeout = TimeSpan.FromSeconds(timeout);
+        });
+
+        if (secao.GetValue("IniciarProcesso", defaultValue: false))
+        {
+            services.AddHostedService<SupervisorDeNodeBaileys>();
+        }
     }
 }

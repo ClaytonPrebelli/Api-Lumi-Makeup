@@ -143,6 +143,11 @@ jobs:
           GOOGLE_SEGREDO_CLIENTE: ${{ secrets.GOOGLE_SEGREDO_CLIENTE }}
           BREVO_CHAVE_API: ${{ secrets.BREVO_CHAVE_API }}
           BAILEYS_SEGREDO_COMPARTILHADO: ${{ secrets.BAILEYS_SEGREDO_COMPARTILHADO }}
+          BAILEYS_HABILITADO: ${{ secrets.BAILEYS_HABILITADO }}
+          BAILEYS_INICIAR_PROCESSO: ${{ secrets.BAILEYS_INICIAR_PROCESSO }}
+          BAILEYS_PASTA_DO_NODE: ${{ secrets.BAILEYS_PASTA_DO_NODE }}
+          BAILEYS_EXECUTAVEL: ${{ secrets.BAILEYS_EXECUTAVEL }}
+          BAILEYS_PORTA: ${{ secrets.BAILEYS_PORTA }}
           FOCUSNFE_ID_CLIENTE: ${{ secrets.FOCUSNFE_ID_CLIENTE }}
           FOCUSNFE_SEGREDO_CLIENTE: ${{ secrets.FOCUSNFE_SEGREDO_CLIENTE }}
         run: |
@@ -237,7 +242,12 @@ jobs:
                       "ChaveApi": segredo("BREVO_CHAVE_API")
                   },
                   "Baileys": {
-                      "SegredoCompartilhado": segredo("BAILEYS_SEGREDO_COMPARTILHADO")
+                      "Habilitado": texto("BAILEYS_HABILITADO") == "true",
+                      "IniciarProcesso": texto("BAILEYS_INICIAR_PROCESSO") == "true",
+                      "SegredoCompartilhado": segredo("BAILEYS_SEGREDO_COMPARTILHADO"),
+                      "PastaDoNode": texto("BAILEYS_PASTA_DO_NODE"),
+                      "Executavel": texto("BAILEYS_EXECUTAVEL") or "node.exe",
+                      "Porta": numero("BAILEYS_PORTA", 3001)
                   },
                   "FocusNfe": {
                       "IdCliente": segredo("FOCUSNFE_ID_CLIENTE"),
