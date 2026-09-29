@@ -24,7 +24,9 @@ public sealed class VerboHttpDasRotasTests
     {
         typeof(AdminProdutosController),
         typeof(AdminCategoriasController),
-        typeof(AdminBannersController)
+        typeof(AdminBannersController),
+        typeof(AdminCuponsController),
+        typeof(AdminPedidosController)
     };
 
     [Theory]
@@ -63,7 +65,14 @@ public sealed class VerboHttpDasRotasTests
             (typeof(AdminBannersController), "Atualizar", "api/admin/banners/{id:long}/atualizar"),
             (typeof(AdminBannersController), "DefinirAtivo", "api/admin/banners/{id:long}/ativo"),
             (typeof(AdminBannersController), "Excluir", "api/admin/banners/{id:long}/excluir"),
-            (typeof(AdminBannersController), "Reordenar", "api/admin/banners/ordem")
+            (typeof(AdminBannersController), "Reordenar", "api/admin/banners/ordem"),
+            (typeof(AdminCuponsController), "Atualizar", "api/admin/cupons/{id:long}/atualizar"),
+            (typeof(AdminCuponsController), "DefinirAtivo", "api/admin/cupons/{id:long}/ativo"),
+            (typeof(AdminCuponsController), "SomarQuantidade", "api/admin/cupons/{id:long}/quantidade"),
+            (typeof(AdminCuponsController), "Excluir", "api/admin/cupons/{id:long}/excluir"),
+            (typeof(AdminPedidosController), "CriarVendaDeBalcao", "api/admin/pedidos/balcao"),
+            (typeof(AdminPedidosController), "RegistrarPagamento", "api/admin/pedidos/{id:long}/pagamento"),
+            (typeof(AdminPedidosController), "Cancelar", "api/admin/pedidos/{id:long}/cancelar")
         };
 
         foreach (var (tipoController, nomeMetodo, template) in esperados)

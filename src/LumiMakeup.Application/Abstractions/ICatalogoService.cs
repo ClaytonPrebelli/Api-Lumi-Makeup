@@ -143,6 +143,22 @@ public interface IGestaoDePedidosService
 
     Task<PedidoDto?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default);
 
+    /// <summary>Pedidos do cliente do token, do mais novo para o mais antigo.</summary>
+    Task<IReadOnlyList<PedidoDto>> ListarDoUsuarioAsync(long usuarioId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Listagem do painel. Os filtros são opcionais: sem nenhum, traz todos.
+    ///
+    /// <paramref name="notaFiscalGerada"/> é o valor da flag, e não "sem nota": com
+    /// nome invertido, quem passasse <c>true</c> para "só os pendentes" receberia os
+    /// já emitidos, que é o resultado oposto do pedido.
+    /// </summary>
+    Task<IReadOnlyList<PedidoListaDto>> ListarAsync(
+        StatusPedido? status = null,
+        OrigemPedido? origem = null,
+        bool? notaFiscalGerada = null,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// A administradora registra a forma de pagamento e aceita a venda. É o
     /// "finalizar" do fluxo: o pedido sai de <c>AguardandoPagamento</c> para

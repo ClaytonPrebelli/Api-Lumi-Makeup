@@ -87,6 +87,14 @@ public sealed record RequisicaoDeCupom(
 
 public sealed record RequisicaoDeSomaDeQuantidadeDeCupom(int Quantidade);
 
+public sealed record RequisicaoDeAtivacaoDeCupom(bool Ativo);
+
+/// <summary>
+/// Prévia do cupom no checkout. O subtotal vem do navegador e **não** é
+/// conferido: o valor cobrado é recalculado no servidor na criação do pedido.
+/// </summary>
+public sealed record RequisicaoDeValidacaoDeCupom(string Codigo, decimal SubtotalDosProdutos);
+
 /// <summary>
 /// O que um cupom válido produz em um pedido: qual cupom foi, e quanto desconto
 /// ele gera sobre o subtotal dos produtos.
@@ -159,6 +167,55 @@ public sealed record PedidoDto(
     DateTime CriadoEm,
     DateTime? PagoEm,
     IReadOnlyList<PedidoItemDto> Itens);
+
+/// <summary>
+/// Pedido criado pelo checkout. Não leva <c>UsuarioId</c>: ele sai do token.
+///
+/// A rota de balcão é a mesma requisição, e por isso o registro de venda também
+/// não escolhe o cliente pelo corpo — a administradora escolhe na tela, e é o
+/// mesmo mecanismo de token que garante que ela não registre a venda na conta
+/// errada por engano de campo.
+/// </summary>
+public sealed record RequisicaoDeCriacaoDePedido(
+    IReadOnlyList<ItemDePedidoRequisicao> Itens,
+    EnderecoDeEntregaRequisicao? Endereco,
+    string? CupomCodigo,
+    string? Observacoes,
+    decimal CustoFrete,
+    decimal DistanciaKm);
+
+/// <summary>
+/// Pedido na listagem do painel. Sem os itens: a lista mostra resumo, e puxar os
+/// itens de cada linha faria uma consulta por pedido na tela que mais se abre.
+/// </summary>
+public sealed record PedidoListaDto(
+    long Id,
+    string NomeCliente,
+    string? TelefoneContato,
+    OrigemPedido Origem,
+    StatusPedido Status,
+    MetodoPagamento? MetodoPagamento,
+    string? CupomCodigo,
+    decimal Total,
+    bool NotaFiscalGerada,
+    DateTime CriadoEm,
+    int QuantidadeDeItens);
+
+/// <summary>
+/// Venda de balcão. É a requisição de criação **mais a data**.
+///
+/// A data é da venda, não da digitação: a administradora registra uma venda de
+/// ontem depois. Ela existe só aqui, e não na requisição do checkout, porque
+/// nesse caso quem manda é o cliente — e um cliente que pudesse escolher a data
+/// do próprio pedido ordenaria a fila de relatórios.
+/// </summary>
+public sealed record RequisicaoDeVendaDeBalcao(
+    IReadOnlyList<ItemDePedidoRequisicao> Itens,
+    string? CupomCodigo,
+    string? Observacoes,
+    DateTime? CriadoEm);
+
+public sealed record RequisicaoDePagamentoDePedido(MetodoPagamento MetodoPagamento);
 
 public sealed record RequisicaoDeCategoria(string Nome, string? Slug, string? Descricao, bool Ativo);
 

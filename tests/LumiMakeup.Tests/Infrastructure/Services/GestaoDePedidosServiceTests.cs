@@ -1,4 +1,4 @@
-using LumiMakeup.Application.Abstractions;
+﻿using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Entities;
 using LumiMakeup.Domain.Enums;
@@ -668,5 +668,143 @@ public sealed class GestaoDePedidosServiceTests
             CancellationToken.None);
 
         Assert.Equal(4, await contexto.Produtos.Select(p => p.QuantidadeEstoque).SingleAsync());
+    }
+
+    // ----Listagem do painel ------------------------------------------------
+
+    private static async Task<(Pedido Pedido, Usuario Usuario)> PedidoNoBancoAsync(
+        LumiDbContext contexto,
+        Usuario usuario,
+        Produto produto,
+        OrigemPedido origem = OrigemPedido.Online)
+    {
+        var requisicao = origem is OrigemPedido.Balcao
+            ? RequisicaoDeBalcao(usuario.Id, null, (produto.Id, 1))
+            : Requisicao(usuario.Id, (produto.Id, 1));
+
+        var pedido = await new GestaoDePedidosService(
+                contexto,
+                new GestaoDeCuponsService(contexto),
+                Mock.Of<INotificadorDePedido>())
+            .CriarAsync(requisicao, origem, CancellationToken.None);
+
+        return (await contexto.Pedidos.AsNoTracking().SingleAsync(p => p.Id == pedido.Id), usuario);
+    }
+
+    [Fact]
+    public async Task ListarAsync_filtra_por_status()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var (pedido, _) = await PedidoNoBancoAsync(contexto, usuario, produto);
+        await servico.RegistrarPagamentoAsync(pedido.Id, MetodoPagamento.Pix, CancellationToken.None);
+
+        var aguardando = await servico.ListarAsync(status: StatusPedido.AguardandoPagamento, cancellationToken: CancellationToken.None);
+        var pagos = await servico.ListarAsync(status: StatusPedido.Pago, cancellationToken: CancellationToken.None);
+
+        Assert.Empty(aguardando);
+        Assert.Single(pagos);
+    }
+
+    [Fact]
+    public async Task ListarAsync_separa_a_venda_de_balcao_do_pedido_online()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        await PedidoNoBancoAsync(contexto, usuario, produto, OrigemPedido.Online);
+        await PedidoNoBancoAsync(contexto, usuario, produto, OrigemPedido.Balcao);
+        var servico = Servico(contexto);
+
+        // Sem o filtro de origem, a venda de balcão entra misturada na receita do
+        // site e nenhum relatório separa e-commerce de presencial.
+        var online = await servico.ListarAsync(origem: OrigemPedido.Online, cancellationToken: CancellationToken.None);
+        var balcao = await servico.ListarAsync(origem: OrigemPedido.Balcao, cancellationToken: CancellationToken.None);
+
+        Assert.Single(online);
+        Assert.Single(balcao);
+        Assert.Equal(OrigemPedido.Balcao, balcao[0].Origem);
+    }
+
+    [Fact]
+    public async Task ListarAsync_acha_o_que_falta_nota_fiscal()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var (pedido, _) = await PedidoNoBancoAsync(contexto, usuario, produto);
+
+        var semNota = await Servico(contexto)
+            .ListarAsync(notaFiscalGerada: false, cancellationToken: CancellationToken.None);
+
+        Assert.Single(semNota);
+        Assert.False(semNota[0].NotaFiscalGerada);
+
+        // Marcando como gerada, o pedido sai da fila do painel.
+        var gravado = await contexto.Pedidos.SingleAsync(p => p.Id == pedido.Id);
+        gravado.NotaFiscalGerada = true;
+        gravado.NotaFiscalGeradaEm = DateTime.UtcNow;
+        await contexto.SaveChangesAsync();
+
+        var restantes = await Servico(contexto)
+            .ListarAsync(notaFiscalGerada: false, cancellationToken: CancellationToken.None);
+
+        Assert.Empty(restantes);
+    }
+
+    [Fact]
+    public async Task ListarAsync_traz_a_quantidade_de_itens_sem_carregar_eles()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        await PedidoNoBancoAsync(contexto, usuario, produto);
+        var servico = Servico(contexto);
+
+        var lista = await servico.ListarAsync(cancellationToken: CancellationToken.None);
+
+        // A contagem vem do banco na projecao. Puxar os itens para a contagem faria
+        // uma consulta por linha da tela que mais se abre.
+        Assert.Equal(1, Assert.Single(lista).QuantidadeDeItens);
+    }
+
+    // ----Listagem do cliente ----------------------------------------------
+
+    [Fact]
+    public async Task ListarDoUsuarioAsync_so_traz_o_pedido_da_pessoa()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var ana = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        await PedidoNoBancoAsync(contexto, ana, produto);
+
+        var bruno = new Usuario { Nome = "Bruno", Email = "bruno@exemplo.com", Papel = PapelUsuario.Cliente };
+        contexto.Usuarios.Add(bruno);
+        await contexto.SaveChangesAsync();
+        await PedidoNoBancoAsync(contexto, bruno, produto);
+
+        var servico = Servico(contexto);
+
+        var daAna = await servico.ListarDoUsuarioAsync(ana.Id, CancellationToken.None);
+        var doBruno = await servico.ListarDoUsuarioAsync(bruno.Id, CancellationToken.None);
+
+        // O filtro e no banco, e nao depois em memoria: puxar tudo e descartar
+        // depois devolveria a lista de pedidos dos outros clientes para quem
+        // pediu.
+        Assert.Single(daAna);
+        Assert.Single(doBruno);
+        Assert.Equal("Ana", daAna[0].NomeCliente);
+        Assert.Equal("Bruno", doBruno[0].NomeCliente);
+    }
+
+    [Fact]
+    public async Task ListarDoUsuarioAsync_devolve_vazio_quando_nao_hou_pedido()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+
+        Assert.Empty(await Servico(contexto).ListarDoUsuarioAsync(usuario.Id, CancellationToken.None));
     }
 }

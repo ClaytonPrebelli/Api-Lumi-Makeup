@@ -225,6 +225,90 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PedidoDto>> ListarDoUsuarioAsync(
+        long usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        // O filtro por UsuarioId é do lado do banco, e não depois: puxar todos e
+        // filtrar em memória seria devolver a lista de pedidos dos outros clientes
+        // para o dono do token antes de descartar.
+        return await _contexto.Pedidos
+            .AsNoTracking()
+            .Where(p => p.UsuarioId == usuarioId)
+            .OrderByDescending(p => p.CriadoEm)
+            .ThenByDescending(p => p.Id)
+            .Select(p => new PedidoDto(
+                p.Id,
+                p.UsuarioId,
+                p.NomeCliente,
+                p.DocumentoCliente,
+                p.TelefoneContato,
+                p.EmailContato,
+                p.Origem,
+                p.Status,
+                p.MetodoPagamento,
+                p.CupomCodigo,
+                p.Subtotal,
+                p.Desconto,
+                p.CustoFrete,
+                p.Total,
+                p.Observacoes,
+                p.CriadoEm,
+                p.PagoEm,
+                p.Itens
+                    .OrderBy(i => i.Id)
+                    .Select(i => new PedidoItemDto(
+                        i.ProdutoId,
+                        i.NomeProdutoRegistrado,
+                        i.Quantidade,
+                        i.PrecoVendaUnitario,
+                        i.PrecoPromocionalUnitario,
+                        i.Subtotal))
+                    .ToList()))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PedidoListaDto>> ListarAsync(
+        StatusPedido? status = null,
+        OrigemPedido? origem = null,
+        bool? notaFiscalGerada = null,
+        CancellationToken cancellationToken = default)
+    {
+        var consulta = _contexto.Pedidos.AsNoTracking();
+
+        if (status is { } statusInformado)
+        {
+            consulta = consulta.Where(p => p.Status == statusInformado);
+        }
+
+        if (origem is { } origemInformada)
+        {
+            consulta = consulta.Where(p => p.Origem == origemInformada);
+        }
+
+        if (notaFiscalGerada is { } emitida)
+        {
+            consulta = consulta.Where(p => p.NotaFiscalGerada == emitida);
+        }
+
+        return await consulta
+            .OrderByDescending(p => p.CriadoEm)
+            .ThenByDescending(p => p.Id)
+            .Select(p => new PedidoListaDto(
+                p.Id,
+                p.NomeCliente,
+                p.TelefoneContato,
+                p.Origem,
+                p.Status,
+                p.MetodoPagamento,
+                p.CupomCodigo,
+                p.Total,
+                p.NotaFiscalGerada,
+                p.CriadoEm,
+                p.Itens.Count))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<PedidoDto> RegistrarPagamentoAsync(
         long id,
         MetodoPagamento metodoPagamento,
