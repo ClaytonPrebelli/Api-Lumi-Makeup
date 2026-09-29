@@ -76,6 +76,12 @@ public class Pedido
     /// </summary>
     public string? TelefoneContato { get; set; }
 
+    /// <summary>
+    /// E-mail do cliente no momento da compra, pela mesma razão do telefone: é por
+    /// ele que a administradora responde, e o aviso sai depois que o pedido existe.
+    /// </summary>
+    public string? EmailContato { get; set; }
+
     public string? Observacoes { get; set; }
 
     /// <summary>

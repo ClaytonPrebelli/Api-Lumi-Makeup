@@ -168,6 +168,7 @@ public class DtosTests
             "Ana",
             "123.456.789-00",
             "11999999999",
+            "ana@exemplo.com",
             OrigemPedido.Online,
             StatusPedido.Pago,
             MetodoPagamento.Pix,
@@ -184,6 +185,10 @@ public class DtosTests
         Assert.Equal(1, dto.Id);
         Assert.Equal(7, dto.UsuarioId);
         Assert.Equal("Ana", dto.NomeCliente);
+        Assert.Equal("11999999999", dto.TelefoneContato);
+        // Telefone e e-mail vao copiados para o pedido: o aviso sai depois que o
+        // pedido existe, e o cadastro pode ter mudado no meio do caminho.
+        Assert.Equal("ana@exemplo.com", dto.EmailContato);
         Assert.Equal(OrigemPedido.Online, dto.Origem);
         Assert.Equal(StatusPedido.Pago, dto.Status);
         Assert.Equal(MetodoPagamento.Pix, dto.MetodoPagamento);

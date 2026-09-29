@@ -82,11 +82,10 @@ public static class DependencyInjection
         services.AddScoped<IGestaoDeBannersService, GestaoDeBannersService>();
         services.AddScoped<IGestaoDeCuponsService, GestaoDeCuponsService>();
         services.AddScoped<IGestaoDePedidosService, GestaoDePedidosService>();
+        services.AddScoped<INotificadorDePedido, NotificadorDePedido>();
 
-        // Provisorio: o notificador de verdade (e-mail ao cliente, e-mail a admin e
-        // WhatsApp) ainda nao existe, e o pedido precisa do contrato para funcionar.
-        // Este registra aviso no log em vez de fingir que enviou.
-        services.AddScoped<INotificadorDePedido, NotificadorDePedidoInativo>();
+        services.Configure<NotificacoesDePedidoOptions>(
+            configuration.GetSection("NotificacoesDePedido"));
 
         services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
         services.Configure<TokenJwtOptions>(configuration.GetSection("Jwt"));

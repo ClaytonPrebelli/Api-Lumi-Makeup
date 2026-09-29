@@ -146,6 +146,7 @@ public sealed record PedidoDto(
     string NomeCliente,
     string? DocumentoCliente,
     string? TelefoneContato,
+    string? EmailContato,
     OrigemPedido Origem,
     StatusPedido Status,
     MetodoPagamento? MetodoPagamento,

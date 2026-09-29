@@ -34,6 +34,7 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
         builder.Property(o => o.NomeCliente).HasMaxLength(150).IsRequired();
         builder.Property(o => o.DocumentoCliente).HasMaxLength(20);
         builder.Property(o => o.TelefoneContato).HasMaxLength(20);
+        builder.Property(o => o.EmailContato).HasMaxLength(200);
 
         // Endereco e obrigatorio em pedido online e nulo em venda de balcao. A
         // obrigatoriedade fica na criacao do pedido, e nao em constraint: ela
