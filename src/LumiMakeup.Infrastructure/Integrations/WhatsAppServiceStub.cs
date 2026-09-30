@@ -36,6 +36,13 @@ public sealed class WhatsAppServiceStub : IWhatsAppService
         Task.FromResult<string?>(null);
 
     /// <summary>
+    /// Sem Node nao ha conexao a forcar. Devolve null e a tela mostra que o
+    /// servico esta desligado, em vez de simular que algo aconteceu.
+    /// </summary>
+    public Task<string?> ForcarReconexaoDePareamentoAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(null);
+
+    /// <summary>
     /// A frase diz o que fazer, nao so o que aconteceu.
     ///
     /// O stub existe porque o Baileys esta desligado por configuracao, e a

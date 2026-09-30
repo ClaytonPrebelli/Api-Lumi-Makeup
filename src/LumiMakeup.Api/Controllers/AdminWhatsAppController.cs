@@ -60,4 +60,25 @@ public sealed class AdminWhatsAppController : ControllerBase
 
         return Ok(new { pareado = false, qr });
     }
+
+    /// <summary>
+    /// Forca uma nova tentativa de conexao, e e o que o botao "Gerar novo QR"
+    /// chama.
+    ///
+    /// Sem esta rota o botao nao faria nada: o Node so releria o QR atual, e
+    /// entre uma tentativa e outra nao existe socket, entao nao existe QR para
+    /// reler. A tela pareceria quebrada.
+    /// </summary>
+    [HttpPost("pareamento/reconectar")]
+    public async Task<IActionResult> Reconectar(CancellationToken cancellationToken)
+    {
+        var qr = await _whatsApp.ForcarReconexaoDePareamentoAsync(cancellationToken);
+
+        return Ok(new
+        {
+            pareado = false,
+            qr,
+            aguardandoSegundos = 0
+        });
+    }
 }

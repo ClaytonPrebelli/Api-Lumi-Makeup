@@ -61,6 +61,15 @@ public interface IWhatsAppService
     /// acesso a conta, fique exposto em qualquer pagina aberta pelo navegador.
     /// </summary>
     Task<string?> ObterQrDePareamentoAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cria uma nova tentativa de conexao e devolve o QR, se ja houver.
+    ///
+    /// Existe porque ler o QR atual nao adianta: entre uma tentativa e outra
+    /// nao existe socket, entao nao existe QR para reler. Sem esta rota, o
+    /// botao "Gerar novo QR" da tela nao faria nada e pareceria quebrado.
+    /// </summary>
+    Task<string?> ForcarReconexaoDePareamentoAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>

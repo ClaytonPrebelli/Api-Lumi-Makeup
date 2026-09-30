@@ -232,6 +232,49 @@ public sealed class BaileysWhatsAppService : IWhatsAppService
         }
     }
 
+    public async Task<string?> ForcarReconexaoDePareamentoAsync(CancellationToken cancellationToken = default)
+    {
+        var (resposta, _) = await ConsultarAsync("pareamento/reconectar", cancellationToken, HttpMethod.Post);
+
+        if (resposta is null)
+        {
+            _logger.LogWarning("Reconeccao forcada indisponivel: o Node do Baileys nao esta no ar.");
+
+            return null;
+        }
+
+        // 409 e o Node avisando que ele respeitou a trava de intervalo: o
+        // clique foi cedo demais. Nao e falha, e a tela mostra a espera.
+        if (!resposta.IsSuccessStatusCode && resposta.StatusCode != HttpStatusCode.Conflict)
+        {
+            _logger.LogError(
+                "Reconeccao forcada falhou: o Node respondeu {(int)resposta.StatusCode}.",
+                (int)resposta.StatusCode);
+
+            return null;
+        }
+
+        var corpo = await LerCorpoAsync(resposta, cancellationToken);
+
+        if (corpo is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var json = JsonDocument.Parse(corpo);
+
+            return LerTexto(json.RootElement, "qr");
+        }
+        catch (JsonException excecao)
+        {
+            _logger.LogError(excecao, "O Node devolveu uma reconeccao fora do formato.");
+
+            return null;
+        }
+    }
+
     /// <summary>
     /// Chamada de leitura, com o segredo no cabecalho.
     ///
@@ -241,7 +284,8 @@ public sealed class BaileysWhatsAppService : IWhatsAppService
     /// </summary>
     private async Task<(HttpResponseMessage? Resposta, bool Respondeu)> ConsultarAsync(
         string caminho,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        HttpMethod metodo = null!)
     {
         if (string.IsNullOrWhiteSpace(_opcoes.SegredoCompartilhado))
         {
@@ -254,7 +298,7 @@ public sealed class BaileysWhatsAppService : IWhatsAppService
 
         try
         {
-            using var requisicao = new HttpRequestMessage(HttpMethod.Get, caminho);
+            using var requisicao = new HttpRequestMessage(metodo ?? HttpMethod.Get, caminho);
             requisicao.Headers.Add("x-segredo", _opcoes.SegredoCompartilhado);
 
             var resposta = await _http.SendAsync(requisicao, cancellationToken);
