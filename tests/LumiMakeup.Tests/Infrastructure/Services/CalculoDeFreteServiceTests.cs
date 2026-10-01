@@ -1,4 +1,4 @@
-using LumiMakeup.Application.Abstractions;
+﻿using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Entities;
 using LumiMakeup.Infrastructure.Persistence;
@@ -39,9 +39,9 @@ public sealed class CalculoDeFreteServiceTests
         await contexto.SaveChangesAsync();
     }
 
-    private static Mock<INominatimService> Geocodificador(decimal latitude, decimal longitude)
+    private static Mock<IGeocodificador> Geocodificador(decimal latitude, decimal longitude)
     {
-        var mock = new Mock<INominatimService>();
+        var mock = new Mock<IGeocodificador>();
         mock.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((latitude, longitude));
         return mock;
@@ -100,6 +100,52 @@ public sealed class CalculoDeFreteServiceTests
     }
 
     [Fact]
+    public async Task CalcularAsync_devolve_a_distancia_ja_com_o_fator_de_rota_urbana()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        await SemearConfiguracaoAsync(contexto, precoPorKm: 1.20m, taxaMinima: 0m);
+
+        var mock = Geocodificador(LatPaulista, LonPaulista + 0.1m);
+        var servico = new CalculoDeFreteService(contexto, mock.Object);
+
+        var resultado = await servico.CalcularAsync(Destino(), CancellationToken.None);
+
+        // Rua não é linha reta: o caminho percorrido é maior. O fator de 1,3
+        // entra antes do arredondamento, e o número que volta no DTO é esse
+        // mesmo - o que a tela mostra. Se voltasse a linha reta, o cliente
+        // veria um número e pagaria outro.
+        var linhaReta = CalculoDeFreteService.DistanciaEmKm(
+            LatPaulista, LonPaulista, LatPaulista, LonPaulista + 0.1m);
+
+        Assert.Equal(Math.Round(linhaReta * 1.3m, 2, MidpointRounding.AwayFromZero), resultado.DistanciaKm);
+
+        // E o custo é sobre a distância exibida, não sobre a linha reta.
+        Assert.Equal(Math.Round(resultado.DistanciaKm * 1.20m, 2, MidpointRounding.AwayFromZero), resultado.Custo);
+        Assert.True(resultado.DistanciaKm > linhaReta);
+    }
+
+    [Fact]
+    public async Task CalcularAsync_falha_quando_o_mapa_nao_encontra_o_endereco()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        await SemearConfiguracaoAsync(contexto, precoPorKm: 1.20m, taxaMinima: 9.00m);
+
+        var mock = new Mock<IGeocodificador>();
+        mock.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(((decimal Latitude, decimal Longitude)?)null);
+
+        var servico = new CalculoDeFreteService(contexto, mock.Object);
+
+        // Sem coordenada não há distância, e sem distância não há frete honesto.
+        // Inventar o centro da cidade daria um número plausível e errado - e o
+        // cliente pagaria por um lugar em que ele não está.
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CalcularAsync(Destino(), CancellationToken.None));
+
+        Assert.Contains("não conseguimos localizar", erro.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task CalcularAsync_falha_quando_a_loja_nao_tem_frete_configurado()
     {
         using var contexto = Testes.CriarContextoInMemory();
@@ -120,7 +166,7 @@ public sealed class CalculoDeFreteServiceTests
         using var contexto = Testes.CriarContextoInMemory();
         await SemearConfiguracaoAsync(contexto);
 
-        var mock = new Mock<INominatimService>();
+        var mock = new Mock<IGeocodificador>();
         mock.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(((decimal Latitude, decimal Longitude)?)null);
 
@@ -158,7 +204,7 @@ public sealed class CalculoDeFreteServiceTests
         await SemearConfiguracaoAsync(contexto);
 
         string? consultado = null;
-        var mock = new Mock<INominatimService>();
+        var mock = new Mock<IGeocodificador>();
         mock.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string consulta, CancellationToken _) =>
             {

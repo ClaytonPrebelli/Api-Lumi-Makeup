@@ -105,9 +105,62 @@ public interface IViaCepService
     Task<ResultadoViaCep?> ConsultarAsync(string cep, CancellationToken cancellationToken = default);
 }
 
+public interface IGeocodificador
+{
+    /// <summary>
+    /// Coordenadas do endereço, ou nulo quando nenhum provedor localiza.
+    ///
+    /// Nulo é recusado pelo cálculo, e não virado para um ponto qualquer: um
+    /// frete inventado custa dinheiro e confiança do cliente.
+    /// </summary>
+    Task<(decimal Latitude, decimal Longitude)?> GeocodificarAsync(string endereco, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Por que a última busca não achou, para o diagnóstico distinguir "o mapa
+    /// não tem este CEP" de "não foi possível falar com o mapa".
+    ///
+    /// As duas causas precisam de consertos diferentes: um CEP sem ponto se
+    /// resolve no mapa, uma falha de rede se resolve no servidor. Sem isto, a
+    /// tela mostraria "não conseguimos localizar o endereço" para as duas, e o
+    /// diagnóstico vira chute.
+    /// </summary>
+    string? UltimaFalha { get; }
+
+    /// <summary>
+    /// Consulta cada provedor e devolve o que cada um respondeu.
+    ///
+    /// Existe porque o servidor de produção não fala TLS com o Nominatim, e a
+    /// única forma de saber se os substitutos funcionam de lá é chamá-los de
+    /// lá — medir da estação de trabalho não vale, como já mostrou.
+    /// </summary>
+    Task<IReadOnlyList<object>> TestarProvedoresAsync(string cep, CancellationToken cancellationToken = default);
+}
+
 public interface INominatimService
 {
     Task<(decimal Latitude, decimal Longitude)?> GeocodificarAsync(string endereco, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Por que a última busca devolveu nada: o mapa não tem o CEP, ou o
+    /// servidor não conseguiu falar com o mapa.
+    ///
+    /// O cálculo não precisa saber disso - para ele, os dois casos são "sem
+    /// coordenada". Quem precisa é quem diagnostica, porque as correções são
+    /// diferentes: um CEP sem ponto se resolve no mapa, uma falha de rede se
+    /// resolve no servidor.
+    ///
+    /// O nome é <c>UltimoFalha</c>, sem acento, e o mesmo que o
+    /// <c>IGeocodificador</c> expõe. As duas interfaces entram na mesma tela de
+    /// diagnóstico, e dois nomes para a mesma coisa fariam o painel mostrar o
+    /// motivo em um caso e nada no outro.
+    /// </summary>
+    string? UltimoFalha { get; }
+
+    /// <summary>
+    /// O mesmo cliente que a geocodificação usa, para o diagnóstico exercitar
+    /// a conexão que de fato falha - e não uma configuração paralela.
+    /// </summary>
+    HttpClient CriarClienteDeDiagnostico();
 }
 
 public sealed record ResultadoViaCep(
