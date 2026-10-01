@@ -1,4 +1,3 @@
-using System.Security.Authentication;
 using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Domain.Entities;
 using LumiMakeup.Infrastructure.Integrations;
@@ -37,44 +36,10 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://viacep.com.br/");
         });
 
-        // A cadeia de provedores. O primeiro é o Photon porque devolve o
-        // logradouro como via quando há rua, e o CEP exato quando não há - sem
-        // chave, que era o requisito. O ArcGIS fica atrás dele.
-        //
-        // O BaseAddress é do Photon porque é o primeiro da cadeia, e a consulta
-        // dele usa caminho relativo. Sem ele, o HttpClient recusa a requisição
-        // com "an invalid request URI was provided" antes de sair para a rede -
-        // o que faria os dois provedores falharem por um motivo que não tem
-        // nada a ver com a rede.
-        services.AddHttpClient<IGeocodificador, GeocodificadorEmCadeia>(client =>
-        {
-            client.BaseAddress = new Uri("https://photon.komoot.io/");
-            client.Timeout = TimeSpan.FromSeconds(20);
-        });
-
         services.AddHttpClient<INominatimService, NominatimService>(client =>
         {
             client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
             client.DefaultRequestHeaders.UserAgent.ParseAdd("lumi-makeup/1.0 (contato@lumimakeup.com.br)");
-        })
-        .ConfigurePrimaryHttpMessageHandler(() =>
-        {
-            // O Windows Server nao consegue fechar o TLS com o Nominatim: o proxy
-            // responde "HandshakeFailure". A saida HTTPS do servidor funciona -
-            // ViaCEP, Google e o proprio site respondem 200 - entao o problema nao
-            // e' saida de rede nem certificado sem confianca, e' a negociacao.
-            //
-            // TLS 1.2 e' pedido explicitamente porque o padrao do .NET no Windows
-            // antigo ainda oferece 1.0 e 1.1, e o proxy recusa o pacote inteiro
-            // quando um deles vem junto.
-            var handler = new HttpClientHandler();
-
-            if (OperatingSystem.IsWindows())
-            {
-                handler.SslProtocols = SslProtocols.Tls12;
-            }
-
-            return handler;
         });
 
         services.AddScoped<IEnviadorDeEmailSmtp, EnviadorDeEmailSmtpViaClienteSmtp>();

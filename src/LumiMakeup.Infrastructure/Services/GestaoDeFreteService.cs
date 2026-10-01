@@ -8,20 +8,31 @@ namespace LumiMakeup.Infrastructure.Services;
 
 public sealed class GestaoDeFreteService : IGestaoDeFreteService
 {
+    /// <summary>
+    /// Quantos CEPs de exemplo a tela oferece. Três não é arbitrário: perto, médio
+    /// e longe, que é a faixa em que a fórmula faz sentido.
+    /// </summary>
+    private static readonly (string Cep, string Rotulo)[] CepsDeExemplo =
+    {
+        ("01310-300", "mesmo bairro"),
+        ("01425-001", "alguns bairros de distância"),
+        ("12247-000", "outro cidade")
+    };
+
     private readonly LumiDbContext _contexto;
     private readonly IViaCepService _viaCep;
-    private readonly IGeocodificador _geocodificador;
+    private readonly INominatimService _nominatim;
     private readonly ICalculoDeFreteService _calculo;
 
     public GestaoDeFreteService(
         LumiDbContext contexto,
         IViaCepService viaCep,
-        IGeocodificador geocodificador,
+        INominatimService nominatim,
         ICalculoDeFreteService calculo)
     {
         _contexto = contexto;
         _viaCep = viaCep;
-        _geocodificador = geocodificador;
+        _nominatim = nominatim;
         _calculo = calculo;
     }
 
@@ -74,20 +85,8 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
             throw new InvalidOperationException("Não encontramos esse CEP. Confira os números.");
         }
 
-        // O mesmo caminho do checkout: o geocodificador prefere o ponto do CEP
-        // e cai para o centro da cidade quando o OpenStreetMap nao tem o CEP
-        // mapeado.
-        var consulta = CalculoDeFreteService.MontarConsultaDeGeocodificacao(
-            new EnderecoDeEntregaRequisicao(
-                $"{consultado.Cep[..5]}-{consultado.Cep[5..]}",
-                consultado.Logradouro,
-                string.Empty,
-                null,
-                consultado.Bairro,
-                consultado.Cidade,
-                consultado.Estado));
-
-        var coordenadas = await _geocodificador.GeocodificarAsync(consulta, cancellationToken);
+        var origem = $"\"{cep}\", {consultado.Logradouro}, {consultado.Bairro}, {consultado.Cidade}, {consultado.Estado}";
+        var coordenadas = await _nominatim.GeocodificarAsync(origem, cancellationToken);
 
         if (coordenadas is null)
         {
@@ -118,7 +117,7 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
         return await ComExemploAsync(existente, cancellationToken);
     }
 
-    public async Task<CalculoDeFreteDto> SimularAsync(
+    public Task<CalculoDeFreteDto> SimularAsync(
         string cep,
         CancellationToken cancellationToken = default)
     {
@@ -129,26 +128,8 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
             throw new InvalidOperationException("Informe um CEP válido para simular.");
         }
 
-        // O CEP sozinho não localiza nada: o geocodificador precisa do endereço
-        // inteiro, e é ele que faz a busca dar certo. Consultar o CEP aqui é o
-        // que o checkout já faz, e transforma o número em um endereço completo
-        // antes de geocodificar.
-        var consultado = await _viaCep.ConsultarAsync(limpo, cancellationToken);
-
-        if (consultado is null)
-        {
-            throw new InvalidOperationException("Não encontramos esse CEP. Confira os números.");
-        }
-
-        return await _calculo.CalcularAsync(
-            new EnderecoDeEntregaRequisicao(
-                $"{limpo[..5]}-{limpo[5..]}",
-                consultado.Logradouro,
-                string.Empty,
-                null,
-                consultado.Bairro,
-                consultado.Cidade,
-                consultado.Estado),
+        return _calculo.CalcularAsync(
+            new EnderecoDeEntregaRequisicao(limpo, string.Empty, string.Empty, null, string.Empty, string.Empty, string.Empty),
             cancellationToken);
     }
 
@@ -187,26 +168,11 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
         ConfiguracaoFrete configuracao,
         CancellationToken cancellationToken)
     {
-        // O exemplo precisa sair de perto da loja. Com CEPs fixos de São Paulo,
-        // uma loja de Sorocaba veria um número de cidade errada - e o cartão se
-        // chama "perto da loja".
-        var origem = await _viaCep.ConsultarAsync(configuracao.CepOrigem, cancellationToken);
-
-        if (origem is null)
+        foreach (var (cepDeExemplo, _) in CepsDeExemplo)
         {
-            return null;
-        }
+            var cep = new string(cepDeExemplo.Where(char.IsDigit).ToArray());
 
-        // O quinto dígito do CEP avança de bairro em bairro dentro da mesma
-        // cidade, e é o jeito mais simples de achar vizinhos da loja sem manter
-        // uma lista de bairros que envelhece a cada mudança de CEP.
-        foreach (var cep in CepsVizinhos(configuracao.CepOrigem))
-        {
-            var vizinho = await _viaCep.ConsultarAsync(cep, cancellationToken);
-
-            if (vizinho is null ||
-                string.Equals(vizinho.Cidade, origem.Cidade, StringComparison.OrdinalIgnoreCase) is false ||
-                string.Equals(vizinho.Estado, origem.Estado, StringComparison.OrdinalIgnoreCase) is false)
+            if (await _viaCep.ConsultarAsync(cep, cancellationToken) is null)
             {
                 continue;
             }
@@ -214,14 +180,7 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
             try
             {
                 return await _calculo.CalcularAsync(
-                    new EnderecoDeEntregaRequisicao(
-                        $"{vizinho.Cep[..5]}-{vizinho.Cep[5..]}",
-                        vizinho.Logradouro,
-                        string.Empty,
-                        null,
-                        vizinho.Bairro,
-                        vizinho.Cidade,
-                        vizinho.Estado),
+                    new EnderecoDeEntregaRequisicao(cep, "1", "1", null, "Centro", "São Paulo", "SP"),
                     cancellationToken);
             }
             catch (InvalidOperationException)
@@ -234,33 +193,5 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// CEPs de 8 dígitos a tentar como vizinho da loja, do mais próximo para o
-    /// mais distante.
-    ///
-    /// Um CEP de Sorocaba é 18072-759: cinco dígitos de faixa e três do
-    /// quarteirão. O que muda entre bairros vizinhos é o quinto dígito, então é
-    /// por ele que a busca anda. O CEP da própria loja entra primeiro, para o
-    /// caso de a loja estar num CEP que cobre só o seu quarteirão.
-    ///
-    /// O CEP precisa sair com oito dígitos. Montar "1807-000" daria sete, e o
-    /// ViaCEP não reconheceria - o exemplo sumiria da tela sem aviso.
-    /// </summary>
-    private static IEnumerable<string> CepsVizinhos(string cepDaLoja)
-    {
-        yield return cepDaLoja;
-
-        var faixa = cepDaLoja[..5];
-        var quinto = faixa[^1];
-
-        // O quinto dígito sobe e desce, sem dar a volta: 9 desce para 8 e 0 sobe
-        // para 1, porque um dígito acima de 9 não existe.
-        var acima = quinto == '9' ? '8' : (char)(quinto + 1);
-        var abaixo = quinto == '0' ? '1' : (char)(quinto - 1);
-
-        yield return $"{faixa[..4]}{acima}000";
-        yield return $"{faixa[..4]}{abaixo}000";
     }
 }

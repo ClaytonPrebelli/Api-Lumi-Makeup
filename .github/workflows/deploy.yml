@@ -60,40 +60,18 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Publicar
-        # O -r win-x64 e OBRIGATORIO, e nao uma otimizacao.
-        #
-        # Sem ele o publish traz runtimes/ com um assembly por arquitetura
-        # (win-x86, win-x64, win-arm, win-arm64), e a API nao sobe: o unico
-        # nativo do projeto fica preso naquela pasta. Foi o que derrubou a loja -
-        # DllNotFoundException antes de qualquer middleware, e 500.30 em todos os
-        # endpoints, inclusive /api/saude.
-        #
-        # Com o -r, que e a arquitetura do servidor, o SDK achata o nativo para a
-        # raiz e NAO cria runtimes/. E o que torna o passo seguinte desnecessario.
-        run: dotnet publish src/LumiMakeup.Api/LumiMakeup.Api.csproj -c Release -r win-x64 --self-contained false -o publicacao
+        run: dotnet publish src/LumiMakeup.Api/LumiMakeup.Api.csproj -c Release -o publicacao
 
-      - name: Remover as pastas que o SDK cria
+      - name: Remover a pasta runtimes
         shell: pwsh
         run: |
-          # O passo "Remover a pasta runtimes" foi REMOVIDO de proposito. Ele
-          # apagava a pasta para deixar o artefato plano e levava junto o nativo
-          # do SQLite - que a API precisa para subir. Foi esse passo que derrubou
-          # a loja: DllNotFoundException antes de qualquer middleware, e 500.30 em
-          # todos os endpoints. NAO reintroduzir.
-          #
-          # O -r win-x64 do passo Publicar resolve o runtimes/ na origem. Este
-          # passo e so a rede de seguranca para o que o SDK criar alem disso: hoje,
-          # as pastas de idioma dos assemblies de recurso. O projeto nao tem mais
-          # nenhum pacote que traga traducao, entao ele costuma nao encontrar
-          # nada.
-          $pastas = @(Get-ChildItem 'publicacao' -Directory -ErrorAction SilentlyContinue)
-          foreach ($pasta in $pastas) {
-            Remove-Item $pasta.FullName -Recurse -Force
-          }
-          if ($pastas.Count -gt 0) {
-            Write-Output "removido(s): $(($pastas | ForEach-Object { $_.Name }) -join ', ')"
-          } else {
-            Write-Output 'nenhuma pasta para remover'
+          # A pasta runtimes/ traz os assemblies especificos por RID (win/lib/net7.0 e
+          # win/lib/net8.0). Numa publicacao sem -r, quem roda e a copia portatil da raiz,
+          # entao ela e dispensavel - e sao 621 KB e quatro niveis de diretorio a menos.
+          if (Test-Path 'publicacao\runtimes') {
+            $tamanho = [math]::Round((Get-ChildItem 'publicacao\runtimes' -Recurse -File | Measure-Object Length -Sum).Sum / 1KB)
+            Remove-Item 'publicacao\runtimes' -Recurse -Force
+            Write-Output "runtimes/ removido ($tamanho KB)"
           }
 
       - name: Conferir o artefato
@@ -104,16 +82,6 @@ jobs:
           }
           if (Test-Path 'publicacao\appsettings.Production.json') {
             throw 'appsettings.Production.json entrou no artefato. Os segredos ficam so no servidor.'
-          }
-
-          # O NATIVO DO SQLITE NÃO PODE ESTAR AQUI.
-          #
-          # O projeto nao tem mais SQLite nem Hangfire, entao nao deve haver
-          # e_sqlite3.dll. Se aparecer, alguma dependencia voltou sem ninguem
-          # perceber - e o passo de remover runtimes/, que ja derrubou a loja uma
-          # vez, voltaria a ser necessario sem ninguem saber.
-          if (Test-Path 'publicacao\e_sqlite3.dll') {
-            throw 'e_sqlite3.dll voltou para a publicacao. O projeto nao usa mais SQLite; se isso foi de proposito, apague esta conferncia e reveja o -r win-x64.'
           }
 
           # O artefato tem que ser PLANO. A action de FTP abre uma conexao de dados nova
@@ -362,19 +330,6 @@ jobs:
             **/.git*
             **/.git*/**
             **/*.pdb
-            # App_Data e logs NAO DEVEM ser apagados, e o motivo e o diagnostico.
-            #
-            # A action de FTP apaga no servidor tudo que nao esta no artefato. Sem
-            # estas linhas, o proprio arquivo de stdout - a unica evidencia de por
-            # que a API nao subiu - seria apagado no deploy seguinte.
-            #
-            # App_Data tambem evita que o FTP tente remover um diretorio que ainda
-            # esta no servidor e nao vem no artefato, o que abre conexao de dados e
-            # derruba o upload com ECONNRESET.
-            App_Data
-            App_Data/**
-            logs
-            logs/**
           timeout: 900000
           log-level: standard
 

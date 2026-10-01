@@ -4,7 +4,6 @@ using LumiMakeup.Application.DTOs;
 using LumiMakeup.Infrastructure.Integrations;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -28,8 +27,7 @@ public class AdminProdutosControllerTests
         return new AdminProdutosController(
             gestaoDeProdutos.Object,
             (melhorador ?? new Mock<IMelhoradorDeTextoService>()).Object,
-            opcoes,
-            NullLogger<AdminProdutosController>.Instance);
+            opcoes);
     }
 
     private static ProdutoAdministracaoDto CriarProduto() => new(
@@ -263,57 +261,6 @@ public class AdminProdutosControllerTests
         var resultado = await controller.AdicionarImagem(10, CriarArquivo(), CancellationToken.None);
 
         Assert.Contains("Formato não permitido", MensagemDe(Assert.IsType<BadRequestObjectResult>(resultado).Value));
-    }
-
-    [Theory]
-    [InlineData(typeof(IOException))]
-    [InlineData(typeof(UnauthorizedAccessException))]
-    public void AdicionarImagem_devolve_500_com_mensagem_que_diz_a_causa(Type excecao)
-    {
-        /*
-         * O bug que fechou o upload: estas excecoes escapavam do controller, e o
-         * 500 saia sem Access-Control-Allow-Origin. O CorsMiddleware so aplica o
-         * header quando a requisicao termina normalmente, entao o navegador
-         * reportava "bloqueado pela politica de CORS" - que e uma configuracao
-         * perfeita. O operador acabava mexendo no CORS enquanto o defeito era
-         * disco cheio ou permissao de pasta.
-         *
-         * O teste exige as duas metades: status 500 E mensagem que nomeia a
-         * excecao. So o status nao resolve - o 500 sem texto continua sendo
-         * invisivel para quem opera.
-         */
-        var gestao = new Mock<IGestaoDeProdutosService>();
-        gestao.Setup(g => g.AdicionarImagemAsync(10, It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync((Exception)Activator.CreateInstance(excecao, "disco cheio"));
-        var controller = CriarController(gestao);
-
-        var resultado = controller.AdicionarImagem(10, CriarArquivo(), CancellationToken.None).GetAwaiter().GetResult();
-
-        var erro = Assert.IsType<ObjectResult>(resultado);
-        Assert.Equal(StatusCodes.Status500InternalServerError, erro.StatusCode);
-
-        var mensagem = MensagemDe(erro.Value);
-        Assert.Contains(excecao.Name, mensagem);
-        Assert.Contains("disco cheio", mensagem);
-    }
-
-    [Fact]
-    public void AdicionarImagem_nao_transforma_falha_de_disco_em_erro_de_validacao()
-    {
-        /*
-         * InvalidOperationException significa "recusei este arquivo" e vira 400.
-         * Se IOException acabasse na mesma cesta, um disco cheio apareceria como
-         * erro de validacao e o navegador diria que a imagem esta errada, quando
-         * a imagem esta perfeita e o servidor e que esta sem espaco.
-         */
-        var gestao = new Mock<IGestaoDeProdutosService>();
-        gestao.Setup(g => g.AdicionarImagemAsync(10, It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new IOException("sem espaco"));
-        var controller = CriarController(gestao);
-
-        var resultado = controller.AdicionarImagem(10, CriarArquivo(), CancellationToken.None).GetAwaiter().GetResult();
-
-        Assert.IsNotType<BadRequestObjectResult>(resultado);
     }
 
     [Fact]

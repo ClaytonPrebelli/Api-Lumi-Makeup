@@ -3,7 +3,6 @@ using LumiMakeup.Application.DTOs;
 using LumiMakeup.Infrastructure.Integrations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace LumiMakeup.Api.Controllers;
@@ -29,18 +28,15 @@ public sealed class AdminProdutosController : ControllerBase
     private readonly IGestaoDeProdutosService _gestaoDeProdutos;
     private readonly IMelhoradorDeTextoService _melhoradorDeTexto;
     private readonly ArmazenamentoDeImagensOptions _opcoes;
-    private readonly ILogger<AdminProdutosController> _logger;
 
     public AdminProdutosController(
         IGestaoDeProdutosService gestaoDeProdutos,
         IMelhoradorDeTextoService melhoradorDeTexto,
-        IOptions<ArmazenamentoDeImagensOptions> opcoes,
-        ILogger<AdminProdutosController> logger)
+        IOptions<ArmazenamentoDeImagensOptions> opcoes)
     {
         _gestaoDeProdutos = gestaoDeProdutos;
         _melhoradorDeTexto = melhoradorDeTexto;
         _opcoes = opcoes.Value;
-        _logger = logger;
     }
 
     [HttpGet]
@@ -162,35 +158,6 @@ public sealed class AdminProdutosController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DbUpdateException)
-        {
-            /*
-             * FALHA DE DISCO OU DE BANCO, e nao de validacao.
-             *
-             * Estas excecoes saiam daqui sem tratamento. O CorsMiddleware so aplica
-             * o Access-Control-Allow-Origin quando a requisicao termina normalmente,
-             * entao o 500 perdia o header e o navegador reportava "bloqueado pela
-             * politica de CORS" - mensagem que aponta para o lado errado e que
-             * escondeu a causa por semanas.
-             *
-             * A mensagem nomeia a excecao e a operacao. "Nao foi possivel enviar a
-             * imagem", sem dizer onde nem por que, deixa quem opera sem saber se e
-             * disco, permissao ou banco - e os tres tem consertos diferentes.
-             */
-            _logger.LogError(
-                ex,
-                "Falha ao gravar a imagem do produto {ProdutoId} em {Pasta}.",
-                id,
-                _opcoes.CaminhoBase);
-
-            return StatusCode(StatusCodes.Status500InternalServerError, new
-            {
-                message =
-                    "Não foi possível gravar a imagem no servidor. " +
-                    $"Detalhe: {ex.GetType().Name}: {ex.Message} " +
-                    $"Pasta configurada: {_opcoes.CaminhoBase}."
-            });
         }
     }
 

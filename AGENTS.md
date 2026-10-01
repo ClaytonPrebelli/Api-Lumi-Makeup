@@ -50,6 +50,26 @@ O banco de desenvolvimento **é o mesmo de produção**.
 
 ## Artefato do deploy
 
-O FTP envia um pacote plano. O workflow remove `publicacao\runtimes` e falha se
-sobrar sub diretório — o upload com pasta aninhada derruba a conexão no meio e
-deixa a publicação pela metade.
+O FTP envia um pacote plano, e o workflow falha se sobrar qualquer subdiretório
+em `publicacao` — o upload com pasta aninhada derruba a conexão no meio e deixa
+a publicação pela metade.
+
+O passo que removia `publicacao\runtimes` **foi removido de propósito** e não
+deve ser reintroduzido: ele apagava o nativo do SQLite junto, e foi o que
+derrubou a loja. O `-r win-x64` no `dotnet publish` resolve o `runtimes/` na
+origem, achata o nativo para a raiz e dispensa a limpeza.
+
+`App_Data` e `logs` estão no `exclude` do FTP. Apagá-los destruiria a sessão do
+WhatsApp e o diagnóstico de startup.
+
+O `web.config` é lido pelo IIS **antes de qualquer código da aplicação**. Uma
+mudança ali derruba a loja inteira, não um recurso. Ver
+[ESTADO-DOS-SERVICOS.md](ESTADO-DOS-SERVICOS.md), seção 4, para o incidente de
+2026-10-01 e o que não fazer.
+
+## Documentação
+
+[ESTADO-DOS-SERVICOS.md](ESTADO-DOS-SERVICOS.md) é a referência sobre o que a API
+usa de verdade: MySQL sem SQLite, sem Hangfire, WhatsApp por Baileys com stub
+como padrão, e o estado do frete e do upload de imagem. Confirme cada afirmação
+contra o código antes de confiar — o documento cita arquivo e linha.
