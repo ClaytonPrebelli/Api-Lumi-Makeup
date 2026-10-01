@@ -93,10 +93,18 @@ public sealed class ArmazenamentoDeImagensLocal : IArmazenamentoDeImagens
         var caminhoAbsoluto = ResolverCaminhoSeguro(caminhoRelativo);
 
         var diretorio = Path.GetDirectoryName(caminhoAbsoluto)!;
-        Directory.CreateDirectory(diretorio);
 
         try
         {
+            /*
+             * Criar a pasta fica dentro do try de proposito. A versao anterior tinha
+             * esta linha antes do try, e CreateDirectory e justamente a chamada que
+             * falha quando o disco esta sem espaco ou a conta do servico nao tem
+             * permissao na pasta - ou seja, ela escapava sem nenhum registro, sem
+             * a limpeza do catch e sem nenhuma pista do motivo.
+             */
+            Directory.CreateDirectory(diretorio);
+
             await using var destino = new FileStream(
                 caminhoAbsoluto,
                 FileMode.CreateNew,
