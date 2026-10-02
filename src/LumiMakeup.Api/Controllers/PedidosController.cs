@@ -118,7 +118,7 @@ public sealed class PedidosController : ControllerBase
         catch (Exception ex)
         {
             Response.Headers["Access-Control-Allow-Origin"] = "*";
-            return StatusCode(500, new { message = $"{ex.GetType().Name}: {ex.Message}" });
+            return StatusCode(500, new { message = $"{ex.GetType().Name}: {ex}" });
         }
     }
 
