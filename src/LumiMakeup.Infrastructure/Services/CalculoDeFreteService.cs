@@ -69,7 +69,8 @@ public sealed class CalculoDeFreteService : ICalculoDeFreteService
             configuracao.LatitudeOrigem,
             configuracao.LongitudeOrigem,
             latitude,
-            longitude) * FatorDeRotaUrbana;
+            longitude);
+        distancia *= FatorDeRotaUrbana;
 
         distancia = Math.Round(distancia, 2, MidpointRounding.AwayFromZero);
 

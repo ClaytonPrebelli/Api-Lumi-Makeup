@@ -39,9 +39,9 @@ public sealed class CalculoDeFreteServiceTests
         await contexto.SaveChangesAsync();
     }
 
-    private static Mock<INominatimService> Geocodificador(decimal latitude, decimal longitude)
+    private static Mock<IGeocodificador> Geocodificador(decimal latitude, decimal longitude)
     {
-        var mock = new Mock<INominatimService>();
+        var mock = new Mock<IGeocodificador>();
         mock.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((latitude, longitude));
         return mock;
@@ -120,7 +120,7 @@ public sealed class CalculoDeFreteServiceTests
         using var contexto = Testes.CriarContextoInMemory();
         await SemearConfiguracaoAsync(contexto);
 
-        var mock = new Mock<INominatimService>();
+        var mock = new Mock<IGeocodificador>();
         mock.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(((decimal Latitude, decimal Longitude)?)null);
 
@@ -158,7 +158,7 @@ public sealed class CalculoDeFreteServiceTests
         await SemearConfiguracaoAsync(contexto);
 
         string? consultado = null;
-        var mock = new Mock<INominatimService>();
+        var mock = new Mock<IGeocodificador>();
         mock.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string consulta, CancellationToken _) =>
             {

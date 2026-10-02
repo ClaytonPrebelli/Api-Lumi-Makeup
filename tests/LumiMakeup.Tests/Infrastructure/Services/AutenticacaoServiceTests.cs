@@ -21,7 +21,7 @@ public class AutenticacaoServiceTests
         public Mock<IAutenticacaoGoogleService> GoogleService { get; } = new();
         public Mock<IRecaptchaValidator> RecaptchaValidator { get; } = new();
         public Mock<IViaCepService> ViaCepService { get; } = new();
-        public Mock<INominatimService> NominatimService { get; } = new();
+        public Mock<IGeocodificador> NominatimService { get; } = new();
 
         public CenáriosDeTeste()
         {
@@ -39,7 +39,7 @@ public class AutenticacaoServiceTests
                 GoogleService.Object,
                 RecaptchaValidator.Object,
                 ViaCepService.Object,
-                NominatimService.Object);
+                NominatimService.Object as IGeocodificador ?? NominatimService.Object);
         }
     }
 

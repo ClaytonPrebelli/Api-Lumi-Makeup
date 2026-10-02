@@ -1,4 +1,4 @@
-using LumiMakeup.Application.Abstractions;
+﻿using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Entities;
 using LumiMakeup.Infrastructure.Persistence;
@@ -9,25 +9,25 @@ namespace LumiMakeup.Infrastructure.Services;
 public sealed class GestaoDeFreteService : IGestaoDeFreteService
 {
     /// <summary>
-    /// Quantos CEPs de exemplo a tela oferece. Três não é arbitrário: perto, médio
-    /// e longe, que é a faixa em que a fórmula faz sentido.
+    /// Quantos CEPs de exemplo a tela oferece. TrÃªs nÃ£o Ã© arbitrÃ¡rio: perto, mÃ©dio
+    /// e longe, que Ã© a faixa em que a fÃ³rmula faz sentido.
     /// </summary>
     private static readonly (string Cep, string Rotulo)[] CepsDeExemplo =
     {
         ("01310-300", "mesmo bairro"),
-        ("01425-001", "alguns bairros de distância"),
+        ("01425-001", "alguns bairros de distÃ¢ncia"),
         ("12247-000", "outro cidade")
     };
 
     private readonly LumiDbContext _contexto;
     private readonly IViaCepService _viaCep;
-    private readonly INominatimService _nominatim;
+    private readonly IGeocodificador _nominatim;
     private readonly ICalculoDeFreteService _calculo;
 
     public GestaoDeFreteService(
         LumiDbContext contexto,
         IViaCepService viaCep,
-        INominatimService nominatim,
+        IGeocodificador nominatim,
         ICalculoDeFreteService calculo)
     {
         _contexto = contexto;
@@ -45,9 +45,9 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
 
         if (configuracao is null)
         {
-            // Lista vazia em vez de erro: ainda não configurado é o estado inicial
-            // normal de uma loja que está abrindo, e a tela sabe mostrar o
-            // formulário de criação para esse caso.
+            // Lista vazia em vez de erro: ainda nÃ£o configurado Ã© o estado inicial
+            // normal de uma loja que estÃ¡ abrindo, e a tela sabe mostrar o
+            // formulÃ¡rio de criaÃ§Ã£o para esse caso.
             return new ConfiguracaoDeFreteDto(0, string.Empty, 0m, 0m, null, null);
         }
 
@@ -62,27 +62,27 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
 
         if (cep.Length != 8)
         {
-            throw new InvalidOperationException("Informe um CEP válido da loja.");
+            throw new InvalidOperationException("Informe um CEP vÃ¡lido da loja.");
         }
 
         if (requisicao.PrecoPorKm <= 0)
         {
-            throw new InvalidOperationException("Informe quanto custa cada quilômetro.");
+            throw new InvalidOperationException("Informe quanto custa cada quilÃ´metro.");
         }
 
         if (requisicao.TaxaMinima < 0)
         {
-            throw new InvalidOperationException("A taxa mínima não pode ser negativa.");
+            throw new InvalidOperationException("A taxa mÃ­nima nÃ£o pode ser negativa.");
         }
 
-        // A coordenada vem do CEP, e não é digitada. Pedir lat/long na tela faria a
-        // administradora colar um número de mapa no lugar errado, e o frete sairia
+        // A coordenada vem do CEP, e nÃ£o Ã© digitada. Pedir lat/long na tela faria a
+        // administradora colar um nÃºmero de mapa no lugar errado, e o frete sairia
         // errado sem nenhuma pista.
         var consultado = await _viaCep.ConsultarAsync(cep, cancellationToken);
 
         if (consultado is null)
         {
-            throw new InvalidOperationException("Não encontramos esse CEP. Confira os números.");
+            throw new InvalidOperationException("NÃ£o encontramos esse CEP. Confira os nÃºmeros.");
         }
 
         var origem = $"\"{cep}\", {consultado.Logradouro}, {consultado.Bairro}, {consultado.Cidade}, {consultado.Estado}";
@@ -91,7 +91,7 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
         if (coordenadas is null)
         {
             throw new InvalidOperationException(
-                "Localizamos o CEP, mas não as coordenadas. Tente de novo em instantes.");
+                "Localizamos o CEP, mas nÃ£o as coordenadas. Tente de novo em instantes.");
         }
 
         var (latitude, longitude) = coordenadas.Value;
@@ -125,7 +125,7 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
 
         if (limpo.Length != 8)
         {
-            throw new InvalidOperationException("Informe um CEP válido para simular.");
+            throw new InvalidOperationException("Informe um CEP vÃ¡lido para simular.");
         }
 
         return _calculo.CalcularAsync(
@@ -134,12 +134,12 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
     }
 
     /// <summary>
-    /// Calcula o frete para três CEPs de exemplo e devolve junto da configuração.
+    /// Calcula o frete para trÃªs CEPs de exemplo e devolve junto da configuraÃ§Ã£o.
     ///
-    /// A tela mostra isso porque "R$ 1,20 por km" não diz nada concreto: só
+    /// A tela mostra isso porque "R$ 1,20 por km" nÃ£o diz nada concreto: sÃ³
     /// "para o CEP 01425 sai R$ 12,40" faz a administradora saber se a tarifa
-    /// está boa. E a simulação usa o mesmo cálculo do checkout, então o número
-    /// da tela é o número que o cliente vai ver.
+    /// estÃ¡ boa. E a simulaÃ§Ã£o usa o mesmo cÃ¡lculo do checkout, entÃ£o o nÃºmero
+    /// da tela Ã© o nÃºmero que o cliente vai ver.
     /// </summary>
     private async Task<ConfiguracaoDeFreteDto> ComExemploAsync(
         ConfiguracaoFrete configuracao,
@@ -157,12 +157,12 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
     }
 
     /// <summary>
-    /// Frete para o CEP de exemplo mais próximo da loja que o ViaCEP reconhece.
+    /// Frete para o CEP de exemplo mais prÃ³ximo da loja que o ViaCEP reconhece.
     ///
-    /// A tela mostra o exemplo porque "R$ 1,20 por km" não diz nada concreto: só
+    /// A tela mostra o exemplo porque "R$ 1,20 por km" nÃ£o diz nada concreto: sÃ³
     /// "para o CEP 01425 sai R$ 12,40" faz a administradora saber se a tarifa
-    /// está boa. E a conta é a mesma do checkout, então o número da tela é o
-    /// número que o cliente vai ver.
+    /// estÃ¡ boa. E a conta Ã© a mesma do checkout, entÃ£o o nÃºmero da tela Ã© o
+    /// nÃºmero que o cliente vai ver.
     /// </summary>
     private async Task<CalculoDeFreteDto?> CalcularExemploAsync(
         ConfiguracaoFrete configuracao,
@@ -180,13 +180,13 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
             try
             {
                 return await _calculo.CalcularAsync(
-                    new EnderecoDeEntregaRequisicao(cep, "1", "1", null, "Centro", "São Paulo", "SP"),
+                    new EnderecoDeEntregaRequisicao(cep, "1", "1", null, "Centro", "SÃ£o Paulo", "SP"),
                     cancellationToken);
             }
             catch (InvalidOperationException)
             {
-                // O exemplo é ilustrativo. Se este CEP não geocodificar, a tela
-                // mostra a configuração sem exemplo, em vez de impedir a edição de
+                // O exemplo Ã© ilustrativo. Se este CEP nÃ£o geocodificar, a tela
+                // mostra a configuraÃ§Ã£o sem exemplo, em vez de impedir a ediÃ§Ã£o de
                 // uma tarifa que pode estar correta.
                 return null;
             }

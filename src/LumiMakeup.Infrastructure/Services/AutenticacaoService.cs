@@ -1,4 +1,4 @@
-using LumiMakeup.Application.Abstractions;
+﻿using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Entities;
 using LumiMakeup.Domain.Enums;
@@ -17,7 +17,7 @@ public sealed class AutenticacaoService : IAutenticacaoService
     private readonly IAutenticacaoGoogleService _autenticacaoGoogleService;
     private readonly IRecaptchaValidator _recaptchaValidator;
     private readonly IViaCepService _viaCepService;
-    private readonly INominatimService _nominatimService;
+    private readonly IGeocodificador _nominatimService;
 
     public AutenticacaoService(
         LumiDbContext contexto,
@@ -26,7 +26,7 @@ public sealed class AutenticacaoService : IAutenticacaoService
         IAutenticacaoGoogleService autenticacaoGoogleService,
         IRecaptchaValidator recaptchaValidator,
         IViaCepService viaCepService,
-        INominatimService nominatimService)
+        IGeocodificador nominatimService)
     {
         _contexto = contexto;
         _passwordHasher = passwordHasher;
@@ -119,7 +119,7 @@ public sealed class AutenticacaoService : IAutenticacaoService
         }
         else if (string.IsNullOrEmpty(usuario.IdGoogle))
         {
-            // Vincula a conta Google ao usuário existente (mesmo e-mail).
+            // Vincula a conta Google ao usuÃ¡rio existente (mesmo e-mail).
             usuario.IdGoogle = dados.IdGoogle;
             await _contexto.SaveChangesAsync(cancellationToken);
         }

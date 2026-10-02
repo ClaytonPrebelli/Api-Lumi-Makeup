@@ -63,7 +63,7 @@ public class DependencyInjectionTests
 
         Assert.NotNull(provedor.GetRequiredService<LumiDbContext>());
         Assert.NotNull(provedor.GetRequiredService<IViaCepService>());
-        Assert.NotNull(provedor.GetRequiredService<INominatimService>());
+        Assert.NotNull(provedor.GetRequiredService<IGeocodificador>());
         Assert.NotNull(provedor.GetRequiredService<IRecaptchaValidator>());
         Assert.NotNull(provedor.GetRequiredService<IEmailSender>());
         Assert.NotNull(provedor.GetRequiredService<IArmazenamentoDeImagens>());
@@ -122,7 +122,7 @@ public class DependencyInjectionTests
         {
             typeof(LumiDbContext),
             typeof(IViaCepService),
-            typeof(INominatimService),
+            typeof(IGeocodificador),
             typeof(IRecaptchaValidator),
             typeof(IEmailSender),
             typeof(IArmazenamentoDeImagens),

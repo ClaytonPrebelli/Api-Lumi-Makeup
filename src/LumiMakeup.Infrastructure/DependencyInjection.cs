@@ -36,10 +36,10 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://viacep.com.br/");
         });
 
-        services.AddHttpClient<INominatimService, NominatimService>(client =>
+        services.AddHttpClient<IGeocodificador, GeocodificadorEmCadeia>(client =>
         {
-            client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("lumi-makeup/1.0 (contato@lumimakeup.com.br)");
+            client.BaseAddress = new Uri("https://photon.komoot.io/");
+            client.Timeout = TimeSpan.FromSeconds(30);
         });
 
         services.AddScoped<IEnviadorDeEmailSmtp, EnviadorDeEmailSmtpViaClienteSmtp>();

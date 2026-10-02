@@ -1,4 +1,4 @@
-using LumiMakeup.Application.Abstractions;
+﻿using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Entities;
 using LumiMakeup.Infrastructure.Persistence;
@@ -15,7 +15,7 @@ public sealed class GestaoDeFreteServiceTests
         "01310300",
         "Avenida Paulista",
         "Bela Vista",
-        "São Paulo",
+        "SÃ£o Paulo",
         "SP");
 
     private static Mock<IViaCepService> CepQueResponde()
@@ -26,9 +26,9 @@ public sealed class GestaoDeFreteServiceTests
         return mock;
     }
 
-    private static Mock<INominatimService> Geocodificador(decimal latitude, decimal longitude)
+    private static Mock<IGeocodificador> Geocodificador(decimal latitude, decimal longitude)
     {
-        var mock = new Mock<INominatimService>();
+        var mock = new Mock<IGeocodificador>();
         mock.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((latitude, longitude));
         return mock;
@@ -44,7 +44,7 @@ public sealed class GestaoDeFreteServiceTests
 
     private static GestaoDeFreteService Servico(
         LumiDbContext contexto,
-        Mock<INominatimService>? nominatim = null,
+        Mock<IGeocodificador>? nominatim = null,
         Mock<ICalculoDeFreteService>? calculo = null) => new(
             contexto,
             CepQueResponde().Object,
@@ -58,8 +58,8 @@ public sealed class GestaoDeFreteServiceTests
 
         var configuracao = await Servico(contexto).ObterAsync(CancellationToken.None);
 
-        // Vazio é o estado inicial de uma loja abrindo, e a tela mostra o
-        // formulário para isso. Devolver erro faria a tela parecer quebrada.
+        // Vazio Ã© o estado inicial de uma loja abrindo, e a tela mostra o
+        // formulÃ¡rio para isso. Devolver erro faria a tela parecer quebrada.
         Assert.Equal(0, configuracao.Id);
         Assert.Equal(string.Empty, configuracao.CepOrigem);
         Assert.Null(configuracao.FreteDeExemplo);
@@ -91,7 +91,7 @@ public sealed class GestaoDeFreteServiceTests
         await servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m), CancellationToken.None);
         await servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01425-001", 2.00m, 12.00m), CancellationToken.None);
 
-        // Duas linhas fariam o cálculo usar a mais antiga, e a administradora
+        // Duas linhas fariam o cÃ¡lculo usar a mais antiga, e a administradora
         // acharia que a tarifa nova foi salva sem nenhum efeito.
         Assert.Single(await contexto.ConfiguracoesDeFrete.ToListAsync());
         Assert.Equal("01425001", (await contexto.ConfiguracoesDeFrete.SingleAsync()).CepOrigem);
@@ -106,8 +106,8 @@ public sealed class GestaoDeFreteServiceTests
             new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m),
             CancellationToken.None);
 
-        // "R$ 1,20 por km" não diz nada concreto. O exemplo é o que faz a
-        // administradora saber se a tarifa está boa.
+        // "R$ 1,20 por km" nÃ£o diz nada concreto. O exemplo Ã© o que faz a
+        // administradora saber se a tarifa estÃ¡ boa.
         Assert.Equal(8m, configuracao.DistanciaDeExemplo);
         Assert.Equal(12.40m, configuracao.FreteDeExemplo);
     }
@@ -117,13 +117,13 @@ public sealed class GestaoDeFreteServiceTests
     {
         using var contexto = Testes.CriarContextoInMemory();
 
-        // Frete zero faz a loja entregar de graça em qualquer distância.
+        // Frete zero faz a loja entregar de graÃ§a em qualquer distÃ¢ncia.
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             Servico(contexto).SalvarAsync(
                 new RequisicaoDeConfiguracaoDeFrete("01310-300", 0m, 9.00m),
                 CancellationToken.None));
 
-        Assert.Contains("quilômetro", erro.Message);
+        Assert.Contains("quilÃ´metro", erro.Message);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public sealed class GestaoDeFreteServiceTests
                 new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, -1m),
                 CancellationToken.None));
 
-        Assert.Contains("taxa mínima", erro.Message);
+        Assert.Contains("taxa mÃ­nima", erro.Message);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public sealed class GestaoDeFreteServiceTests
     {
         using var contexto = Testes.CriarContextoInMemory();
 
-        var nominatim = new Mock<INominatimService>();
+        var nominatim = new Mock<IGeocodificador>();
         nominatim.Setup(n => n.GeocodificarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(((decimal Latitude, decimal Longitude)?)null);
 
@@ -188,8 +188,8 @@ public sealed class GestaoDeFreteServiceTests
             nominatim.Object,
             CalculoDeExemplo(12.40m, 8m).Object);
 
-        // As duas mensagens são diferentes porque a situation é: um é CEP errado,
-        // o outro é o serviço externo instável, e a administradora precisa saber
+        // As duas mensagens sÃ£o diferentes porque a situation Ã©: um Ã© CEP errado,
+        // o outro Ã© o serviÃ§o externo instÃ¡vel, e a administradora precisa saber
         // qual dos dois foi para tentar de novo ou corrigir o dado.
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m), CancellationToken.None));
@@ -204,7 +204,7 @@ public sealed class GestaoDeFreteServiceTests
 
         var calculo = new Mock<ICalculoDeFreteService>();
         calculo.Setup(c => c.CalcularAsync(It.IsAny<EnderecoDeEntregaRequisicao>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Não conseguimos localizar esse endereço."));
+            .ThrowsAsync(new InvalidOperationException("NÃ£o conseguimos localizar esse endereÃ§o."));
 
         var servico = new GestaoDeFreteService(
             contexto,
@@ -216,7 +216,7 @@ public sealed class GestaoDeFreteServiceTests
             new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m),
             CancellationToken.None);
 
-        // O exemplo é ilustrativo. Falhar ele não pode impedir a gravação de uma
+        // O exemplo Ã© ilustrativo. Falhar ele nÃ£o pode impedir a gravaÃ§Ã£o de uma
         // tarifa que pode estar correta.
         Assert.Equal(1.20m, configuracao.PrecoPorKm);
         Assert.Null(configuracao.FreteDeExemplo);
