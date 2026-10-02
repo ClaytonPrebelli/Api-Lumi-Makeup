@@ -113,7 +113,8 @@ public sealed class PedidosController : ControllerBase
         catch (DbUpdateException ex)
         {
             Response.Headers["Access-Control-Allow-Origin"] = "*";
-            return StatusCode(500, new { message = $"{ex.GetType().Name}: {ex.Message}" });
+            var detalhe = ex.InnerException?.Message ?? ex.Message;
+            return StatusCode(500, new { message = $"Falha ao gravar o pedido: {detalhe}" });
         }
         catch (Exception ex)
         {
