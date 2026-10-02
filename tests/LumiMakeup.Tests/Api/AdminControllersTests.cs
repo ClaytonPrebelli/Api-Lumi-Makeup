@@ -27,7 +27,8 @@ public class AdminProdutosControllerTests
         return new AdminProdutosController(
             gestaoDeProdutos.Object,
             (melhorador ?? new Mock<IMelhoradorDeTextoService>()).Object,
-            opcoes);
+            opcoes,
+            new Microsoft.Extensions.Logging.Abstractions.NullLogger<AdminProdutosController>());
     }
 
     private static ProdutoAdministracaoDto CriarProduto() => new(

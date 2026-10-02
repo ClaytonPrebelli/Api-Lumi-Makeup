@@ -1,9 +1,12 @@
-using LumiMakeup.Application.Abstractions;
+﻿using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Infrastructure.Integrations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.IO;
 
 namespace LumiMakeup.Api.Controllers;
 
@@ -29,14 +32,18 @@ public sealed class AdminProdutosController : ControllerBase
     private readonly IMelhoradorDeTextoService _melhoradorDeTexto;
     private readonly ArmazenamentoDeImagensOptions _opcoes;
 
+    private readonly ILogger<AdminProdutosController> _logger;
+
     public AdminProdutosController(
         IGestaoDeProdutosService gestaoDeProdutos,
         IMelhoradorDeTextoService melhoradorDeTexto,
-        IOptions<ArmazenamentoDeImagensOptions> opcoes)
+        IOptions<ArmazenamentoDeImagensOptions> opcoes,
+        ILogger<AdminProdutosController> logger)
     {
         _gestaoDeProdutos = gestaoDeProdutos;
         _melhoradorDeTexto = melhoradorDeTexto;
         _opcoes = opcoes.Value;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -158,6 +165,30 @@ public sealed class AdminProdutosController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+        catch (IOException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new
+            {
+                message = $"Falha ao salvar a imagem: {ex.GetType().Name} ao acessar {ex.Message}. Pasta configurada: {_opcoes.PastaPadrao}"
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new
+            {
+                message = $"Falha ao salvar a imagem: {ex.GetType().Name}. Pasta configurada: {_opcoes.PastaPadrao}"
+            });
+        }
+        catch (DbUpdateException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new
+            {
+                message = $"Falha ao salvar a imagem: {ex.GetType().Name}. Pasta configurada: {_opcoes.PastaPadrao}"
+            });
         }
     }
 

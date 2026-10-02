@@ -93,10 +93,10 @@ public sealed class ArmazenamentoDeImagensLocal : IArmazenamentoDeImagens
         var caminhoAbsoluto = ResolverCaminhoSeguro(caminhoRelativo);
 
         var diretorio = Path.GetDirectoryName(caminhoAbsoluto)!;
-        Directory.CreateDirectory(diretorio);
 
         try
         {
+            Directory.CreateDirectory(diretorio);
             await using var destino = new FileStream(
                 caminhoAbsoluto,
                 FileMode.CreateNew,
