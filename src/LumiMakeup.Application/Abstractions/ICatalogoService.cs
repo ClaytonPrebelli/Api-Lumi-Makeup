@@ -187,6 +187,20 @@ public interface IGestaoDeFreteService
     Task<CalculoDeFreteDto> SimularAsync(string cep, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Configura��ǜo da mensagem de WhatsApp da loja.
+/// </summary>
+public interface IGestaoDeWhatsAppService
+{
+    Task<ConfiguracaoWhatsAppDto> ObterAsync(CancellationToken cancellationToken = default);
+
+    Task<ConfiguracaoWhatsAppDto> SalvarAsync(
+        RequisicaoDeConfiguracaoWhatsApp requisicao,
+        CancellationToken cancellationToken = default);
+
+    Task<PreviaMensagemWhatsAppDto> GerarPreviaAsync(CancellationToken cancellationToken = default);
+}
+
 public interface IGestaoDeEnderecosService
 {
     /// <summary>Agenda do cliente, com o padrão primeiro.</summary>
