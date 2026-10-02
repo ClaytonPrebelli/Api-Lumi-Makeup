@@ -16,6 +16,7 @@ public class LumiDbContext : DbContext
     public DbSet<ImagemProduto> ImagensProduto => Set<ImagemProduto>();
     public DbSet<Banner> Banners => Set<Banner>();
     public DbSet<ConfiguracaoFrete> ConfiguracoesDeFrete => Set<ConfiguracaoFrete>();
+    public DbSet<ConfiguracaoWhatsApp> ConfiguracoesDeWhatsApp => Set<ConfiguracaoWhatsApp>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<ItemPedido> ItensPedido => Set<ItemPedido>();
     public DbSet<Cupom> Cupons => Set<Cupom>();
