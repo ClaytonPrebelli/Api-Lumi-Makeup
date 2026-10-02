@@ -177,9 +177,10 @@ public sealed class AdminProdutosController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             Response.Headers["Access-Control-Allow-Origin"] = "*";
+            var caminhoBase = _opcoes.PastaPadrao;
             return StatusCode(500, new
             {
-                message = $"Falha ao salvar a imagem: {ex.GetType().Name}. Caminho/pasta configurada: {_opcoes.PastaPadrao}"
+                message = $"Falha ao salvar a imagem: {ex.GetType().Name}. Caminho/pasta configurada: {caminhoBase}"
             });
         }
         catch (DbUpdateException ex)
