@@ -201,65 +201,116 @@ public sealed class NotificadorDePedido : INotificadorDePedido
             : "Pedido online";
 
         var itens = new StringBuilder();
-        itens.Append("<table cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse\">");
-        itens.Append("<tr><th align=\"left\">Item</th><th align=\"right\">Qtd</th><th align=\"right\">Unit.</th><th align=\"right\">Subtotal</th></tr>");
+        itens.Append("<table cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse:collapse; width:100%; border:1px solid #e0e0e0; border-radius:8px;\">");
+        itens.Append("<thead><tr style=\"background:#f8f3ef; border-bottom:1px solid #e0e0e0;\"><th align=\"left\" style=\"padding:12px; font-size:14px; color:#5a4a3f;\">Item</th><th align=\"right\" style=\"padding:12px; font-size:14px; color:#5a4a3f;\">Qtd</th><th align=\"right\" style=\"padding:12px; font-size:14px; color:#5a4a3f;\">Unit.</th><th align=\"right\" style=\"padding:12px; font-size:14px; color:#5a4a3f;\">Subtotal</th></tr></thead>");
+        itens.Append("<tbody>");
 
         foreach (var item in pedido.Itens)
         {
             itens.Append("<tr>");
-            itens.Append($"<td>{Escapar(item.Nome)}</td>");
-            itens.Append($"<td align=\"right\">{item.Quantidade}</td>");
-            itens.Append($"<td align=\"right\">{Moeda(item.PrecoPromocionalUnitario ?? item.PrecoVendaUnitario)}</td>");
-            itens.Append($"<td align=\"right\">{Moeda(item.Subtotal)}</td>");
+            itens.Append($"<td style=\"padding:12px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333333;\">{Escapar(item.Nome)}</td>");
+            itens.Append($"<td align=\"right\" style=\"padding:12px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333333;\">{item.Quantidade}</td>");
+            itens.Append($"<td align=\"right\" style=\"padding:12px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333333;\">{Moeda(item.PrecoPromocionalUnitario ?? item.PrecoVendaUnitario)}</td>");
+            itens.Append($"<td align=\"right\" style=\"padding:12px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333333;\">{Moeda(item.Subtotal)}</td>");
             itens.Append("</tr>");
         }
 
-        itens.Append("</table>");
+        itens.Append("</tbody></table>");
+
+        var enderecoHtml = string.Empty;
+        if (!string.IsNullOrWhiteSpace(pedido.EnderecoLogradouro))
+        {
+            enderecoHtml = $"""
+                <div style="margin-top:16px; padding:16px; background:#f9f9f9; border-radius:8px; border:1px solid #e0e0e0;">
+                    <h3 style="margin:0 0 8px 0; font-size:14px; color:#5a4a3f;">Endereço de entrega</h3>
+                    <p style="margin:0; font-size:14px; color:#333333; line-height:1.6;">
+                        {Escapar(pedido.EnderecoLogradouro)}, {Escapar(pedido.EnderecoNumero ?? string.Empty)}
+                        {(string.IsNullOrWhiteSpace(pedido.EnderecoComplemento) ? string.Empty : " - " + Escapar(pedido.EnderecoComplemento))}<br />
+                        {Escapar(pedido.EnderecoBairro ?? string.Empty)} - {Escapar(pedido.EnderecoCidade ?? string.Empty)}/{Escapar(pedido.EnderecoEstado ?? string.Empty)}<br />
+                        CEP {Escapar(pedido.EnderecoCep ?? string.Empty)}
+                    </p>
+                </div>
+                """;
+        }
 
         return $"""
-            <p>Um {origem.ToLowerInvariant()} foi registrado e está aguardando pagamento.</p>
-            <p><strong>Pedido:</strong> {pedido.Id}<br />
-            <strong>Cliente:</strong> {Escapar(pedido.NomeCliente)}<br />
-            <strong>Telefone:</strong> {Escapar(pedido.TelefoneContato ?? "não informado")}<br />
-            <strong>E-mail:</strong> {Escapar(pedido.EmailContato ?? "não informado")}<br />
-            <strong>Recebido em:</strong> {pedido.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("pt-BR"))}</p>
-            {itens}
-            <p><strong>Subtotal:</strong> {Moeda(pedido.Subtotal)}<br />
-            {(pedido.Desconto > 0 ? $"<strong>Desconto{(pedido.CupomCodigo is null ? "" : $" ({Escapar(pedido.CupomCodigo)})")}:</strong> {Moeda(pedido.Desconto)}<br />" : string.Empty)}
-            <strong>Frete:</strong> {Moeda(pedido.CustoFrete)}<br />
-            <strong>Total:</strong> {Moeda(pedido.Total)}</p>
-            <p>A nota fiscal deste pedido ainda não foi gerada.</p>
+            <div style="font-family:Arial, Helvetica, sans-serif; color:#333333; max-width:600px;">
+                <h2 style="color:#b98b73; margin-bottom:8px;">Novo pedido recebido</h2>
+                <p>Um {origem.ToLowerInvariant()} foi registrado e está aguardando pagamento.</p>
+                <p><strong>Pedido:</strong> {pedido.Id}<br />
+                <strong>Cliente:</strong> {Escapar(pedido.NomeCliente)}<br />
+                <strong>Telefone:</strong> {Escapar(pedido.TelefoneContato ?? "não informado")}<br />
+                <strong>E-mail:</strong> {Escapar(pedido.EmailContato ?? "não informado")}<br />
+                <strong>Recebido em:</strong> {pedido.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("pt-BR"))}</p>
+                {itens}
+                <div style="margin-top:16px; padding:16px; background:#f8f3ef; border-radius:8px; border:1px solid #e0e0e0;">
+                    <p style="margin:0; font-size:14px; line-height:1.8;">
+                        <strong>Subtotal:</strong> {Moeda(pedido.Subtotal)}<br />
+                        {(pedido.Desconto > 0 ? $"<strong>Desconto{(pedido.CupomCodigo is null ? "" : $" ({Escapar(pedido.CupomCodigo)})")}:</strong> {Moeda(pedido.Desconto)}<br />" : string.Empty)}
+                        <strong>Frete:</strong> {Moeda(pedido.CustoFrete)}<br />
+                        <strong>Total:</strong> {Moeda(pedido.Total)}
+                    </p>
+                </div>
+                {enderecoHtml}
+                <p style="margin-top:16px; color:#666666; font-size:13px;">A nota fiscal deste pedido ainda não foi gerada.</p>
+            </div>
             """;
     }
 
     private static string CorpoDoPedido(PedidoDto pedido, string assunto)
     {
         var itens = new StringBuilder();
-        itens.Append("<table cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse\">");
-        itens.Append("<tr><th align=\"left\">Item</th><th align=\"right\">Qtd</th><th align=\"right\">Subtotal</th></tr>");
+        itens.Append("<table cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse:collapse; width:100%; border:1px solid #e0e0e0; border-radius:8px;\">");
+        itens.Append("<thead><tr style=\"background:#f8f3ef; border-bottom:1px solid #e0e0e0;\"><th align=\"left\" style=\"padding:12px; font-size:14px; color:#5a4a3f;\">Item</th><th align=\"right\" style=\"padding:12px; font-size:14px; color:#5a4a3f;\">Qtd</th><th align=\"right\" style=\"padding:12px; font-size:14px; color:#5a4a3f;\">Subtotal</th></tr></thead>");
+        itens.Append("<tbody>");
 
         foreach (var item in pedido.Itens)
         {
             itens.Append("<tr>");
-            itens.Append($"<td>{Escapar(item.Nome)}</td>");
-            itens.Append($"<td align=\"right\">{item.Quantidade}</td>");
-            itens.Append($"<td align=\"right\">{Moeda(item.Subtotal)}</td>");
+            itens.Append($"<td style=\"padding:12px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333333;\">{Escapar(item.Nome)}</td>");
+            itens.Append($"<td align=\"right\" style=\"padding:12px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333333;\">{item.Quantidade}</td>");
+            itens.Append($"<td align=\"right\" style=\"padding:12px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333333;\">{Moeda(item.Subtotal)}</td>");
             itens.Append("</tr>");
         }
 
-        itens.Append("</table>");
+        itens.Append("</tbody></table>");
+
+        var enderecoHtml = string.Empty;
+        if (!string.IsNullOrWhiteSpace(pedido.EnderecoLogradouro))
+        {
+            enderecoHtml = $"""
+                <div style="margin-top:16px; padding:16px; background:#f9f9f9; border-radius:8px; border:1px solid #e0e0e0;">
+                    <h3 style="margin:0 0 8px 0; font-size:14px; color:#5a4a3f;">Endereço de entrega</h3>
+                    <p style="margin:0; font-size:14px; color:#333333; line-height:1.6;">
+                        {Escapar(pedido.EnderecoLogradouro)}, {Escapar(pedido.EnderecoNumero ?? string.Empty)}
+                        {(string.IsNullOrWhiteSpace(pedido.EnderecoComplemento) ? string.Empty : " - " + Escapar(pedido.EnderecoComplemento))}<br />
+                        {Escapar(pedido.EnderecoBairro ?? string.Empty)} - {Escapar(pedido.EnderecoCidade ?? string.Empty)}/{Escapar(pedido.EnderecoEstado ?? string.Empty)}<br />
+                        CEP {Escapar(pedido.EnderecoCep ?? string.Empty)}
+                    </p>
+                </div>
+                """;
+        }
 
         var aguardando = pedido.Status is Domain.Enums.StatusPedido.AguardandoPagamento;
 
         return $"""
-            <p>Olá, {Escapar(PrimeiroNome(pedido.NomeCliente))}!</p>
-            <p>{Escapar(assunto)}. O número é <strong>{pedido.Id}</strong>.</p>
-            {itens}
-            <p><strong>Subtotal:</strong> {Moeda(pedido.Subtotal)}<br />
-            {(pedido.Desconto > 0 ? $"<strong>Desconto{(pedido.CupomCodigo is null ? "" : $" ({Escapar(pedido.CupomCodigo)})")}:</strong> {Moeda(pedido.Desconto)}<br />" : string.Empty)}
-            <strong>Frete:</strong> {Moeda(pedido.CustoFrete)}<br />
-            <strong>Total:</strong> {Moeda(pedido.Total)}</p>
-            {(aguardando ? "<p>Assim que combinarmos a forma de pagamento, eu te aviso por aqui.</p>" : string.Empty)}
+            <div style="font-family:Arial, Helvetica, sans-serif; color:#333333; max-width:600px;">
+                <h2 style="color:#b98b73; margin-bottom:8px;">{Escapar(assunto)}</h2>
+                <p>Olá, {Escapar(PrimeiroNome(pedido.NomeCliente))}!</p>
+                <p>O número do seu pedido é <strong>{pedido.Id}</strong>.</p>
+                {itens}
+                <div style="margin-top:16px; padding:16px; background:#f8f3ef; border-radius:8px; border:1px solid #e0e0e0;">
+                    <p style="margin:0; font-size:14px; line-height:1.8;">
+                        <strong>Subtotal:</strong> {Moeda(pedido.Subtotal)}<br />
+                        {(pedido.Desconto > 0 ? $"<strong>Desconto{(pedido.CupomCodigo is null ? "" : $" ({Escapar(pedido.CupomCodigo)})")}:</strong> {Moeda(pedido.Desconto)}<br />" : string.Empty)}
+                        <strong>Frete:</strong> {Moeda(pedido.CustoFrete)}<br />
+                        <strong>Total:</strong> {Moeda(pedido.Total)}
+                    </p>
+                </div>
+                {enderecoHtml}
+                {(aguardando ? "<p style=\"margin-top:16px; color:#666666; font-size:14px;\">Assim que combinarmos a forma de pagamento, te avisamos por aqui.</p>" : string.Empty)}
+                <p style="margin-top:16px; color:#666666; font-size:13px;">Atenciosamente, equipe Lumi Makeup</p>
+            </div>
             """;
     }
 
