@@ -48,7 +48,9 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
         builder.Property(o => o.EnderecoCidade).HasMaxLength(100);
         builder.Property(o => o.EnderecoEstado).HasMaxLength(2);
 
-        builder.Property(o => o.DistanciaKm).HasColumnType("decimal(8,2)");
+        builder.Property(o => o.DistanciaKm)
+            .HasColumnName("distancekm")
+            .HasColumnType("decimal(8,2)");
         builder.Property(o => o.CustoFrete).HasColumnType("decimal(10,2)");
         builder.Property(o => o.Subtotal).HasColumnType("decimal(10,2)");
         builder.Property(o => o.Desconto).HasColumnType("decimal(10,2)");
