@@ -171,7 +171,7 @@ public sealed class AdminProdutosController : ControllerBase
             Response.Headers["Access-Control-Allow-Origin"] = "*";
             return StatusCode(500, new
             {
-                message = $"Falha ao salvar a imagem: {ex.GetType().Name} ao acessar {ex.Message}. Pasta configurada: {_opcoes.PastaPadrao}"
+                message = $"Falha ao salvar a imagem: {ex.GetType().Name} ao acessar '{ex.Message}'. Caminho/pasta configurada: {_opcoes.PastaPadrao}"
             });
         }
         catch (UnauthorizedAccessException ex)
@@ -179,7 +179,7 @@ public sealed class AdminProdutosController : ControllerBase
             Response.Headers["Access-Control-Allow-Origin"] = "*";
             return StatusCode(500, new
             {
-                message = $"Falha ao salvar a imagem: {ex.GetType().Name}. Pasta configurada: {_opcoes.PastaPadrao}"
+                message = $"Falha ao salvar a imagem: {ex.GetType().Name}. Caminho/pasta configurada: {_opcoes.PastaPadrao}"
             });
         }
         catch (DbUpdateException ex)
@@ -187,7 +187,7 @@ public sealed class AdminProdutosController : ControllerBase
             Response.Headers["Access-Control-Allow-Origin"] = "*";
             return StatusCode(500, new
             {
-                message = $"Falha ao salvar a imagem: {ex.GetType().Name}. Pasta configurada: {_opcoes.PastaPadrao}"
+                message = $"Falha ao salvar a imagem: {ex.GetType().Name}. Caminho/pasta configurada: {_opcoes.PastaPadrao}"
             });
         }
     }
