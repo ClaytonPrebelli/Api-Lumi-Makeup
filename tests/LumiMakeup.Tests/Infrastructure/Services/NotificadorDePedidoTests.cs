@@ -50,11 +50,19 @@ public sealed class NotificadorDePedidoTests
         Mock<IEmailSender> email,
         Mock<IWhatsAppService> whatsApp,
         string? emailDaAdmin = EmailDaAdmin,
-        bool avisarPorWhatsApp = true)
+        bool avisarPorWhatsApp = true,
+        string? mensagemInicial = null)
     {
+        var gestaoWhatsApp = new Mock<IGestaoDeWhatsAppService>();
+        gestaoWhatsApp.Setup(g => g.ObterAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConfiguracaoWhatsAppDto(
+                1,
+                mensagemInicial ?? "Oi, {Nome}! Aqui é da {Loja}. Recebemos seu pedido!"));
+
         return new NotificadorDePedido(
             email.Object,
             whatsApp.Object,
+            gestaoWhatsApp.Object,
             Options.Create(new NotificacoesDePedidoOptions
             {
                 EmailDaAdministradora = emailDaAdmin ?? string.Empty,
@@ -128,6 +136,60 @@ public sealed class NotificadorDePedidoTests
         var chamada = whatsApp.Invocations.Single();
         Assert.Equal("5511999999999", chamada.Arguments[0]);
         Assert.Contains("Batom matte", (string)chamada.Arguments[1]);
+    }
+
+    [Fact]
+    public async Task PedidoCriadoAsync_manda_no_whatsapp_a_frase_que_a_admin_configurou()
+    {
+        var email = new Mock<IEmailSender>();
+        var whatsApp = new Mock<IWhatsAppService>();
+
+        await Criar(email, whatsApp, mensagemInicial: "Oi, {Nome}! Passa aqui na {Loja}!")
+            .PedidoCriadoAsync(Pedido(), CancellationToken.None);
+
+        var mensagem = (string)whatsApp.Invocations.Single().Arguments[1];
+
+        // A frase vem do painel, e nao do codigo: e a administradora que escreve
+        // como a loja fala com o cliente.
+        Assert.Contains("Oi, Ana! Passa aqui na Lumi Makeup!", mensagem);
+        Assert.DoesNotContain("{Nome}", mensagem);
+        Assert.DoesNotContain("{Loja}", mensagem);
+    }
+
+    [Fact]
+    public async Task PedidoCriadoAsync_manda_no_whatsapp_subtotal_frete_total_e_o_pedido_de_confirmacao()
+    {
+        var email = new Mock<IEmailSender>();
+        var whatsApp = new Mock<IWhatsAppService>();
+
+        await Criar(email, whatsApp).PedidoCriadoAsync(Pedido(), CancellationToken.None);
+
+        var mensagem = (string)whatsApp.Invocations.Single().Arguments[1];
+
+        // Sem os totais, o cliente nao consegue conferir o que esta pagando; sem
+        // o pedido de confirmacao, a administradora nao recebe o "ok" que fecha
+        // a venda.
+        Assert.Contains("Subtotal", mensagem);
+        Assert.Contains("Frete", mensagem);
+        Assert.Contains("Total", mensagem);
+        Assert.Contains("R$ 115,00", mensagem);
+        Assert.Contains("Confirme seu pedido", mensagem);
+    }
+
+    [Fact]
+    public async Task PedidoCriadoAsync_falha_do_whatsapp_nao_derruba_o_pedido()
+    {
+        var email = new Mock<IEmailSender>();
+        var whatsApp = new Mock<IWhatsAppService>();
+        whatsApp.Setup(w => w.EnviarMensagemAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Node fora do ar"));
+
+        // O aviso de WhatsApp e acessorio. Se ele derrubasse a criacao do
+        // pedido, a loja pararia de vender por causa do Node.
+        await Criar(email, whatsApp).PedidoCriadoAsync(Pedido(), CancellationToken.None);
+
+        Assert.Contains(email.Invocations, i => (string)i.Arguments[0] == EmailDaAdmin);
+        Assert.Contains(email.Invocations, i => (string)i.Arguments[0] == "ana@exemplo.com");
     }
 
     [Fact]

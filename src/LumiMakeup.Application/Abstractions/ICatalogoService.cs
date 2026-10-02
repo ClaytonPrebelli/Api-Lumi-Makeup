@@ -198,7 +198,9 @@ public interface IGestaoDeWhatsAppService
         RequisicaoDeConfiguracaoWhatsApp requisicao,
         CancellationToken cancellationToken = default);
 
-    Task<PreviaMensagemWhatsAppDto> GerarPreviaAsync(CancellationToken cancellationToken = default);
+    Task<PreviaMensagemWhatsAppDto> GerarPreviaAsync(
+        string? mensagemInicial,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IGestaoDeEnderecosService

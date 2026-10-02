@@ -22,17 +22,20 @@ public sealed class NotificadorDePedido : INotificadorDePedido
 {
     private readonly IEmailSender _email;
     private readonly IWhatsAppService _whatsApp;
+    private readonly IGestaoDeWhatsAppService _gestaoWhatsApp;
     private readonly NotificacoesDePedidoOptions _opcoes;
     private readonly ILogger<NotificadorDePedido> _logger;
 
     public NotificadorDePedido(
         IEmailSender email,
         IWhatsAppService whatsApp,
+        IGestaoDeWhatsAppService gestaoWhatsApp,
         IOptions<NotificacoesDePedidoOptions> opcoes,
         ILogger<NotificadorDePedido> logger)
     {
         _email = email;
         _whatsApp = whatsApp;
+        _gestaoWhatsApp = gestaoWhatsApp;
         _opcoes = opcoes.Value;
         _logger = logger;
     }
@@ -140,7 +143,10 @@ public sealed class NotificadorDePedido : INotificadorDePedido
                 return;
             }
 
-            var enviada = await _whatsApp.EnviarMensagemAsync(numero, MensagemDeWhatsApp(pedido), cancellationToken);
+            var enviada = await _whatsApp.EnviarMensagemAsync(
+                numero,
+                await MensagemDeWhatsAppAsync(pedido, cancellationToken),
+                cancellationToken);
 
             if (!enviada)
             {
@@ -179,50 +185,16 @@ public sealed class NotificadorDePedido : INotificadorDePedido
     /// recebe a resposta e fecha a venda. Por isso o texto fala da loja em
     /// primeira pessoa e não parece um disparo automático.
     /// </summary>
-    private string MensagemDeWhatsApp(PedidoDto pedido)
+    private async Task<string> MensagemDeWhatsAppAsync(
+        PedidoDto pedido,
+        CancellationToken cancellationToken)
     {
-        var texto = new StringBuilder();
+        var configuracao = await _gestaoWhatsApp.ObterAsync(cancellationToken);
 
-        var mensagemInicial = _opcoes.MensagemInicialWhatsAppCliente
-            .Replace("{Nome}", PrimeiroNome(pedido.NomeCliente))
-            .Replace("{Loja}", _opcoes.NomeDaLoja);
-
-        texto.AppendLine(mensagemInicial);
-        texto.AppendLine();
-        texto.AppendLine("**Itens do Pedido:**");
-        texto.AppendLine();
-
-        foreach (var item in pedido.Itens)
-        {
-            texto.AppendLine($"• {item.Quantidade}x {item.Nome} - {Moeda(item.Subtotal)}");
-        }
-
-        texto.AppendLine();
-        texto.AppendLine("**Subtotal:** " + Moeda(pedido.Subtotal));
-        if (pedido.Desconto > 0)
-        {
-            var cupom = string.IsNullOrWhiteSpace(pedido.CupomCodigo) ? string.Empty : $" ({pedido.CupomCodigo})";
-            texto.AppendLine($"**Desconto{cupom}:** " + Moeda(pedido.Desconto));
-        }
-        texto.AppendLine("**Frete:** " + Moeda(pedido.CustoFrete));
-        texto.AppendLine("**Total:** " + Moeda(pedido.Total));
-        texto.AppendLine();
-
-        if (!string.IsNullOrWhiteSpace(pedido.EnderecoLogradouro))
-        {
-            texto.AppendLine("**Endereço de entrega:**");
-            var complemento = string.IsNullOrWhiteSpace(pedido.EnderecoComplemento)
-                ? string.Empty
-                : " - " + pedido.EnderecoComplemento;
-            texto.AppendLine($"{pedido.EnderecoLogradouro}, {pedido.EnderecoNumero ?? string.Empty}{complemento}");
-            texto.AppendLine($"{pedido.EnderecoBairro ?? string.Empty} - {pedido.EnderecoCidade ?? string.Empty}/{pedido.EnderecoEstado ?? string.Empty}");
-            texto.AppendLine($"CEP: {pedido.EnderecoCep ?? string.Empty}");
-            texto.AppendLine();
-        }
-
-        texto.AppendLine("Confirme seu pedido acima se está tudo certo por favor. É só responder esta mensagem com 'OK' ou qualquer outra coisa.");
-
-        return texto.ToString().Trim();
+        return MontadorDeMensagemDePedido.Montar(
+            configuracao.MensagemInicialCliente,
+            pedido,
+            _opcoes.NomeDaLoja);
     }
 
     private static string CorpoDoPedidoParaAdministradora(PedidoDto pedido)

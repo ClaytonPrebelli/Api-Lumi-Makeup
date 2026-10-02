@@ -8,15 +8,26 @@ using Microsoft.Extensions.Options;
 
 namespace LumiMakeup.Infrastructure.Services;
 
+/// <summary>
+/// Configuração do texto que abre a mensagem de WhatsApp do cliente.
+///
+/// A frase fica no banco, e não em <c>appsettings</c>, porque quem escreve é a
+/// administradora pelo painel, no meio da operação, e um arquivo de
+/// configuração não se edita sem republicar.
+/// </summary>
 public sealed class GestaoDeWhatsAppService : IGestaoDeWhatsAppService
 {
-    private readonly LumiDbContext _contexto;
-    private readonly IOptions<NotificacoesDePedidoOptions> _opcoes;
+    private const int TamanhoMaximoDaMensagem = 500;
 
-    public GestaoDeWhatsAppService(LumiDbContext contexto, IOptions<NotificacoesDePedidoOptions> opcoes)
+    private readonly LumiDbContext _contexto;
+    private readonly NotificacoesDePedidoOptions _opcoes;
+
+    public GestaoDeWhatsAppService(
+        LumiDbContext contexto,
+        IOptions<NotificacoesDePedidoOptions> opcoes)
     {
         _contexto = contexto;
-        _opcoes = opcoes;
+        _opcoes = opcoes.Value;
     }
 
     public async Task<ConfiguracaoWhatsAppDto> ObterAsync(CancellationToken cancellationToken = default)
@@ -26,9 +37,11 @@ public sealed class GestaoDeWhatsAppService : IGestaoDeWhatsAppService
             .OrderBy(c => c.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Loja sem linha na tabela ainda é o estado inicial normal, e a frase
+        // padrão é a única que funciona sem ninguém ter digitado nada.
         if (configuracao is null)
         {
-            return new ConfiguracaoWhatsAppDto(0, _opcoes.Value.MensagemInicialWhatsAppCliente);
+            return new ConfiguracaoWhatsAppDto(0, _opcoes.MensagemInicialWhatsAppCliente);
         }
 
         return new ConfiguracaoWhatsAppDto(configuracao.Id, configuracao.MensagemInicialCliente);
@@ -38,14 +51,17 @@ public sealed class GestaoDeWhatsAppService : IGestaoDeWhatsAppService
         RequisicaoDeConfiguracaoWhatsApp requisicao,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(requisicao.MensagemInicialCliente))
+        var mensagem = (requisicao.MensagemInicialCliente ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(mensagem))
         {
-            throw new InvalidOperationException("A mensagem inicial não pode estar vazia.");
+            throw new InvalidOperationException("Escreva a frase que abre a mensagem do cliente.");
         }
 
-        if (requisicao.MensagemInicialCliente.Length > 500)
+        if (mensagem.Length > TamanhoMaximoDaMensagem)
         {
-            throw new InvalidOperationException("A mensagem inicial deve ter no máximo 500 caracteres.");
+            throw new InvalidOperationException(
+                $"A frase pode ter no máximo {TamanhoMaximoDaMensagem} caracteres.");
         }
 
         var existente = await _contexto.ConfiguracoesDeWhatsApp
@@ -54,48 +70,32 @@ public sealed class GestaoDeWhatsAppService : IGestaoDeWhatsAppService
 
         if (existente is null)
         {
-            existente = new ConfiguracaoWhatsApp
-            {
-                MensagemInicialCliente = requisicao.MensagemInicialCliente
-            };
+            existente = new ConfiguracaoWhatsApp();
             _contexto.ConfiguracoesDeWhatsApp.Add(existente);
         }
-        else
-        {
-            existente.MensagemInicialCliente = requisicao.MensagemInicialCliente;
-        }
+
+        existente.MensagemInicialCliente = mensagem;
 
         await _contexto.SaveChangesAsync(cancellationToken);
 
         return new ConfiguracaoWhatsAppDto(existente.Id, existente.MensagemInicialCliente);
     }
 
-    public async Task<PreviaMensagemWhatsAppDto> GerarPreviaAsync(CancellationToken cancellationToken = default)
+    public async Task<PreviaMensagemWhatsAppDto> GerarPreviaAsync(
+        string? mensagemInicial,
+        CancellationToken cancellationToken = default)
     {
-        var configuracao = await ObterAsync(cancellationToken);
-        var mensagemInicial = configuracao.MensagemInicialCliente
-            .Replace("{Nome}", "Maria")
-            .Replace("{Loja}", _opcoes.Value.NomeDaLoja);
+        // A tela manda a frase que esta no campo, e nao a que esta gravada:
+        // previa da frase salva so ajuda depois de salvar, que e tarde demais
+        // para quem esta decidindo o que escrever. Sem frase, mostra a gravada.
+        var frase = string.IsNullOrWhiteSpace(mensagemInicial)
+            ? (await ObterAsync(cancellationToken)).MensagemInicialCliente
+            : mensagemInicial;
 
-        var texto = new System.Text.StringBuilder();
-        texto.AppendLine(mensagemInicial);
-        texto.AppendLine();
-        texto.AppendLine("**Itens do Pedido:**");
-        texto.AppendLine();
-        texto.AppendLine("• 1x Batom Matte - R$ 35,90");
-        texto.AppendLine("• 1x Pó Compacto - R$ 45,90");
-        texto.AppendLine();
-        texto.AppendLine("**Subtotal:** R$ 81,80");
-        texto.AppendLine("**Frete:** R$ 10,00");
-        texto.AppendLine("**Total:** R$ 91,80");
-        texto.AppendLine();
-        texto.AppendLine("**Endereço de entrega:**");
-        texto.AppendLine("Rua das Flores, 123");
-        texto.AppendLine("Centro - São Paulo/SP");
-        texto.AppendLine("CEP: 01310-000");
-        texto.AppendLine();
-        texto.AppendLine("Confirme seu pedido acima se está tudo certo por favor. É só responder esta mensagem com 'OK' ou qualquer outra coisa.");
-
-        return new PreviaMensagemWhatsAppDto(texto.ToString().Trim());
+        return new PreviaMensagemWhatsAppDto(
+            MontadorDeMensagemDePedido.Montar(
+                frase,
+                MontadorDeMensagemDePedido.PedidoDeExemplo(),
+                _opcoes.NomeDaLoja));
     }
 }

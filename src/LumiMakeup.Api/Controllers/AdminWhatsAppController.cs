@@ -112,9 +112,12 @@ public sealed class AdminWhatsAppController : ControllerBase
     }
 
     [HttpGet("mensagem/previa")]
-    public async Task<IActionResult> PreviaMensagem(CancellationToken cancellationToken)
+    public async Task<IActionResult> PreviaMensagem(
+        [FromQuery] string? mensagemInicial,
+        CancellationToken cancellationToken)
     {
-        var previa = await _gestaoWhatsApp.GerarPreviaAsync(cancellationToken);
+        var previa = await _gestaoWhatsApp.GerarPreviaAsync(mensagemInicial, cancellationToken);
+
         return Ok(previa);
     }
 }

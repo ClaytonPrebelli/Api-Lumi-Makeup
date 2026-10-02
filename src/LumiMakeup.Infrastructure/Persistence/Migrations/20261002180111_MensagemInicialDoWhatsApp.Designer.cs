@@ -4,6 +4,7 @@ using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LumiMakeup.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LumiDbContext))]
-    partial class LumiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261002180111_MensagemInicialDoWhatsApp")]
+    partial class MensagemInicialDoWhatsApp
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -427,7 +430,7 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("DistanciaKm")
                         .HasColumnType("decimal(8,2)")
-                        .HasColumnName("distanceKm");
+                        .HasColumnName("distancekm");
 
                     b.Property<string>("DocumentoCliente")
                         .HasMaxLength(20)
