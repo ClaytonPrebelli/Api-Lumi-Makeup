@@ -212,6 +212,13 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                 p.Observacoes,
                 p.CriadoEm,
                 p.PagoEm,
+                p.EnderecoCep,
+                p.EnderecoLogradouro,
+                p.EnderecoNumero,
+                p.EnderecoComplemento,
+                p.EnderecoBairro,
+                p.EnderecoCidade,
+                p.EnderecoEstado,
                 p.Itens
                     .OrderBy(i => i.Id)
                     .Select(i => new PedidoItemDto(
@@ -255,6 +262,13 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                 p.Observacoes,
                 p.CriadoEm,
                 p.PagoEm,
+                p.EnderecoCep,
+                p.EnderecoLogradouro,
+                p.EnderecoNumero,
+                p.EnderecoComplemento,
+                p.EnderecoBairro,
+                p.EnderecoCidade,
+                p.EnderecoEstado,
                 p.Itens
                     .OrderBy(i => i.Id)
                     .Select(i => new PedidoItemDto(

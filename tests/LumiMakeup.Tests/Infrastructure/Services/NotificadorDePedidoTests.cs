@@ -37,6 +37,13 @@ public sealed class NotificadorDePedidoTests
             null,
             new DateTime(2026, 5, 1, 10, 0, 0, DateTimeKind.Utc),
             null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             [new PedidoItemDto(1, "Batom matte", 1, 35m, null, 35m)]);
 
     private static NotificadorDePedido Criar(

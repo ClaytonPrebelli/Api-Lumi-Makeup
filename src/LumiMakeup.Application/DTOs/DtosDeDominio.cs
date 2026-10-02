@@ -166,6 +166,13 @@ public sealed record PedidoDto(
     string? Observacoes,
     DateTime CriadoEm,
     DateTime? PagoEm,
+    string? EnderecoCep,
+    string? EnderecoLogradouro,
+    string? EnderecoNumero,
+    string? EnderecoComplemento,
+    string? EnderecoBairro,
+    string? EnderecoCidade,
+    string? EnderecoEstado,
     IReadOnlyList<PedidoItemDto> Itens);
 
 /// <summary>

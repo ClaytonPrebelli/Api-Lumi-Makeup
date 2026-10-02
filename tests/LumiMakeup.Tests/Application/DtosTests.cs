@@ -180,6 +180,13 @@ public class DtosTests
             null,
             new DateTime(2026, 1, 6),
             new DateTime(2026, 1, 7),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             itens);
 
         Assert.Equal(1, dto.Id);
