@@ -113,7 +113,7 @@ public sealed record ItemDePedidoRequisicao(long ProdutoId, int Quantidade);
 
 public sealed record EnderecoDeEntregaRequisicao(
     string Cep,
-    string Logradouro,
+    string? Logradouro,
     string Numero,
     string? Complemento,
     string? Bairro,
