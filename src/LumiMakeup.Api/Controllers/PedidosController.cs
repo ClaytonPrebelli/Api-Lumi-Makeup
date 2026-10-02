@@ -1,4 +1,4 @@
-using LumiMakeup.Api.Extensions;
+﻿using LumiMakeup.Api.Extensions;
 using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Enums;
@@ -27,16 +27,16 @@ public sealed class PedidosController : ControllerBase
     /// Finaliza a compra do checkout.
     ///
     /// O cliente vem do token e o pedido nasce em <c>AguardandoPagamento</c>, sem
-    /// forma de pagamento: quem anota é a administradora, depois de falar com o
-    /// cliente. Por isso a rota não aceita pagamento nenhum.
+    /// forma de pagamento: quem anota Ã© a administradora, depois de falar com o
+    /// cliente. Por isso a rota nÃ£o aceita pagamento nenhum.
     /// </summary>
     /// <summary>
-    /// Calcula o frete de um endereço, para o checkout mostrar antes de confirmar.
+    /// Calcula o frete de um endereÃ§o, para o checkout mostrar antes de confirmar.
     ///
-    /// O valor devolvido aqui é **prévia**. O cobrado é recalculado em
-    /// <see cref="Criar"/>, sobre o endereço que o próprio servidor gravou. Confiar
-    /// no número que o navegador mandaria seria deixar o cliente escolher o
-    /// próprio frete.
+    /// O valor devolvido aqui Ã© **prÃ©via**. O cobrado Ã© recalculado em
+    /// <see cref="Criar"/>, sobre o endereÃ§o que o prÃ³prio servidor gravou. Confiar
+    /// no nÃºmero que o navegador mandaria seria deixar o cliente escolher o
+    /// prÃ³prio frete.
     /// </summary>
     [HttpPost("frete")]
     public async Task<IActionResult> CalcularFrete(
@@ -68,12 +68,12 @@ public sealed class PedidosController : ControllerBase
 
         try
         {
-            // O frete é calculado aqui, com o endereço que o corpo traz, e não
-            // lido do corpo como `CustoFrete`. A razão é a mesma do cupom: o
-            // número que o navegador manda não é conferido, e frete inventado pelo
-            // cliente é frete grátis.
+            // O frete Ã© calculado aqui, com o endereÃ§o que o corpo traz, e nÃ£o
+            // lido do corpo como `CustoFrete`. A razÃ£o Ã© a mesma do cupom: o
+            // nÃºmero que o navegador manda nÃ£o Ã© conferido, e frete inventado pelo
+            // cliente Ã© frete grÃ¡tis.
             var endereco = requisicao.Endereco
-                ?? throw new InvalidOperationException("Escolha o endereço de entrega.");
+                ?? throw new InvalidOperationException("Escolha o endereÃ§o de entrega.");
 
             var calculo = await _frete.CalcularAsync(endereco, cancellationToken);
 
@@ -149,11 +149,11 @@ public sealed class PedidosController : ControllerBase
 
         var pedido = await _pedidos.ObterPorIdAsync(id, cancellationToken);
 
-        // Pedido de outra pessoa responde 404, e não 403: confirmar que o pedido
-        // existe já entrega informação de outro cliente.
+        // Pedido de outra pessoa responde 404, e nÃ£o 403: confirmar que o pedido
+        // existe jÃ¡ entrega informaÃ§Ã£o de outro cliente.
         if (pedido is null || pedido.UsuarioId != usuarioId.Value)
         {
-            return NotFound(new { message = "Pedido não encontrado." });
+            return NotFound(new { message = "Pedido nÃ£o encontrado." });
         }
 
         return Ok(pedido);
