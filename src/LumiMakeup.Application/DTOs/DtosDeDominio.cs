@@ -116,9 +116,9 @@ public sealed record EnderecoDeEntregaRequisicao(
     string Logradouro,
     string Numero,
     string? Complemento,
-    string Bairro,
-    string Cidade,
-    string Estado);
+    string? Bairro,
+    string? Cidade,
+    string? Estado);
 
 /// <summary>
 /// Pedido a ser criado, comum ao checkout e à venda de balcão. O que muda entre
