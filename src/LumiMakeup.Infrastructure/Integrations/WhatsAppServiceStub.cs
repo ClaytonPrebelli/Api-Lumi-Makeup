@@ -14,10 +14,10 @@ public sealed class WhatsAppServiceStub : IWhatsAppService
 
     public Task<bool> EnviarMensagemAsync(string telefone, string mensagem, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation(
-            "WhatsAppServiceStub: mensagem simulada enviada. Para={Telefone}",
+        _logger.LogWarning(
+            "WhatsAppServiceStub: mensagem NÃO enviada (microserviço Baileys pendente). Para={Telefone}",
             telefone);
-        return Task.FromResult(true);
+        return Task.FromResult(false);
     }
 
     /// <summary>
