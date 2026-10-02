@@ -427,7 +427,7 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("DistanciaKm")
                         .HasColumnType("decimal(8,2)")
-                        .HasColumnName("distanceKm");
+                        .HasColumnName("DistanceKm");
 
                     b.Property<string>("DocumentoCliente")
                         .HasMaxLength(20)

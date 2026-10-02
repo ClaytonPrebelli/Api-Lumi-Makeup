@@ -38,7 +38,7 @@ LumiMakeup.Domain          entidades, enums — sem dependências externas
 LumiMakeup.Application     interfaces (abstrações) e DTOs
 LumiMakeup.Infrastructure  EF Core, serviços, segurança, integrações
 LumiMakeup.Api             controllers, composition root, Swagger, CORS
-LumiMakeup.Tests           330 testes automatizados
+LumiMakeup.Tests           524 testes automatizados
 ```
 
 A regra é sempre a mesma: **dependências apontam para dentro.**
@@ -64,6 +64,8 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 | 15 | Gestão de produtos, categorias, imagens, preço promocional e destaque | [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md) |
 | 17 | Banners do hero (dois formatos por slide, ativação e ordem) | [`17-banners.md`](17-banners.md) |
 | 13 | Melhoria de texto com IA e armazenamento local de imagens | [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md) |
+| 18 | WhatsApp pelo Baileys, com pareamento e status | [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md) |
+| 18 | Frase inicial do WhatsApp editada no painel, com prévia | [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md) |
 
 ---
 
@@ -75,8 +77,10 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 | 02 | [`02-configuracao-e-ambiente.md`](02-configuracao-e-ambiente.md) | `appsettings.json`, seções de configuração, seed |
 | 03 | [`03-nomenclatura-e-padronizacao.md`](03-nomenclatura-e-padronizacao.md) | Português no código, enums como string |
 | 04 | [`04-banco-de-dados-e-ef-core.md`](04-banco-de-dados-e-ef-core.md) | `LumiDbContext`, configurações, migrations |
-| 13 | [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md) | Stubs de WhatsApp e Focus NFe; armazenamento local de imagens |
+| 13 | [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md) | Stub do Focus NFe; armazenamento local de imagens; melhoria de texto com IA |
 | 14 | [`14-testes-e-qualidade.md`](14-testes-e-qualidade.md) | Estratégia de testes e cobertura |
+| 16 | [`16-ci-cd-e-deploy.md`](16-ci-cd-e-deploy.md) | Verbo HTTP, artefato plano e o que o deploy não faz |
+| 18 | [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md) | Cliente Baileys, frase inicial e prévia |
 
 ---
 
@@ -84,31 +88,38 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 
 ### Em andamento
 
-Nada. A etapa de banner foi fechada dos dois lados, e a de produtos antes dela.
+Nada. As últimas etapas fechadas foram o frete com geocodificação em cadeia e a frase
+inicial do WhatsApp editada no painel.
+
+### Entregue e fora da lista de pendências
+
+Vale registrar, porque a lista abaixo já dizia o contrário em versões anteriores deste
+documento:
+
+- **Núcleo de pedido** — subtotal, frete, desconto e total, com baixa de estoque e
+  mudança de status. Migration `NucleoDePedido`.
+- **Cupom de desconto** — com decremento atômico na mesma transação do pedido. Migration
+  `CupomDeDesconto`.
+- **Cálculo de frete** — `ConfiguracaoFrete`, geocodificação em cadeia e limite de 900 km.
+- **WhatsApp** — cliente Baileys, pareamento por QR, status do Node e frase inicial
+  editável. Migrations `SessaoDoWhatsApp` e `MensagemInicialDoWhatsApp`.
 
 ### Próximos
 
-A ordem mudou depois de decidir cupom e venda de balcão. **As duas features dependem
-de criação de pedido, que não existe** — não há nenhum `new Pedido` na API, e nada
-decrementa estoque. Por isso o **núcleo de pedido vem primeiro**, e é o caminho
-crítico da loja inteira.
+A ordem reflete o que ainda bloqueia a loja, e não a ordem histórica de implementação.
 
-1. **Núcleo de pedido.** Cálculo de subtotal, frete, desconto e total; baixa de
-   estoque; mudança de status. Vira o serviço único usado pelo checkout, pelo cupom e
-   pela venda de balcão — sem lógica de total duplicada em três lugares.
-2. **Checkout e pedidos.** Telas de checkout, confirmação, meus pedidos e detalhe. É o
-   que gera receita. O modelo de endereço do pedido já está pronto (ver `05`).
-3. **Cupom de desconto.** Ver as decisões abaixo.
+1. **Checkout e pedidos no frontend.** O backend do núcleo de pedido está pronto; falta a
+   tela que o consome. É o que gera receita.
+2. **Gestão de endereços.** CRUD da agenda do usuário e reutilização no checkout. O
+   modelo de endereço do pedido já está pronto (ver `05`).
+3. **Controle de estoque.** A baixa vem com o núcleo de pedido. Falta entrada, saída e
+   ajuste, e o formulário de produto ganhar **somar unidades** em vez de só reescrever a
+   quantidade absoluta.
 4. **Venda de balcão.** Ver as decisões abaixo.
-5. **Controle de estoque.** A baixa vem com o núcleo de pedido. Falta entrada, saída
-   e ajuste, e o formulário de produto ganhar **somar unidades** em vez de só reescrever
-   a quantidade absoluta.
-6. **Gestão de endereços.** CRUD da agenda do usuário e reutilização no checkout.
-7. **Cálculo de frete.** No checkout, usando `ConfiguracaoFrete`, com distância
-   geocodificada via Nominatim. No carrinho aparece como "a calcular".
-8. **Emissão de nota fiscal.** Substituir `FocusNfeServiceStub` pela integração real.
-9. **WhatsApp.** Substituir `WhatsAppServiceStub` pelo cliente Baileys.
-10. **E-mail transacional.** Ampliar além do reset de senha (confirmação de pedido).
+5. **Emissão de nota fiscal.** Substituir `FocusNfeServiceStub` pela integração real. A
+   coluna `NotaFiscalGeradaNoPedido` já existe; falta o cliente da Focus.
+6. **Rotacionar o segredo do Baileys** e tirá-lo do `appsettings.json` versionado. Ver
+   [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).
 
 ---
 
@@ -185,7 +196,8 @@ mudar depois.
 
 ## Estado atual
 
-- **330 testes automatizados, todos passando.**
+- **524 testes automatizados, todos passando.** O número subiu de 330 com o núcleo de
+  pedido, o frete, os cupons e a frase do WhatsApp.
 - Cobertura de **linhas em 97,4%** e de **branches em 88,6%**. O detalhamento do que
   ficou por fora está em [`14-testes-e-qualidade.md`](14-testes-e-qualidade.md) — o
   número **caiu de 100%** com o código de produtos e ainda não foi fechado.
@@ -193,9 +205,12 @@ mudar depois.
   na inicialização, o workflow não tem passo de banco, e o servidor não recebe schema.
   Aplicação é local, na máquina de desenvolvimento, contra o mesmo banco que serve a
   produção. Ver [`04-banco-de-dados-e-ef-core.md`](04-banco-de-dados-e-ef-core.md).
-  Migrations aplicadas: `20260927232105_ImagemProdutoComCaminhoRelativo`,
-  `20260928044006_PrecoPromocionalEDestaque` e
-  `20260928235512_CriacaoDaTabelaDeBanners`.
+  As 14 migrations do repositório estão aplicadas em produção, sendo a mais recente a
+  `20261002180111_MensagemInicialDoWhatsApp`.
+- **`ExternalServices:Baileys:SegredoCompartilhado` está com valor literal no
+  `appsettings.json` versionado.** Está errado e precisa de duas correções: mover a chave
+  para o secret do repositório e rotacionar o valor no Node, porque o antigo já está no
+  histórico do Git. Ver [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).
 - Os dois servidores rodam com a pasta de imagens em `../imagens`, para que o FTP não
   sobrescreva as fotos ao publicar. Em desenvolvimento a API serve essa mesma pasta em
   `/imagens`; em produção quem serve é `imagens.lumimakeup.com.br`, direto do disco.

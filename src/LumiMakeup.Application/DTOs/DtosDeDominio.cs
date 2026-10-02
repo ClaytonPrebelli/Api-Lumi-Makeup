@@ -273,15 +273,15 @@ public sealed record RequisicaoDeConfiguracaoDeFrete(
 
 public sealed record RequisicaoDeSimulacaoDeFrete(string Cep);
 
-  public sealed record ConfiguracaoWhatsAppDto(
-      long Id,
-      string MensagemInicialCliente);
+public sealed record ConfiguracaoWhatsAppDto(
+    long Id,
+    string MensagemInicialCliente);
 
-  public sealed record RequisicaoDeConfiguracaoWhatsApp(
-      string MensagemInicialCliente);
+public sealed record RequisicaoDeConfiguracaoWhatsApp(
+    string MensagemInicialCliente);
 
-  public sealed record PreviaMensagemWhatsAppDto(
-      string Mensagem);
+public sealed record PreviaMensagemWhatsAppDto(
+    string Mensagem);
 
 /// <summary>Endereço da agenda do cliente, como o checkout lista.</summary>
 public sealed record EnderecoDto(

@@ -93,6 +93,40 @@ cada reordenação, e dois banners podem legitidamente estar inativos.
 
 Ver [`17-banners.md`](17-banners.md).
 
+## Tabela `configuracao_whatsapp`
+
+Uma linha só, gravada pelo painel. Existe para que a frase que abre a mensagem do
+cliente possa ser editada sem republicar a API.
+
+| Coluna | Tipo | Observação |
+|---|---|---|
+| `Id` | `bigint` | identidade |
+| `MensagemInicialCliente` | `varchar(500)` | **obrigatória**, 500 é o limite do service |
+
+Ver [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).
+
+> **O tamanho vem do serviço, e não de um atributo de modelo.** `HasMaxLength(500)`
+> existe para o EF gerar o schema; quem recusa a frase com mensagem legível é
+> `GestaoDeWhatsAppService`. A regra é de negócio, e o texto que a administradora lê
+> é mais útil que um erro genérico de validação do ASP.NET.
+
+## Nomes de coluna são PascalCase no banco
+
+`DistanciaKm` é mapeada como `DistanceKm`, não `distancia_km` nem `distanciaKm`.
+
+A regra vale para as colunas criadas pelo `RenomearParaPortugues`, e é o que o MySQL
+está com. A consequência prática apareceu quando o mapeamento passou a declarar
+`HasColumnName("distanceKm")` para a coluna de distância: o EF passa a descrever uma
+coluna que não existe com esse nome, e `dotnet ef migrations add` gerava uma alteração
+de coluna que o banco não precisava — a comparação de nomes no MySQL é
+case-insensitive, então nada acusava o erro.
+
+> **Isso não é a mesma coisa que `HasColumnName` ser ignorado.** O valor gravado é
+> idêntico nos dois casos; a diferença é que o snapshot passa a descrever algo diferente
+> do que existe, e o schema gerado pela migration seguinte não corresponde ao banco. O
+> nome declarado no mapeamento e o nome real da coluna foram conferidos direto em
+> `INFORMATION_SCHEMA`, e `has-pending-model-changes` passou a responder *no changes*.
+
 > O índice único em `Cpf` convive com `Cpf` anulável: múltiplos `NULL` são aceitos
 > pelo MySQL, o que permite que usuários sem CPF completo existam até a conclusão
 > do perfil.
@@ -167,8 +201,21 @@ snapshot do modelo naquele ponto, e a atualização do
 | `InitialCreate` | Esquema inicial completo |
 | `RenomearParaPortugues` | Tabelas, colunas e enums convertidos para português |
 | `AdicionarRecuperacaoDeSenha` | Tabela `recuperacoes_de_senha` |
-| `EnderecoDeEntregaNoPedido` | Endereço próprio no pedido (ver doc `05`) |
 | `RestaurarIntegridadeReferencial` | MyISAM → InnoDB e criação das 10 FKs |
+| `EnderecoDeEntregaNoPedido` | Endereço próprio no pedido (ver doc `05`) |
+| `ImagemProdutoComCaminhoRelativo` | Caminho relativo no banco em vez do absoluto do servidor |
+| `PrecoPromocionalEDestaque` | Colunas de promoção e destaque em `produtos` |
+| `CriacaoDaTabelaDeBanners` | Tabela `banners` (ver doc `17`) |
+| `NucleoDePedido` | Tabelas de pedido, item e pagamento |
+| `CupomDeDesconto` | Tabela `cupons_desconto` |
+| `NotaFiscalGeradaNoPedido` | Vínculo de NF-e com o pedido |
+| `EmailDeContatoNoPedido` | E-mail de contato no pedido |
+| `SessaoDoWhatsApp` | Tabela da sessão pareada |
+| `MensagemInicialDoWhatsApp` | Tabela `configuracao_whatsapp` (ver doc `18`) |
+
+As 14 estão aplicadas no banco que serve a produção. A última, a
+`20261002180111_MensagemInicialDoWhatsApp`, só cria tabela nova — não toca em dado
+existente.
 
 > A API precisa estar **parada** para rodar `dotnet ef`: o build tenta copiar as DLLs
 > para `bin/` e falha se o processo estiver segurando o arquivo.
@@ -241,3 +288,16 @@ var contexto = new LumiDbContext(new DbContextOptionsBuilder<LumiDbContext>()
 Isso valida o mapeamento sem custo de container. As constraints reais do MySQL —
 índices únicos, `Restrict` — não são exercitadas por esse provider; para elas é
 preciso um banco de verdade.
+
+O InMemory também **não** acusa divergência de nome de coluna, porque guarda o modelo
+como foi declarado e não como está no banco. Para isso o provider real é o único que
+serve, e o comando é:
+
+```bash
+dotnet ef migrations has-pending-model-changes --project src\LumiMakeup.Infrastructure --startup-project src\LumiMakeup.Api
+```
+
+> `has-pending-model-changes` só existe no EF 8. Respondendo *no changes* significa que
+> o snapshot descreve o modelo e o modelo descreve o banco. Ele não valida o schema já
+> aplicado em produção: para isso a conferência tem que ser contra o banco, em
+> `INFORMATION_SCHEMA`.

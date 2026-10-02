@@ -34,11 +34,15 @@ src/LumiMakeup.Api/appsettings.*.local.json
 ```
 
 O `appsettings.Development.json` local guarda a connection string, o segredo do JWT,
-as credenciais de SMTP, a chave secreta do reCAPTCHA e o segredo do cliente Google.
-Nada disso vai para o git.
+as credenciais de SMTP, a chave secreta do reCAPTCHA, o segredo do cliente Google e o
+segredo do Baileys. Nada disso vai para o git.
 
 > Ao adicionar uma chave nova em `appsettings.Development.json`, não a copie para
 > `appsettings.json`. Deixe a chave vazia no arquivo versionado.
+>
+> **Esta regra foi quebrada uma vez.** `ExternalServices:Baileys:SegredoCompartilhado`
+> está com valor no arquivo versionado. É o exemplo do que acontece quando a regra é
+> ignorada: corrigir exige rotacionar, e não só apagar.
 
 ---
 
@@ -109,11 +113,43 @@ desenvolvimento, `UrlBase` é `http://localhost:4200`.
 | `Gemini` | — | removido, ver `13` |
 | `Ia` | `MelhoradorDeTextoOpenAiCompativel` | ✅ em uso — ver abaixo |
 | `FocusNfe` | `FocusNfeServiceStub` | ⬜ stub |
-| `Baileys` | `WhatsAppServiceStub` | ⬜ stub |
+| `Baileys` | `BaileysWhatsAppService` ou `WhatsAppServiceStub` | ✅ em uso — ver abaixo |
 | `Brevo` | — | ⬜ não integrado |
 
 > O bloco de `Brevo` está reservado e não é usado por nenhum código. O e-mail hoje sai
 > por SMTP, não pela API do Brevo.
+
+### `ExternalServices:Baileys`
+
+```json
+"Baileys": {
+  "Habilitado": true,
+  "IniciarProcesso": false,
+  "UrlBase": "http://localhost:3001",
+  "SegredoCompartilhado": "",
+  "Porta": 3001,
+  "TimeoutDoEnvioEmSegundos": 15
+}
+```
+
+| Chave | Papel |
+|---|---|
+| `Habilitado` | **`true` registra o cliente real; `false` registra o stub** |
+| `IniciarProcesso` | `true` sobe o Node como hosted service. `false` em produção |
+| `UrlBase` | Base do Node. Vem do secret `BAILEYS_URL_BASE` |
+| `SegredoCompartilhado` | **segredo.** Vem do secret `BAILEYS_SEGREDO` |
+| `Porta` | Só usada quando `UrlBase` está vazia |
+
+Detalhamento em [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).
+
+> ⚠️ **`SegredoCompartilhado` está hoje com valor literal em `appsettings.json`, que é
+> versionado.** Isso viola a regra deste próprio documento — a chave deveria estar vazia
+> no arquivo do git, e o valor vir do secret do repositório.
+>
+> São **dois** passos, não um: mover para o secret **e** rotacionar no Node. O valor já
+> está no histórico do Git, então mudar o lugar não o torna secreto de novo — ele
+> continua válido para quem leu. Enquanto a rotação não acontecer, trate o Node como
+> exposto.
 
 ---
 
@@ -188,6 +224,29 @@ mudar **duas linhas de configuração** neste arquivo, mais trocar o valor do se
 
 Erros do provedor são traduzidos para mensagens que o admin entende, sem repassar o
 corpo bruto da resposta, que pode conter detalhe interno da conta.
+
+---
+
+## `NotificacoesDePedido`
+
+Seção de nível superior usada por `NotificacoesDePedidoOptions`, que alimenta o
+`NotificadorDePedido` e o `MontadorDeMensagemDePedido`.
+
+| Chave | Valor | Papel |
+|---|---|---|
+| `EmailDaAdministradora` | `use.lumimakeup@gmail.com` | quem recebe o aviso de novo pedido |
+| `WhatsAppDaAdministradora` | `5515991475568` | número da loja nos avisos |
+| `NomeDaLoja` | `Lumi Makeup` | valor do marcador `{Loja}` |
+| `MensagemInicialWhatsAppCliente` | frase padrão | **fallback** quando a tabela está vazia |
+| `AvisarPorWhatsApp` | `true` | liga o envio ao cliente |
+
+> **`WhatsAppDaAdministradora` não é o número que envia.** Quem envia é o número
+> pareado na sessão do Baileys. Os dois campos são independentes, e confundi-los produz
+> um alerta que chega no número certo e responde do número errado.
+>
+> `MensagemInicialWhatsAppCliente` só é lida enquanto ninguém salvou uma frase pelo
+> painel. Depois disso o valor vem de `configuracao_whatsapp`. Ver
+> [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).
 
 ---
 
