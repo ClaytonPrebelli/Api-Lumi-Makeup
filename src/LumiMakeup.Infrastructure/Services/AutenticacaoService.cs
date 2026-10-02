@@ -2,6 +2,7 @@ using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Entities;
 using LumiMakeup.Domain.Enums;
+using LumiMakeup.Infrastructure.Integrations;
 using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;

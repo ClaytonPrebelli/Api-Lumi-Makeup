@@ -1,5 +1,6 @@
 ﻿using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
+using LumiMakeup.Infrastructure.Integrations;
 using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,12 +26,12 @@ public sealed class CalculoDeFreteService : ICalculoDeFreteService
     private const decimal DistanciaMaximaEmKm = 900m;
 
     private readonly LumiDbContext _contexto;
-    private readonly INominatimService _nominatim;
+    private readonly IGeocodificador _geocodificador;
 
-    public CalculoDeFreteService(LumiDbContext contexto, INominatimService nominatim)
+    public CalculoDeFreteService(LumiDbContext contexto, IGeocodificador geocodificador)
     {
         _contexto = contexto;
-        _nominatim = nominatim;
+        _geocodificador = geocodificador;
     }
 
     public async Task<CalculoDeFreteDto> CalcularAsync(
@@ -50,9 +51,9 @@ public sealed class CalculoDeFreteService : ICalculoDeFreteService
                 "O frete ainda não foi configurado para a loja. Fale com a administradora.");
         }
 
-        var consulta = $"\"{destino.Cep}\", {destino.Logradouro}, {destino.Numero}, {destino.Bairro}, {destino.Cidade}, {destino.Estado}";
+        var consulta = MontarConsultaDeGeocodificacao(destino);
 
-        var coordenadas = await _nominatim.GeocodificarAsync(consulta, cancellationToken);
+        var coordenadas = await _geocodificador.GeocodificarAsync(consulta, cancellationToken);
 
         if (coordenadas is null)
         {
@@ -85,7 +86,32 @@ public sealed class CalculoDeFreteService : ICalculoDeFreteService
         var frete = Math.Max(custo, configuracao.TaxaMinima);
         frete = Math.Round(frete, 2, MidpointRounding.AwayFromZero);
 
-        return new CalculoDeFreteDto(distancia, frete, configuracao.PrecoPorKm, configuracao.TaxaMinima);
+        return new CalculoDeFreteDto(
+            distancia,
+            frete,
+            configuracao.PrecoPorKm,
+            configuracao.TaxaMinima);
+    }
+
+    /// <summary>
+    /// Monta o endereço para a geocodificação, sem campos vazios.
+    ///
+    /// A versão anterior interpolava todos os campos do endereço, mesmo vazios.
+    /// Na simulação da tela de frete o CEP vem sozinho, e a consulta virava
+    /// "18080001", , , , , — que o geocodificador não encontrava, e o cálculo
+    /// recusava com "não conseguimos localizar esse endereço". O checkout não
+    /// sofria com isso porque o CEP é consultado antes e preenche o resto.
+    ///
+    /// Descartar os vazios também deixa a consulta mais curta e mais fácil de
+    /// acertar: cada parte que existe chega inteira para o geocodificador.
+    /// </summary>
+    internal static string MontarConsultaDeGeocodificacao(EnderecoDeEntregaRequisicao destino)
+    {
+        var partes = new[] { destino.Cep, destino.Logradouro, destino.Numero, destino.Bairro, destino.Cidade, destino.Estado }
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim());
+
+        return string.Join(", ", partes);
     }
 
     /// <summary>
