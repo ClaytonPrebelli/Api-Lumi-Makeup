@@ -1,4 +1,5 @@
 using LumiMakeup.Application.Abstractions;
+using LumiMakeup.Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,11 +20,16 @@ namespace LumiMakeup.Api.Controllers;
 public sealed class AdminWhatsAppController : ControllerBase
 {
     private readonly IWhatsAppService _whatsApp;
+    private readonly IGestaoDeWhatsAppService _gestaoWhatsApp;
     private readonly ILogger<AdminWhatsAppController> _logger;
 
-    public AdminWhatsAppController(IWhatsAppService whatsApp, ILogger<AdminWhatsAppController> logger)
+    public AdminWhatsAppController(
+        IWhatsAppService whatsApp,
+        IGestaoDeWhatsAppService gestaoWhatsApp,
+        ILogger<AdminWhatsAppController> logger)
     {
         _whatsApp = whatsApp;
+        _gestaoWhatsApp = gestaoWhatsApp;
         _logger = logger;
     }
 
@@ -80,5 +86,35 @@ public sealed class AdminWhatsAppController : ControllerBase
             qr,
             aguardandoSegundos = 0
         });
+    }
+
+    [HttpGet("mensagem")]
+    public async Task<IActionResult> ObterMensagem(CancellationToken cancellationToken)
+    {
+        var configuracao = await _gestaoWhatsApp.ObterAsync(cancellationToken);
+        return Ok(configuracao);
+    }
+
+    [HttpPost("mensagem")]
+    public async Task<IActionResult> SalvarMensagem(
+        [FromBody] RequisicaoDeConfiguracaoWhatsApp requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var configuracao = await _gestaoWhatsApp.SalvarAsync(requisicao, cancellationToken);
+            return Ok(configuracao);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("mensagem/previa")]
+    public async Task<IActionResult> PreviaMensagem(CancellationToken cancellationToken)
+    {
+        var previa = await _gestaoWhatsApp.GerarPreviaAsync(cancellationToken);
+        return Ok(previa);
     }
 }
