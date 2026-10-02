@@ -183,13 +183,44 @@ public sealed class NotificadorDePedido : INotificadorDePedido
     {
         var texto = new StringBuilder();
 
-        texto.AppendLine($"Oi, {PrimeiroNome(pedido.NomeCliente)}! Aqui é da {_opcoes.NomeDaLoja}.");
+        var mensagemInicial = _opcoes.MensagemInicialWhatsAppCliente
+            .Replace("{Nome}", PrimeiroNome(pedido.NomeCliente))
+            .Replace("{Loja}", _opcoes.NomeDaLoja);
+
+        texto.AppendLine(mensagemInicial);
         texto.AppendLine();
-        texto.AppendLine($"Recebemos seu pedido de hoje, no valor de {Moeda(pedido.Total)}.");
+        texto.AppendLine("**Itens do Pedido:**");
         texto.AppendLine();
-        texto.AppendLine(RelatorioDosItens(pedido));
+
+        foreach (var item in pedido.Itens)
+        {
+            texto.AppendLine($"• {item.Quantidade}x {item.Nome} - {Moeda(item.Subtotal)}");
+        }
+
         texto.AppendLine();
-        texto.AppendLine("Vou confirmar a forma de pagamento com você por aqui. É só responder esta mensagem.");
+        texto.AppendLine("**Subtotal:** " + Moeda(pedido.Subtotal));
+        if (pedido.Desconto > 0)
+        {
+            var cupom = string.IsNullOrWhiteSpace(pedido.CupomCodigo) ? string.Empty : $" ({pedido.CupomCodigo})";
+            texto.AppendLine($"**Desconto{cupom}:** " + Moeda(pedido.Desconto));
+        }
+        texto.AppendLine("**Frete:** " + Moeda(pedido.CustoFrete));
+        texto.AppendLine("**Total:** " + Moeda(pedido.Total));
+        texto.AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(pedido.EnderecoLogradouro))
+        {
+            texto.AppendLine("**Endereço de entrega:**");
+            var complemento = string.IsNullOrWhiteSpace(pedido.EnderecoComplemento)
+                ? string.Empty
+                : " - " + pedido.EnderecoComplemento;
+            texto.AppendLine($"{pedido.EnderecoLogradouro}, {pedido.EnderecoNumero ?? string.Empty}{complemento}");
+            texto.AppendLine($"{pedido.EnderecoBairro ?? string.Empty} - {pedido.EnderecoCidade ?? string.Empty}/{pedido.EnderecoEstado ?? string.Empty}");
+            texto.AppendLine($"CEP: {pedido.EnderecoCep ?? string.Empty}");
+            texto.AppendLine();
+        }
+
+        texto.AppendLine("Confirme seu pedido acima se está tudo certo por favor. É só responder esta mensagem com 'OK' ou qualquer outra coisa.");
 
         return texto.ToString().Trim();
     }
