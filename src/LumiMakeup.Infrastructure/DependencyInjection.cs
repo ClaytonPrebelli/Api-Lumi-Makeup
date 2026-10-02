@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<ICalculoDeFreteService, CalculoDeFreteService>();
         services.AddScoped<IGestaoDeFreteService, GestaoDeFreteService>();
         services.AddScoped<IGestaoDePedidosService, GestaoDePedidosService>();
+        services.AddScoped<IGestaoDeWhatsAppService, GestaoDeWhatsAppService>();
         services.AddScoped<INotificadorDePedido, NotificadorDePedido>();
         services.AddScoped<RepositorioDeSessaoWhatsApp>();
 
