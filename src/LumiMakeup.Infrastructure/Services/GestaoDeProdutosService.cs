@@ -366,4 +366,131 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
                 .OrderBy(i => i.Ordem)
                 .Select(i => new ImagemProdutoDto(i.Id, i.CaminhoRelativo, i.NomeOriginal, i.Ordem))
                 .ToList());
+
+    public async Task<ProdutoAdministracaoDto> SomarQuantidadeEstoqueAsync(
+        long id,
+        RequisicaoDeSomaDeQuantidadeDeProduto requisicao,
+        CancellationToken cancellationToken = default)
+    {
+        var produto = await _contexto.Produtos.FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Produto não encontrado.");
+
+        var novaQuantidade = produto.QuantidadeEstoque + requisicao.Quantidade;
+
+        if (novaQuantidade < 0)
+        {
+            throw new InvalidOperationException("A quantidade resultante não pode ser negativa.");
+        }
+
+        produto.QuantidadeEstoque = novaQuantidade;
+
+        var movimento = new MovimentoEstoque
+        {
+            ProdutoId = produto.Id,
+            Tipo = requisicao.Quantidade >= 0 ? TipoMovimentoEstoque.Entrada : TipoMovimentoEstoque.Saida,
+            Quantidade = Math.Abs(requisicao.Quantidade),
+            Referencia = "Soma manual",
+            Observacao = $"Quantidade somada: {requisicao.Quantidade:+#;-#;0}. Estoque anterior: {produto.QuantidadeEstoque - requisicao.Quantidade}, novo: {novaQuantidade}."
+        };
+
+        _contexto.MovimentosEstoque.Add(movimento);
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await ObterPorIdAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException("Produto atualizado, mas não pôde ser relido.");
+    }
+
+    public async Task<IReadOnlyList<MovimentoEstoqueDto>> ObterMovimentosEstoqueAsync(
+        long produtoId,
+        CancellationToken cancellationToken = default)
+    {
+        var produtoExiste = await _contexto.Produtos.AnyAsync(p => p.Id == produtoId, cancellationToken);
+        if (!produtoExiste)
+        {
+            throw new KeyNotFoundException("Produto não encontrado.");
+        }
+
+        return await _contexto.MovimentosEstoque
+            .AsNoTracking()
+            .Where(m => m.ProdutoId == produtoId)
+            .OrderByDescending(m => m.CriadoEm)
+            .Select(m => new MovimentoEstoqueDto(
+                m.Id,
+                m.ProdutoId,
+                m.Produto.Nome,
+                (int)m.Tipo,
+                m.Quantidade,
+                m.Referencia,
+                m.Observacao,
+                m.UsuarioId,
+                m.Usuario != null ? m.Usuario.Nome : null,
+                m.CriadoEm))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<MovimentoEstoqueDto> RegistrarMovimentoEstoqueAsync(
+        long produtoId,
+        RequisicaoDeMovimentoEstoque requisicao,
+        long? usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(typeof(TipoMovimentoEstoque), requisicao.Tipo))
+        {
+            throw new InvalidOperationException("Tipo de movimento inválido.");
+        }
+
+        if (requisicao.Quantidade <= 0)
+        {
+            throw new InvalidOperationException("A quantidade deve ser maior que zero.");
+        }
+
+        var tipo = (TipoMovimentoEstoque)requisicao.Tipo;
+        var produto = await _contexto.Produtos.FirstOrDefaultAsync(p => p.Id == produtoId, cancellationToken)
+            ?? throw new KeyNotFoundException("Produto não encontrado.");
+
+        var quantidadeAnterior = produto.QuantidadeEstoque;
+        var novaQuantidade = tipo switch
+        {
+            TipoMovimentoEstoque.Entrada => quantidadeAnterior + requisicao.Quantidade,
+            TipoMovimentoEstoque.Saida => quantidadeAnterior - requisicao.Quantidade,
+            TipoMovimentoEstoque.Ajuste => requisicao.Quantidade,
+            _ => throw new InvalidOperationException("Tipo de movimento inválido.")
+        };
+
+        if (novaQuantidade < 0)
+        {
+            throw new InvalidOperationException("A quantidade resultante não pode ser negativa.");
+        }
+
+        produto.QuantidadeEstoque = novaQuantidade;
+
+        var movimento = new MovimentoEstoque
+        {
+            ProdutoId = produto.Id,
+            Tipo = tipo,
+            Quantidade = requisicao.Quantidade,
+            Referencia = requisicao.Referencia?.Trim() ?? string.Empty,
+            Observacao = requisicao.Observacao?.Trim(),
+            UsuarioId = usuarioId
+        };
+
+        _contexto.MovimentosEstoque.Add(movimento);
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await _contexto.MovimentosEstoque
+            .AsNoTracking()
+            .Where(m => m.Id == movimento.Id)
+            .Select(m => new MovimentoEstoqueDto(
+                m.Id,
+                m.ProdutoId,
+                m.Produto.Nome,
+                (int)m.Tipo,
+                m.Quantidade,
+                m.Referencia,
+                m.Observacao,
+                m.UsuarioId,
+                m.Usuario != null ? m.Usuario.Nome : null,
+                m.CriadoEm))
+            .FirstAsync(cancellationToken);
+    }
 }

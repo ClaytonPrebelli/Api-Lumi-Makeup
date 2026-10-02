@@ -237,4 +237,66 @@ public sealed class AdminProdutosController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    [HttpPost("{id:long}/estoque/somar")]
+    public async Task<IActionResult> SomarQuantidadeEstoque(
+        long id,
+        [FromBody] RequisicaoDeSomaDeQuantidadeDeProduto requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var produto = await _gestaoDeProdutos.SomarQuantidadeEstoqueAsync(id, requisicao, cancellationToken);
+            return Ok(produto);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("{id:long}/estoque/movimentos")]
+    public async Task<IActionResult> ObterMovimentosEstoque(
+        long id,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var movimentos = await _gestaoDeProdutos.ObterMovimentosEstoqueAsync(id, cancellationToken);
+            return Ok(movimentos);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:long}/estoque/movimentos")]
+    public async Task<IActionResult> RegistrarMovimentoEstoque(
+        long id,
+        [FromBody] RequisicaoDeMovimentoEstoque requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var usuarioId = User.Identity?.IsAuthenticated == true
+                ? long.Parse(User.FindFirst("sub")?.Value ?? "0")
+                : (long?)null;
+
+            var movimento = await _gestaoDeProdutos.RegistrarMovimentoEstoqueAsync(id, requisicao, usuarioId, cancellationToken);
+            return Ok(movimento);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

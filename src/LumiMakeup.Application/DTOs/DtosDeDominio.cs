@@ -34,6 +34,8 @@ public sealed record RequisicaoDeProduto(
     bool Ativo,
     bool Destaque);
 
+public sealed record RequisicaoDeSomaDeQuantidadeDeProduto(int Quantidade);
+
 public sealed record RequisicaoDeOrdenacaoDeImagens(IReadOnlyList<long> Ordem);
 
 /// <summary>
@@ -377,3 +379,21 @@ public sealed record ProdutoDto(
     long CategoriaId,
     string NomeCategoria,
     IReadOnlyList<ImagemProdutoDto> Imagens);
+
+public sealed record MovimentoEstoqueDto(
+    long Id,
+    long ProdutoId,
+    string ProdutoNome,
+    int Tipo,
+    int Quantidade,
+    string? Referencia,
+    string? Observacao,
+    long? UsuarioId,
+    string? UsuarioNome,
+    DateTime CriadoEm);
+
+public sealed record RequisicaoDeMovimentoEstoque(
+    int Tipo,
+    int Quantidade,
+    string? Referencia,
+    string? Observacao);

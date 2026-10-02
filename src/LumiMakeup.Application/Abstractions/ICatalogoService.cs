@@ -33,6 +33,10 @@ public interface IGestaoDeProdutosService
     Task<ImagemProdutoDto> AdicionarImagemAsync(long produtoId, Stream conteudo, string nomeOriginal, CancellationToken cancellationToken = default);
     Task ExcluirImagemAsync(long produtoId, long imagemId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ImagemProdutoDto>> ReordenarImagensAsync(long produtoId, IReadOnlyList<long> ids, CancellationToken cancellationToken = default);
+
+    Task<ProdutoAdministracaoDto> SomarQuantidadeEstoqueAsync(long id, RequisicaoDeSomaDeQuantidadeDeProduto requisicao, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MovimentoEstoqueDto>> ObterMovimentosEstoqueAsync(long produtoId, CancellationToken cancellationToken = default);
+    Task<MovimentoEstoqueDto> RegistrarMovimentoEstoqueAsync(long produtoId, RequisicaoDeMovimentoEstoque requisicao, long? usuarioId, CancellationToken cancellationToken = default);
 }
 
 public interface IGestaoDeCategoriasService

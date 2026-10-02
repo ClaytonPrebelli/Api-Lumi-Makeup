@@ -217,10 +217,43 @@ teste.
 
 ## Pendente
 
-- **Controle de estoque** propriamente dito: entrada, saída e ajuste. Hoje
-  `QuantidadeEstoque` é um número que o admin edita à mão, e é o que impede o painel de
-  ser operação.
 - **Endpoint dedicado para o destaque.** A tela alterna a estrela reenviando o produto
   inteiro. Funciona porque a atualização substitui todos os campos, mas
   qualquer campo novo que a tela não conheça passa a poder ser apagado por essa troca.
 - **Paginação** em `GET /api/admin/produtos` e em `GET /api/produtos`.
+
+---
+
+## Entregue nesta etapa: controle de estoque (backend)
+
+A tabela `movimentos_estoque` (migration `CriacaoDaTabelaDeMovimentosEstoque`) registra
+entrada, saída e ajuste com rastreabilidade completa:
+
+| Campo | Tipo | Papel |
+|---|---|---|
+| `ProdutoId` | `bigint` | FK para `produtos` (`Restrict`) |
+| `Tipo` | `tinyint` | 0=Entrada, 1=Saída, 2=Ajuste |
+| `Quantidade` | `int` | valor absoluto |
+| `Referencia` | `varchar(100)` | ex.: "Pedido #123", "Soma manual" |
+| `Observacao` | `varchar(500)` | detalhe livre |
+| `UsuarioId` | `bigint` | quem fez (`SetNull`) |
+| `CriadoEm` | `datetime(6)` | UTC |
+
+Endpoints novos em `AdminProdutosController`:
+
+| Método | Rota | O que faz |
+|---|---|---|
+| `POST` | `/api/admin/produtos/{id}/estoque/somar` | Soma (positivo) ou subtrai (negativo) unidades do estoque, criando movimento do tipo `Entrada` ou `Saida` |
+| `GET` | `/api/admin/produtos/{id}/estoque/movimentos` | Lista movimentos do produto, mais recentes primeiro |
+| `POST` | `/api/admin/produtos/{id}/estoque/movimentos` | Registra movimento manual (`Entrada`/`Saida`/`Ajuste`) com referência e observação |
+
+`SomarQuantidadeEstoqueAsync` faz upsert atômico: valida que o resultado não fique
+negativo, atualiza `Produto.QuantidadeEstoque` e insere o `MovimentoEstoque` na mesma
+transação. O campo "somar ao estoque" no formulário do painel chama esse endpoint.
+
+O endpoint `RegistrarMovimentoEstoqueAsync` permite registrar `Ajuste` (define o
+estoque para o valor informado) e movimentos com referência/observação livres, para
+casos como inventário, perda, doação, etc.
+
+Ver [`00-visao-geral-e-roadmap.md`](00-visao-geral-e-roadmap.md) (seção "Entregue e fora
+da lista de pendências").

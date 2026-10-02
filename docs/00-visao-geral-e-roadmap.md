@@ -103,6 +103,9 @@ documento:
 - **Cálculo de frete** — `ConfiguracaoFrete`, geocodificação em cadeia e limite de 900 km.
 - **WhatsApp** — cliente Baileys, pareamento por QR, status do Node e frase inicial
   editável. Migrations `SessaoDoWhatsApp` e `MensagemInicialDoWhatsApp`.
+- **Controle de estoque (backend)** — tabela `movimentos_estoque`, endpoint para somar
+  unidades no formulário do produto, e histórico de movimentos por produto. Migration
+  `CriacaoDaTabelaDeMovimentosEstoque`.
 
 ### Próximos
 
@@ -112,9 +115,9 @@ A ordem reflete o que ainda bloqueia a loja, e não a ordem histórica de implem
    tela que o consome. É o que gera receita.
 2. **Gestão de endereços.** CRUD da agenda do usuário e reutilização no checkout. O
    modelo de endereço do pedido já está pronto (ver `05`).
-3. **Controle de estoque.** A baixa vem com o núcleo de pedido. Falta entrada, saída e
-   ajuste, e o formulário de produto ganhar **somar unidades** em vez de só reescrever a
-   quantidade absoluta.
+3. **Controle de estoque (frontend).** A tela de movimentos por produto existe; falta
+   integrar o campo "somar ao estoque" no formulário (já feito) e garantir a navegação
+   da lista de produtos.
 4. **Venda de balcão.** Ver as decisões abaixo.
 5. **Emissão de nota fiscal.** Substituir `FocusNfeServiceStub` pela integração real. A
    coluna `NotaFiscalGeradaNoPedido` já existe; falta o cliente da Focus.
