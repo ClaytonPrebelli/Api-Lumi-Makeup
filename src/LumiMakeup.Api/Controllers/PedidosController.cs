@@ -4,6 +4,8 @@ using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 namespace LumiMakeup.Api.Controllers;
 
@@ -97,6 +99,26 @@ public sealed class PedidosController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+        catch (IOException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new { message = $"{ex.GetType().Name}: {ex.Message}" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new { message = $"{ex.GetType().Name}: {ex.Message}" });
+        }
+        catch (DbUpdateException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new { message = $"{ex.GetType().Name}: {ex.Message}" });
+        }
+        catch (Exception ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new { message = $"{ex.GetType().Name}: {ex.Message}" });
         }
     }
 
