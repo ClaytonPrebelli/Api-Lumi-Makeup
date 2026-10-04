@@ -25,6 +25,7 @@ public class LumiDbContext : DbContext
     public DbSet<RegistroWhatsApp> RegistrosWhatsApp => Set<RegistroWhatsApp>();
     public DbSet<SessaoWhatsApp> SessoesWhatsApp => Set<SessaoWhatsApp>();
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
+    public DbSet<VarianteProduto> VariantesProduto => Set<VarianteProduto>();
     public DbSet<RecuperacaoDeSenha> RecuperacoesDeSenha => Set<RecuperacaoDeSenha>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

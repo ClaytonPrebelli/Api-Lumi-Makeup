@@ -6,6 +6,9 @@ public class ItemPedido
     public long PedidoId { get; set; }
     public long ProdutoId { get; set; }
 
+    /// <summary>Referência opcional à variante (cor) do produto.</summary>
+    public long? VarianteProdutoId { get; set; }
+
     /// <summary>Nome do produto no momento da compra, pelo mesmo motivo do endereço.</summary>
     public string NomeProdutoRegistrado { get; set; } = string.Empty;
 
@@ -28,4 +31,5 @@ public class ItemPedido
 
     public Pedido Pedido { get; set; } = null!;
     public Produto Produto { get; set; } = null!;
+    public VarianteProduto? VarianteProduto { get; set; }
 }

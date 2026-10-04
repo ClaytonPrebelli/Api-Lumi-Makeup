@@ -37,6 +37,13 @@ public interface IGestaoDeProdutosService
     Task<ProdutoAdministracaoDto> SomarQuantidadeEstoqueAsync(long id, RequisicaoDeSomaDeQuantidadeDeProduto requisicao, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<MovimentoEstoqueDto>> ObterMovimentosEstoqueAsync(long produtoId, CancellationToken cancellationToken = default);
     Task<MovimentoEstoqueDto> RegistrarMovimentoEstoqueAsync(long produtoId, RequisicaoDeMovimentoEstoque requisicao, long? usuarioId, CancellationToken cancellationToken = default);
+
+    // Variantes (cores)
+    Task<VarianteProdutoDto> AdicionarVarianteAsync(long produtoId, RequisicaoDeVarianteProduto requisicao, CancellationToken cancellationToken = default);
+    Task<VarianteProdutoDto> AtualizarVarianteAsync(long produtoId, long varianteId, RequisicaoDeAtualizacaoDeVariante requisicao, CancellationToken cancellationToken = default);
+    Task ExcluirVarianteAsync(long produtoId, long varianteId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<VarianteProdutoDto>> ReordenarVariantesAsync(long produtoId, RequisicaoDeOrdenacaoDeVariantes requisicao, CancellationToken cancellationToken = default);
+    Task<VarianteProdutoDto> SomarQuantidadeVarianteAsync(long produtoId, long varianteId, RequisicaoDeSomaDeQuantidadeDeVariante requisicao, CancellationToken cancellationToken = default);
 }
 
 public interface IGestaoDeCategoriasService
@@ -205,6 +212,33 @@ public interface IGestaoDeWhatsAppService
     Task<PreviaMensagemWhatsAppDto> GerarPreviaAsync(
         string? mensagemInicial,
         CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Despesas da loja, para o financeiro.
+///
+/// A administradora lança o que saiu do caixa (energia, aluguel, marketing, etc.),
+/// e o financeiro consolida com as vendas para mostrar o lucro real.
+/// </summary>
+public interface IGestaoDeDespesasService
+{
+    Task<IReadOnlyList<DespesaDto>> ListarAsync(
+        DateTime? inicio = null,
+        DateTime? fim = null,
+        string? categoria = null,
+        CancellationToken cancellationToken = default);
+
+    Task<DespesaDto> CriarAsync(
+        RequisicaoDeDespesa requisicao,
+        long usuarioId,
+        CancellationToken cancellationToken = default);
+
+    Task<DespesaDto> AtualizarAsync(
+        long id,
+        RequisicaoDeAtualizacaoDeDespesa requisicao,
+        CancellationToken cancellationToken = default);
+
+    Task ExcluirAsync(long id, CancellationToken cancellationToken = default);
 }
 
 public interface IGestaoDeEnderecosService

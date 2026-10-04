@@ -20,7 +20,39 @@ public sealed record ProdutoAdministracaoDto(
     DateTime CriadoEm,
     long CategoriaId,
     string NomeCategoria,
-    IReadOnlyList<ImagemProdutoDto> Imagens);
+    IReadOnlyList<ImagemProdutoDto> Imagens,
+    IReadOnlyList<VarianteProdutoDto> Variantes);
+
+public sealed record VarianteProdutoDto(
+    long Id,
+    long ProdutoId,
+    string Nome,
+    string CorHex,
+    int QuantidadeEstoque,
+    decimal? PrecoAdicional,
+    bool Ativo,
+    int Ordem,
+    DateTime CriadoEm);
+
+public sealed record RequisicaoDeVarianteProduto(
+    string Nome,
+    string CorHex,
+    int QuantidadeEstoque,
+    decimal? PrecoAdicional,
+    bool Ativo,
+    int Ordem);
+
+public sealed record RequisicaoDeAtualizacaoDeVariante(
+    string Nome,
+    string CorHex,
+    int QuantidadeEstoque,
+    decimal? PrecoAdicional,
+    bool Ativo,
+    int Ordem);
+
+public sealed record RequisicaoDeSomaDeQuantidadeDeVariante(int Quantidade);
+
+public sealed record RequisicaoDeOrdenacaoDeVariantes(IReadOnlyList<long> Ordem);
 
 public sealed record RequisicaoDeProduto(
     long CategoriaId,
@@ -397,3 +429,25 @@ public sealed record RequisicaoDeMovimentoEstoque(
     int Quantidade,
     string? Referencia,
     string? Observacao);
+
+public sealed record DespesaDto(
+    long Id,
+    string Descricao,
+    string Categoria,
+    decimal Valor,
+    DateTime DataDaDespesa,
+    long CriadoPor,
+    string CriadoPorNome,
+    DateTime CriadoEm);
+
+public sealed record RequisicaoDeDespesa(
+    string Descricao,
+    string Categoria,
+    decimal Valor,
+    DateTime DataDaDespesa);
+
+public sealed record RequisicaoDeAtualizacaoDeDespesa(
+    string Descricao,
+    string Categoria,
+    decimal Valor,
+    DateTime DataDaDespesa);
