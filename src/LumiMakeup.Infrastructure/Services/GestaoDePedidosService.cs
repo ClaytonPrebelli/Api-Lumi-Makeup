@@ -12,15 +12,18 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
     private readonly LumiDbContext _contexto;
     private readonly IGestaoDeCuponsService _cupons;
     private readonly INotificadorDePedido _notificador;
+    private readonly IGestaoDeProdutosService _produtos;
 
     public GestaoDePedidosService(
         LumiDbContext contexto,
         IGestaoDeCuponsService cupons,
-        INotificadorDePedido notificador)
+        INotificadorDePedido notificador,
+        IGestaoDeProdutosService produtos)
     {
         _contexto = contexto;
         _cupons = cupons;
         _notificador = notificador;
+        _produtos = produtos;
     }
 
     public async Task<PedidoDto> CriarAsync(
@@ -141,13 +144,22 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
 
         _contexto.Pedidos.Add(pedido);
 
-        // A transicao precisa envolver pedido, estoque e cupom juntos. Sem ela, uma
-        // falha depois da baixa de estoque deixaria o produto reservado sem pedido,
-        // e o cliente receberia a confirmacao de uma compra que nao foi gravada.
+        // A transação precisa envolver pedido, estoque, movimentos e cupom juntos.
+        // Sem ela, uma falha depois da baixa de estoque deixaria o produto
+        // reservado sem pedido, e o cliente receberia a confirmação de uma compra
+        // que não foi gravada.
         await using var transacao = await _contexto.Database.BeginTransactionAsync(cancellationToken);
 
         try
         {
+            // Primeiro salva o pedido para obter o ID, que será usado como referência
+            // nos movimentos de estoque.
+            await _contexto.SaveChangesAsync(cancellationToken);
+
+            // Cria os movimentos de saída de estoque com referência ao pedido.
+            await RegistrarMovimentosSaidaAsync(pedido.Id, itens, cancellationToken);
+
+            // Baixa o estoque dos produtos.
             await BaixarEstoqueAsync(itens, cancellationToken);
 
             if (codigoDoCupom is not null)
@@ -163,10 +175,10 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
         }
         catch (DbUpdateConcurrencyException)
         {
-            // Estoque e quantidade de cupom sao tokens de concorrencia, entao o
-            // conflito chega aqui quando outra compra levou a ultima unidade entre
-            // a conferencia e a gravacao. Traduzir aqui evita que a tela mostre
-            // "conflito de concorrencia" para quem compra.
+            // Estoque e quantidade de cupom são tokens de concorrência, então o
+            // conflito chega aqui quando outra compra levou a última unidade entre
+            // a conferência e a gravação. Traduzir aqui evita que a tela mostre
+            // "conflito de concorrência" para quem compra.
             await transacao.RollbackAsync(cancellationToken);
             throw new InvalidOperationException(
                 "Um dos itens do pedido foi vendido enquanto o carrinho estava aberto. Confira o carrinho e tente de novo.");
@@ -477,6 +489,39 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
         }
 
         return itens;
+    }
+
+    private async Task RegistrarMovimentosSaidaAsync(
+        long pedidoId,
+        List<ItemPedido> itens,
+        CancellationToken cancellationToken)
+    {
+        var porProduto = itens
+            .GroupBy(i => i.ProdutoId)
+            .Select(g => new { ProdutoId = g.Key, Quantidade = g.Sum(i => i.Quantidade) })
+            .ToList();
+
+        foreach (var item in porProduto)
+        {
+            var produto = await _contexto.Produtos
+                .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken);
+
+            if (produto is null)
+            {
+                throw new KeyNotFoundException($"Produto não encontrado: {item.ProdutoId}.");
+            }
+
+            var movimento = new MovimentoEstoque
+            {
+                ProdutoId = produto.Id,
+                Tipo = TipoMovimentoEstoque.Saida,
+                Quantidade = item.Quantidade,
+                Referencia = $"Pedido #{pedidoId}",
+                Observacao = $"Saída automática por criação do pedido #{pedidoId}."
+            };
+
+            _contexto.MovimentosEstoque.Add(movimento);
+        }
     }
 
     private async Task BaixarEstoqueAsync(List<ItemPedido> itens, CancellationToken cancellationToken)
