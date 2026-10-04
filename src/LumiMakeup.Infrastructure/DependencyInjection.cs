@@ -85,6 +85,7 @@ public static class DependencyInjection
         services.AddScoped<IGestaoDeCuponsService, GestaoDeCuponsService>();
         services.AddScoped<IGestaoDeClientesService, GestaoDeClientesService>();
         services.AddScoped<IGestaoDeEnderecosService, GestaoDeEnderecosService>();
+        services.AddScoped<IGestaoDeDespesasService, GestaoDeDespesasService>();
         services.AddScoped<ICalculoDeFreteService, CalculoDeFreteService>();
         services.AddScoped<IGestaoDeFreteService, GestaoDeFreteService>();
         services.AddScoped<IGestaoDePedidosService, GestaoDePedidosService>();

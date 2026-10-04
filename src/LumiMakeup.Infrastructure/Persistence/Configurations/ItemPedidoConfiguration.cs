@@ -22,5 +22,10 @@ public class ItemPedidoConfiguration : IEntityTypeConfiguration<ItemPedido>
             .WithMany(p => p.ItensPedido)
             .HasForeignKey(i => i.ProdutoId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(i => i.VarianteProduto)
+            .WithMany(v => v.ItensPedido)
+            .HasForeignKey(i => i.VarianteProdutoId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

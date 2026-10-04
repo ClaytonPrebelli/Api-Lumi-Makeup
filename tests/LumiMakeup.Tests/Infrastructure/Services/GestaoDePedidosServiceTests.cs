@@ -91,7 +91,8 @@ public sealed class GestaoDePedidosServiceTests
         return new GestaoDePedidosService(
             contexto,
             new GestaoDeCuponsService(contexto),
-            notificador ?? Mock.Of<INotificadorDePedido>());
+            notificador ?? Mock.Of<INotificadorDePedido>(),
+            Mock.Of<IGestaoDeProdutosService>());
     }
 
     private static RequisicaoDePedido Requisicao(
@@ -685,7 +686,8 @@ public sealed class GestaoDePedidosServiceTests
         var pedido = await new GestaoDePedidosService(
                 contexto,
                 new GestaoDeCuponsService(contexto),
-                Mock.Of<INotificadorDePedido>())
+                Mock.Of<INotificadorDePedido>(),
+                Mock.Of<IGestaoDeProdutosService>())
             .CriarAsync(requisicao, origem, CancellationToken.None);
 
         return (await contexto.Pedidos.AsNoTracking().SingleAsync(p => p.Id == pedido.Id), usuario);

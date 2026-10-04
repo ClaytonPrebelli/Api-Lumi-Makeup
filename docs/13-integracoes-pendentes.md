@@ -1,6 +1,6 @@
 # 13 — Integrações Pendentes
 
-**Status:** 🔶 parcial — imagens e IA prontas; WhatsApp e Focus NFe continuam stub
+**Status:** 🔶 parcial — imagens, IA e WhatsApp prontas; Focus NFe continua stub
 
 ---
 
@@ -26,9 +26,14 @@ mantém a API compilando e o fluxo executável, mas **nada chega ao destino real
 
 | Integração | Interface | Usada hoje por | Bloqueia |
 |---|---|---|---|
-| WhatsApp (Baileys) | `IWhatsAppService` | nada | avisos de pedido |
+| WhatsApp (Baileys) | `IWhatsAppService` | confirmação de pedido | **integrado** — ver `18` |
 | Focus NFe | `IFocusNfeService` | nada | emissão de nota fiscal |
 | Brevo | — | **nada** | não integrado (ver `02`) |
+
+> **As duas linhas de `services.AddScoped` acima são mais uma do que o código tem.** O
+> registro do WhatsApp passou a ser decidido em `RegistrarWhatsApp`
+> (`DependencyInjection.cs:121`), e só cai no stub quando `Habilitado` está falso ou o
+> segredo está vazio. Ver [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).
 
 ---
 
@@ -192,21 +197,19 @@ modelo criativo é exatamente o risco aqui.
 
 ---
 
-## WhatsApp — avisos de pedido
+## WhatsApp — integrado (ver doc `18`)
 
-`RegistroWhatsApp` já está no modelo e ligado a `Pedido` por `Cascade`, com
-`StatusRegistroWhatsApp` para acompanhar o envio.
+Esta seção era a de "o que falta". O cliente Baileys existe, o pareamento por QR está no
+painel e a frase inicial do cliente é editável — o detalhamento inteiro está em
+[`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).
 
-Falta o cliente do serviço Baileys, configurado em `ExternalServices:Baileys`
-(`UrlBase` apontando para `http://localhost:3001` e `SegredoCompartilhado`). A ideia é
-que um serviço Node separado mantenha a sessão do WhatsApp e a API apenas converse com
-ele por HTTP.
+O que ficou em aberto:
 
 | Precisa ser definido | Motivo |
 |---|---|
-| Quais eventos disparam mensagem | Pagamento aprovado, pedido enviado, entregue |
-| Texto e template de cada aviso | |
+| Quais eventos disparam mensagem | Hoje só a confirmação do pedido. Pagamento aprovado, enviado e entregue ainda não |
 | Política de retry e rate limit | Vários pedidos podem sair juntos |
+| Rotacionar `SegredoCompartilhado` | Está no `appsettings.json` versionado — ver `18` |
 
 ---
 
@@ -228,9 +231,9 @@ entidade, então o fluxo foi pensado desde o início.
 
 1. ~~**Imagens de produto**~~ — concluído (armazenamento local, ver acima).
 2. ~~**Melhoria de texto com IA**~~ — concluído (ver acima).
-3. **Checkout e pedidos** — modelo de endereço já pronto (ver `05`); é o que gera
+3. ~~**WhatsApp**~~ — concluído (ver doc `18`).
+4. **Checkout e pedidos** — modelo de endereço já pronto (ver `05`); é o que gera
    receita.
-4. **WhatsApp** — curto, e melhora a percepção do cliente sobre o pedido.
 5. **Focus NFe** — por último, por envolver conformidade.
 
 ---
@@ -247,3 +250,7 @@ WhatsAppServiceStub.cs
 
 A exceção é `EmailSenderStub`: ele é um **fallback real**, escolhido por `DependencyInjection`
 quando o SMTP não está configurado (ver [`11-envio-de-email-smtp.md`](11-envio-de-email-smtp.md)).
+
+`WhatsAppServiceStub` é a segunda exceção: ele continua sendo o registro padrão, por
+decisão, não por falta de implementação. Sem WhatsApp a loja precisa vender do mesmo
+jeito. Ver [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).

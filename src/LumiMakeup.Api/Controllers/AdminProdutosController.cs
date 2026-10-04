@@ -237,4 +237,175 @@ public sealed class AdminProdutosController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    [HttpPost("{id:long}/estoque/somar")]
+    public async Task<IActionResult> SomarQuantidadeEstoque(
+        long id,
+        [FromBody] RequisicaoDeSomaDeQuantidadeDeProduto requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var produto = await _gestaoDeProdutos.SomarQuantidadeEstoqueAsync(id, requisicao, cancellationToken);
+            return Ok(produto);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("{id:long}/estoque/movimentos")]
+    public async Task<IActionResult> ObterMovimentosEstoque(
+        long id,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var movimentos = await _gestaoDeProdutos.ObterMovimentosEstoqueAsync(id, cancellationToken);
+            return Ok(movimentos);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:long}/estoque/movimentos")]
+    public async Task<IActionResult> RegistrarMovimentoEstoque(
+        long id,
+        [FromBody] RequisicaoDeMovimentoEstoque requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var usuarioId = User.Identity?.IsAuthenticated == true
+                ? long.Parse(User.FindFirst("sub")?.Value ?? "0")
+                : (long?)null;
+
+            var movimento = await _gestaoDeProdutos.RegistrarMovimentoEstoqueAsync(id, requisicao, usuarioId, cancellationToken);
+            return Ok(movimento);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Variantes -----------------------------------------------------------
+
+    [HttpPost("{id:long}/variantes")]
+    public async Task<IActionResult> AdicionarVariante(
+        long id,
+        [FromBody] RequisicaoDeVarianteProduto requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var variante = await _gestaoDeProdutos.AdicionarVarianteAsync(id, requisicao, cancellationToken);
+            return CreatedAtAction(nameof(ObterPorId), new { id }, variante);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:long}/variantes/{varianteId:long}/atualizar")]
+    public async Task<IActionResult> AtualizarVariante(
+        long id,
+        long varianteId,
+        [FromBody] RequisicaoDeAtualizacaoDeVariante requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var variante = await _gestaoDeProdutos.AtualizarVarianteAsync(id, varianteId, requisicao, cancellationToken);
+            return Ok(variante);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:long}/variantes/{varianteId:long}/excluir")]
+    public async Task<IActionResult> ExcluirVariante(
+        long id,
+        long varianteId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _gestaoDeProdutos.ExcluirVarianteAsync(id, varianteId, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:long}/variantes/ordem")]
+    public async Task<IActionResult> ReordenarVariantes(
+        long id,
+        [FromBody] RequisicaoDeOrdenacaoDeVariantes requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var variantes = await _gestaoDeProdutos.ReordenarVariantesAsync(id, requisicao, cancellationToken);
+            return Ok(variantes);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:long}/variantes/{varianteId:long}/estoque/somar")]
+    public async Task<IActionResult> SomarQuantidadeVariante(
+        long id,
+        long varianteId,
+        [FromBody] RequisicaoDeSomaDeQuantidadeDeVariante requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var variante = await _gestaoDeProdutos.SomarQuantidadeVarianteAsync(id, varianteId, requisicao, cancellationToken);
+            return Ok(variante);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

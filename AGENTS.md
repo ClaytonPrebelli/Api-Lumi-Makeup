@@ -48,6 +48,73 @@ O banco de desenvolvimento **é o mesmo de produção**.
 - Antes de aplicar, pensar duas vezes: qualquer alteração de schema é pública
   no mesmo instante.
 
+### PROIBIDO: apagar o banco ou tabela
+
+**Nunca**, em nenhuma hipótese, executar `DROP DATABASE`, `DROP TABLE`,
+`dotnet ef database drop`, `dotnet ef database update 0` para "recomeçar", nem
+qualquer SQL equivalente (`TRUNCATE` também conta). Não importa o motivo, não
+importa se o erro parece óbvio, não importa se o usuário pedir.
+
+Essa regra existe porque o custo é o negócio inteiro, não o banco:
+
+- O `DROP DATABASE` já foi executado neste projeto **várias vezes** e apagou
+  usuários, clientes, categorias, banners, produtos, imagens, pedidos,
+  despesas e a configuração do WhatsApp.
+- **Os dados não voltaram.** Migration recria *estrutura* vazia, nunca
+  *conteúdo*. Não existe "recuperar os dados depois".
+- A recreation por migration dá a ilação de que o banco voltou, e não voltou:
+  as tabelas existem e estão vazias, o que é pior que um erro visível.
+
+Se um schema estiver inconsistente, a resposta é **corrigir com migration**:
+`ALTER TABLE`, `migrationBuilder.Sql(...)`, coluna nova, índice novo. Nunca
+derrubando o banco para recomeçar.
+
+Diagnóstico de esquema é **leitura**: `SHOW CREATE TABLE`, `SHOW TABLE STATUS`,
+`information_schema`, `SELECT * FROM __EFMigrationsHistory`. Ler não quebra
+nada.
+
+### Toda tabela é InnoDB, criada por migration
+
+- Toda tabela nova **tem que ser `InnoDB`**. MyISAM é proibido.
+- Toda tabela nova **tem que ser criada por migration**. Não há script manual
+  avulso, não há SQL suelto, não há tabela criada "só pra testar".
+- A migration é a única fonte de verdade do schema.
+
+O motivo é técnico e já custou uma incidente: **MyISAM não suporta foreign key**.
+MySQL recusa a FK com `errno 150` ("Foreign key constraint is incorrectly
+formed") e o erro não diz que a engine está errada — manda procurar nome de
+coluna e tipo, que estão perfeitos, e o diagnóstico trava.
+
+Quando a FK falhar com 150, a **primeira** coisa a verificar é a engine das duas
+tabas, nas duas pontas:
+
+```sql
+SHOW TABLE STATUS LIKE 'tabela';
+```
+
+Para converter uma tabela já existente, dentro de uma migration, **sem drop**:
+
+```csharp
+migrationBuilder.Sql("ALTER TABLE `minha_tabela` ENGINE = InnoDB;");
+```
+
+Isso converte preservando todos os dados. É a operação correta e deve ser
+preferida a qualquer alternativa destrutiva.
+
+Nome de coluna, tipo e collation devem bater exatamente dos dois lados da FK.
+`utf8mb4_general_ci` em tudo, engine InnoDB em tudo.
+
+### Antes de rodar qualquer migration
+
+1. Ler a migration gerada arquivo por arquivo. Ela é código.
+2. Conferir se ela só **acrescenta** (`AddColumn`, `CreateTable`, `CreateIndex`).
+   Se aparecer `DropColumn`, `DropTable`, `RenameTable` ou `DropForeignKey`
+   inesperado, parar e confirmar com o usuário.
+3. Se a migration envolve FK, confirmar `InnoDB` nas duas tabelas antes.
+
+Qualquer dúvida sobre segurança da migration: perguntar. Não executar "para
+ver o que acontece".
+
 ## Artefato do deploy
 
 O FTP envia um pacote plano, e o workflow falha se sobrar qualquer subdiretório

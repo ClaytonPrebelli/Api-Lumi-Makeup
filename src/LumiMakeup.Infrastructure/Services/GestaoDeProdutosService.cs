@@ -365,5 +365,331 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
             p.Imagens
                 .OrderBy(i => i.Ordem)
                 .Select(i => new ImagemProdutoDto(i.Id, i.CaminhoRelativo, i.NomeOriginal, i.Ordem))
+                .ToList(),
+            p.Variantes
+                .Where(v => v.Ativo)
+                .OrderBy(v => v.Ordem)
+                .Select(v => new VarianteProdutoDto(
+                    v.Id,
+                    v.ProdutoId,
+                    v.Nome,
+                    v.CorHex,
+                    v.QuantidadeEstoque,
+                    v.PrecoAdicional,
+                    v.Ativo,
+                    v.Ordem,
+                    v.CriadoEm))
                 .ToList());
+
+    public async Task<ProdutoAdministracaoDto> SomarQuantidadeEstoqueAsync(
+        long id,
+        RequisicaoDeSomaDeQuantidadeDeProduto requisicao,
+        CancellationToken cancellationToken = default)
+    {
+        var produto = await _contexto.Produtos.FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Produto não encontrado.");
+
+        var novaQuantidade = produto.QuantidadeEstoque + requisicao.Quantidade;
+
+        if (novaQuantidade < 0)
+        {
+            throw new InvalidOperationException("A quantidade resultante não pode ser negativa.");
+        }
+
+        produto.QuantidadeEstoque = novaQuantidade;
+
+        var movimento = new MovimentoEstoque
+        {
+            ProdutoId = produto.Id,
+            Tipo = requisicao.Quantidade >= 0 ? TipoMovimentoEstoque.Entrada : TipoMovimentoEstoque.Saida,
+            Quantidade = Math.Abs(requisicao.Quantidade),
+            Referencia = "Soma manual",
+            Observacao = $"Quantidade somada: {requisicao.Quantidade:+#;-#;0}. Estoque anterior: {produto.QuantidadeEstoque - requisicao.Quantidade}, novo: {novaQuantidade}."
+        };
+
+        _contexto.MovimentosEstoque.Add(movimento);
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await ObterPorIdAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException("Produto atualizado, mas não pôde ser relido.");
+    }
+
+    public async Task<IReadOnlyList<MovimentoEstoqueDto>> ObterMovimentosEstoqueAsync(
+        long produtoId,
+        CancellationToken cancellationToken = default)
+    {
+        var produtoExiste = await _contexto.Produtos.AnyAsync(p => p.Id == produtoId, cancellationToken);
+        if (!produtoExiste)
+        {
+            throw new KeyNotFoundException("Produto não encontrado.");
+        }
+
+        return await _contexto.MovimentosEstoque
+            .AsNoTracking()
+            .Where(m => m.ProdutoId == produtoId)
+            .OrderByDescending(m => m.CriadoEm)
+            .Select(m => new MovimentoEstoqueDto(
+                m.Id,
+                m.ProdutoId,
+                m.Produto.Nome,
+                (int)m.Tipo,
+                m.Quantidade,
+                m.Referencia,
+                m.Observacao,
+                m.UsuarioId,
+                m.Usuario != null ? m.Usuario.Nome : null,
+                m.CriadoEm))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<MovimentoEstoqueDto> RegistrarMovimentoEstoqueAsync(
+        long produtoId,
+        RequisicaoDeMovimentoEstoque requisicao,
+        long? usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(typeof(TipoMovimentoEstoque), requisicao.Tipo))
+        {
+            throw new InvalidOperationException("Tipo de movimento inválido.");
+        }
+
+        if (requisicao.Quantidade <= 0)
+        {
+            throw new InvalidOperationException("A quantidade deve ser maior que zero.");
+        }
+
+        var tipo = (TipoMovimentoEstoque)requisicao.Tipo;
+        var produto = await _contexto.Produtos.FirstOrDefaultAsync(p => p.Id == produtoId, cancellationToken)
+            ?? throw new KeyNotFoundException("Produto não encontrado.");
+
+        var quantidadeAnterior = produto.QuantidadeEstoque;
+        var novaQuantidade = tipo switch
+        {
+            TipoMovimentoEstoque.Entrada => quantidadeAnterior + requisicao.Quantidade,
+            TipoMovimentoEstoque.Saida => quantidadeAnterior - requisicao.Quantidade,
+            TipoMovimentoEstoque.Ajuste => requisicao.Quantidade,
+            _ => throw new InvalidOperationException("Tipo de movimento inválido.")
+        };
+
+        if (novaQuantidade < 0)
+        {
+            throw new InvalidOperationException("A quantidade resultante não pode ser negativa.");
+        }
+
+        produto.QuantidadeEstoque = novaQuantidade;
+
+        var movimento = new MovimentoEstoque
+        {
+            ProdutoId = produto.Id,
+            Tipo = tipo,
+            Quantidade = requisicao.Quantidade,
+            Referencia = requisicao.Referencia?.Trim() ?? string.Empty,
+            Observacao = requisicao.Observacao?.Trim(),
+            UsuarioId = usuarioId
+        };
+
+        _contexto.MovimentosEstoque.Add(movimento);
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await _contexto.MovimentosEstoque
+            .AsNoTracking()
+            .Where(m => m.Id == movimento.Id)
+            .Select(m => new MovimentoEstoqueDto(
+                m.Id,
+                m.ProdutoId,
+                m.Produto.Nome,
+                (int)m.Tipo,
+                m.Quantidade,
+                m.Referencia,
+                m.Observacao,
+                m.UsuarioId,
+                m.Usuario != null ? m.Usuario.Nome : null,
+                m.CriadoEm))
+            .FirstAsync(cancellationToken);
+    }
+
+    // Variantes -----------------------------------------------------------
+
+    public async Task<VarianteProdutoDto> AdicionarVarianteAsync(
+        long produtoId,
+        RequisicaoDeVarianteProduto requisicao,
+        CancellationToken cancellationToken = default)
+    {
+        var produto = await _contexto.Produtos
+            .Include(p => p.Variantes)
+            .FirstOrDefaultAsync(p => p.Id == produtoId, cancellationToken)
+            ?? throw new KeyNotFoundException("Produto não encontrado.");
+
+        if (!CorHexValida(requisicao.CorHex))
+        {
+            throw new InvalidOperationException("Cor inválida. Use formato #RRGGBB.");
+        }
+
+        var proximaOrdem = requisicao.Ordem >= 0
+            ? requisicao.Ordem
+            : (produto.Variantes.Any() ? produto.Variantes.Max(v => v.Ordem) + 1 : 0);
+
+        var variante = new VarianteProduto
+        {
+            ProdutoId = produto.Id,
+            Nome = requisicao.Nome.Trim(),
+            CorHex = requisicao.CorHex.ToUpperInvariant(),
+            QuantidadeEstoque = requisicao.QuantidadeEstoque,
+            PrecoAdicional = requisicao.PrecoAdicional,
+            Ativo = requisicao.Ativo,
+            Ordem = proximaOrdem
+        };
+
+        _contexto.VariantesProduto.Add(variante);
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await ObterVariantePorIdAsync(variante.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Variante criada, mas não pôde ser relida.");
+    }
+
+    public async Task<VarianteProdutoDto> AtualizarVarianteAsync(
+        long produtoId,
+        long varianteId,
+        RequisicaoDeAtualizacaoDeVariante requisicao,
+        CancellationToken cancellationToken = default)
+    {
+        var variante = await _contexto.VariantesProduto
+            .FirstOrDefaultAsync(v => v.Id == varianteId && v.ProdutoId == produtoId, cancellationToken)
+            ?? throw new KeyNotFoundException("Variante não encontrada para este produto.");
+
+        if (!CorHexValida(requisicao.CorHex))
+        {
+            throw new InvalidOperationException("Cor inválida. Use formato #RRGGBB.");
+        }
+
+        variante.Nome = requisicao.Nome.Trim();
+        variante.CorHex = requisicao.CorHex.ToUpperInvariant();
+        variante.QuantidadeEstoque = requisicao.QuantidadeEstoque;
+        variante.PrecoAdicional = requisicao.PrecoAdicional;
+        variante.Ativo = requisicao.Ativo;
+        variante.Ordem = requisicao.Ordem;
+
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await ObterVariantePorIdAsync(variante.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Variante atualizada, mas não pôde ser relida.");
+    }
+
+    public async Task ExcluirVarianteAsync(
+        long produtoId,
+        long varianteId,
+        CancellationToken cancellationToken = default)
+    {
+        var variante = await _contexto.VariantesProduto
+            .FirstOrDefaultAsync(v => v.Id == varianteId && v.ProdutoId == produtoId, cancellationToken)
+            ?? throw new KeyNotFoundException("Variante não encontrada para este produto.");
+
+        _contexto.VariantesProduto.Remove(variante);
+        await _contexto.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<VarianteProdutoDto>> ReordenarVariantesAsync(
+        long produtoId,
+        RequisicaoDeOrdenacaoDeVariantes requisicao,
+        CancellationToken cancellationToken = default)
+    {
+        var variantes = await _contexto.VariantesProduto
+            .Where(v => v.ProdutoId == produtoId)
+            .ToListAsync(cancellationToken);
+
+        if (variantes.Count == 0)
+        {
+            throw new KeyNotFoundException("Produto não possui variantes.");
+        }
+
+        var existentes = variantes.Select(v => v.Id).ToHashSet();
+        var recebidos = requisicao.Ordem.Distinct().ToList();
+
+        if (recebidos.Count != variantes.Count || !existentes.SetEquals(recebidos))
+        {
+            throw new InvalidOperationException("A ordem informada não corresponde às variantes do produto.");
+        }
+
+        var porId = variantes.ToDictionary(v => v.Id);
+
+        for (var posicao = 0; posicao < recebidos.Count; posicao++)
+        {
+            porId[recebidos[posicao]].Ordem = posicao;
+        }
+
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await _contexto.VariantesProduto
+            .AsNoTracking()
+            .Where(v => v.ProdutoId == produtoId)
+            .OrderBy(v => v.Ordem)
+            .Select(v => new VarianteProdutoDto(
+                v.Id,
+                v.ProdutoId,
+                v.Nome,
+                v.CorHex,
+                v.QuantidadeEstoque,
+                v.PrecoAdicional,
+                v.Ativo,
+                v.Ordem,
+                v.CriadoEm))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<VarianteProdutoDto> SomarQuantidadeVarianteAsync(
+        long produtoId,
+        long varianteId,
+        RequisicaoDeSomaDeQuantidadeDeVariante requisicao,
+        CancellationToken cancellationToken = default)
+    {
+        var variante = await _contexto.VariantesProduto
+            .FirstOrDefaultAsync(v => v.Id == varianteId && v.ProdutoId == produtoId, cancellationToken)
+            ?? throw new KeyNotFoundException("Variante não encontrada para este produto.");
+
+        var novaQuantidade = variante.QuantidadeEstoque + requisicao.Quantidade;
+
+        if (novaQuantidade < 0)
+        {
+            throw new InvalidOperationException("A quantidade resultante não pode ser negativa.");
+        }
+
+        variante.QuantidadeEstoque = novaQuantidade;
+
+        var movimento = new MovimentoEstoque
+        {
+            ProdutoId = produtoId,
+            Tipo = requisicao.Quantidade >= 0 ? TipoMovimentoEstoque.Entrada : TipoMovimentoEstoque.Saida,
+            Quantidade = Math.Abs(requisicao.Quantidade),
+            Referencia = $"Variante: {variante.Nome}",
+            Observacao = $"Quantidade somada: {requisicao.Quantidade:+#;-#;0}. Estoque anterior: {variante.QuantidadeEstoque - requisicao.Quantidade}, novo: {novaQuantidade}."
+        };
+
+        _contexto.MovimentosEstoque.Add(movimento);
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await ObterVariantePorIdAsync(variante.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Variante atualizada, mas não pôde ser relida.");
+    }
+
+    private async Task<VarianteProdutoDto?> ObterVariantePorIdAsync(long id, CancellationToken cancellationToken)
+    {
+        return await _contexto.VariantesProduto
+            .AsNoTracking()
+            .Where(v => v.Id == id)
+            .Select(v => new VarianteProdutoDto(
+                v.Id,
+                v.ProdutoId,
+                v.Nome,
+                v.CorHex,
+                v.QuantidadeEstoque,
+                v.PrecoAdicional,
+                v.Ativo,
+                v.Ordem,
+                v.CriadoEm))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static bool CorHexValida(string cor) =>
+        !string.IsNullOrWhiteSpace(cor) &&
+        System.Text.RegularExpressions.Regex.IsMatch(cor, "^#[0-9A-Fa-f]{6}$");
 }

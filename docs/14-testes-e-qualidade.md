@@ -15,17 +15,36 @@ capaz de rodar sem banco de dados e sem rede.
 
 | Métrica | Valor |
 |---|---|
-| Testes | **330**, todos passando |
+| Testes | **524**, todos passando |
 | Cobertura de linhas | **97,4%** |
 | Cobertura de branches | **88,6%** |
 | Banco necessário | nenhum |
 | Rede necessária | nenhuma |
+
+> Os números de cobertura são da última medição com coverlet e **estão desatualizados**:
+> subiram de 330 para 524 testes depois, e a tabela acima não foi remedida. Trate
+> 97,4% / 88,6% como o último valor conhecido, não como o de hoje.
 
 > A cobertura de linhas **caiu de 100%** com o código de produtos. Não foi uma
 > regressão de qualidade dos testes: os 127 testes novos vieram, e o que ficou por
 > fora é o mapeamento de exceção dos controllers novos. Está detalhado em
 > [Branches e linhas parciais restantes](#branches-e-linhas-parciais-restantes), e é a
 > dívida conhecida desta etapa.
+
+### O que o growth de 330 para 524 cobriu
+
+| Área | Testes |
+|---|---|
+| Núcleo de pedido (totais, baixa de estoque, status) | `GestaoDePedidosServiceTests` |
+| Frete e geocodificação em cadeia | `CalculoDeFreteServiceTests`, testes do `GeocodificadorEmCadeia` |
+| Cupom de desconto e decremento atômico | `GestaoDeCuponsServiceTests` |
+| E-mail e templates de pedido | `NotificadorDePedidoTests` |
+| Frase inicial do WhatsApp (padrão, upsert, limites, prévia) | `GestaoDeWhatsAppServiceTests` |
+| Upload de imagem, exceções e diagnóstico | `ArmazenamentoDeImagensLocalTests` |
+
+> **O provider InMemory não pega divergência de nome de coluna.** Para isso o comando
+> é `dotnet ef migrations has-pending-model-changes`, que é de Integração com o schema,
+> e não um teste. Ver [`04-banco-de-dados-e-ef-core.md`](04-banco-de-dados-e-ef-core.md).
 
 ---
 

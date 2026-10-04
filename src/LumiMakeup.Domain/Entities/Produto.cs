@@ -29,5 +29,12 @@ public class Produto
 
     public Categoria Categoria { get; set; } = null!;
     public ICollection<ImagemProduto> Imagens { get; set; } = new List<ImagemProduto>();
+    public ICollection<VarianteProduto> Variantes { get; set; } = new List<VarianteProduto>();
     public ICollection<ItemPedido> ItensPedido { get; set; } = new List<ItemPedido>();
+
+    /// <summary>
+    /// Estoque total considerando variantes. Se o produto não tem variantes,
+    /// usa <see cref="QuantidadeEstoque"/> direto.
+    /// </summary>
+    public int EstoqueTotal => Variantes.Any() ? Variantes.Where(v => v.Ativo).Sum(v => v.QuantidadeEstoque) : QuantidadeEstoque;
 }

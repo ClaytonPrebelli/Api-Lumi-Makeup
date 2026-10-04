@@ -50,16 +50,25 @@ que concordar: divergir entre elas so produz "nao conecta"
 da falha e a tela le. Sao duas pontas do mesmo processo, entao o estado nao pode
 depender do escopo do request (`DependencyInjection.cs:127`).
 
-### Frete: Nominatim, e apenas o Nominatim
+### Frete: cadeia de provedores, com o Nominatim no fim
 
-**Este e o ponto que mais precisa de atencao, porque o frete esta quebrado em
-producao. Ver secao 3.**
+`CalculoDeFreteService` depende de `IGeocodificador`, nao de `INominatimService`
+(`CalculoDeFreteService.cs:29,31`), e chama `GeocodificarAsync` na linha 56.
 
-`CalculoDeFreteService` depende de `INominatimService`
-(`CalculoDeFreteService.cs:28-30`) e chama `GeocodificarAsync` na linha 55.
+A implementacao registrada e `GeocodificadorEmCadeia`
+(`Integrations/IGeocodificador.cs:27`), com `BaseAddress` do Photon
+(`DependencyInjection.cs:39-41`).
 
-O servico esta registrado em `DependencyInjection.cs:39-41`, com
-`BaseAddress` do `nominatim.openstreetmap.org`.
+A cadeia tenta, nesta ordem:
+
+| Ordem | Provedor | Consulta |
+|---|---|---|
+| 1 | Photon (komoot) | `postalcode {cep}` |
+| 2 | ArcGIS | `findAddressCandidates` por CEP |
+| 3 | Photon (komoot) | endereco completo |
+
+O Nominatim continua no codigo e continua falhando com o proxy de producao - ver a
+secao 3. Ele saiu da posicao de unica opcao, e nao do codigo.
 
 ### Outros servios registrados
 
@@ -113,44 +122,42 @@ producao junto com a mudanca de `web.config` que derrubou o servico.
 
 ## 3. O que esta quebrado agora
 
-### Frete: o calculo depende de um servico que o servidor nao alcanca
+### Resolvido nesta etapa
 
-`NominatimService` nao consegue fechar TLS com o servidor de producao. O proxy
-responde `HandshakeFailure` - ver o comentario em `DependencyInjection.cs:62-69`.
-A saida HTTPS do servidor funciona (ViaCEP, Google e o proprio site respondem
-200), entao nao e' saida de rede nem certificado sem confianca: e' a negociacao.
+Os dois itens abaixo estavam nesta secao e foram fechados. Ficam registrados aqui
+porque o diagnostico e' util, nao porque continuem abertos.
 
-**Consequencia pratica:** o frete nao localiza o endereco e a tela mostra que
-nao conseguiu localizar. O calculo por distancia esta implementado
-(`CalculoDeFreteService.cs:55-88`, com `DistanciaEmKm` na linha 99 e teto de
-900 km na 25), mas ele depende da coordenada que nao chega.
+**Frete - corrigido com cadeia de provedores.** `NominatimService` nao fecha TLS
+com o servidor de producao (proxy responde `HandshakeFailure`), e isso matava o
+calculo inteiro. A correcao esta em `GeocodificadorEmCadeia`
+(`Integrations/IGeocodificador.cs`), que tenta Photon por CEP, ArcGIS por CEP, e
+Photon pelo endereco completo, nessa ordem. A ordem nao e' por preferencia:
+Photon devolve o logradouro quando o endereco tem rua e o CEP exato quando nao tem.
+Nenhum provedor inventa posicao - se todos recusarem, o calculo recusa.
 
-A correcao que existia era a cadeia de provedores da secao 2. Ela foi revertida
-junto com o deploy que derrubou a loja. **Esta e' a proxima frente de trabalho,
-e ela nao deve ser feita no mesmo deploy de qualquer mudanca em
-`web.config`, `deploy.yml` ou nos servicos de inicializacao.**
+**Upload de imagem - agora retorna o erro.** `IOException`,
+`UnauthorizedAccessException`, `DbUpdateException` e `Exception` sao tratados, e o
+`Access-Control-Allow-Origin` passa a ser aplicado mesmo em falha, para que o
+navegador nao acuse CORS onde o problema e' disco ou permissao.
+`Directory.CreateDirectory` esta dentro do `try`.
 
-### Upload de imagem de produto: 500 sem informacao
+### Segredo do Baileys no arquivo versionado
 
-O `POST /api/admin/produtos/{id}/imagens` pode terminar em 500 sem mensagem.
-Causa: `IOException`, `UnauthorizedAccessException` e `DbUpdateException` nao
-sao tratadas no `AdminProdutosController.AdicionarImagem`, e o
-`CorsMiddleware` so aplica o `Access-Control-Allow-Origin` quando a requisicao
-termina normalmente. O 500 perde o header e o navegador reporta "bloqueado
-pela politica de CORS" - mensagem que aponta para o lado errado e que
-mascarou a causa por semanas.
+`ExternalServices:Baileys:SegredoCompartilhado` esta com valor literal em
+`src/LumiMakeup.Api/appsettings.json`, que e' versionado. Isso contraria a regra do
+proprio `docs/02-configuracao-e-ambiente.md`.
 
-Alem disso, `Directory.CreateDirectory` esta fora do `try` em
-`ArmazenamentoDeImagensLocal.cs:96` - e' justamente a chamada que falha quando o
-disco enche ou a conta do servico nao tem permissao, entao ela escapa sem
-registro e sem a limpeza do catch.
+O segredo autentica a API perante o Node do Baileys. Quem tem leitura do repositorio
+consegue falar com o Node e puxar o QR de pareamento da conta.
 
-**Estado do banco:** existe um registro de teste orfao,
-`imagens_produto.id = 16` no produto 10, apontando para
-`produtos/0cf8bcb2643c45e08854599109e5dd62.png`. O arquivo foi gravado numa
-pasta temporaria e apagado. **A remover** - por `POST
-/api/admin/produtos/10/imagens/excluir`, que e' a via da aplicacao e nao SQL
-manual. A API esta em 503 (pool parado), entao a limpeza espera o servico voltar.
+Dois passos, e o segundo e' o que costuma ser esquecido:
+
+1. Mover a chave para o secret do repositorio (`BAILEYS_SEGREDO`), montado pelo
+   passo "Montar o appsettings de producao" em `deploy.yml`, e deixar a chave
+   **vazia** no `appsettings.json`.
+2. **Rotacionar o valor no Node.** Ele ja esta no historico do Git; trocar o lugar
+   nao torna o valor antigo invalido. Sem rotacionar, o segredo continua
+   comprometido por leitura do repositorio.
 
 ---
 

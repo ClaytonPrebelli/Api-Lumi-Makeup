@@ -4,6 +4,7 @@ using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LumiMakeup.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LumiDbContext))]
-    partial class LumiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261002193454_CriacaoDaTabelaDeMovimentosEstoque")]
+    partial class CriacaoDaTabelaDeMovimentosEstoque
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -357,16 +360,11 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Subtotal")
                         .HasColumnType("decimal(10,2)");
 
-                    b.Property<long?>("VarianteProdutoId")
-                        .HasColumnType("bigint");
-
                     b.HasKey("Id");
 
                     b.HasIndex("PedidoId");
 
                     b.HasIndex("ProdutoId");
-
-                    b.HasIndex("VarianteProdutoId");
 
                     b.ToTable("itens_pedido", (string)null);
                 });
@@ -791,50 +789,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                     b.ToTable("usuarios", (string)null);
                 });
 
-            modelBuilder.Entity("LumiMakeup.Domain.Entities.VarianteProduto", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("CorHex")
-                        .IsRequired()
-                        .HasMaxLength(7)
-                        .HasColumnType("varchar(7)");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
-
-                    b.Property<int>("Ordem")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("PrecoAdicional")
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<long>("ProdutoId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("QuantidadeEstoque")
-                        .IsConcurrencyToken()
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProdutoId");
-
-                    b.ToTable("variantes_produto", (string)null);
-                });
-
             modelBuilder.Entity("LumiMakeup.Domain.Entities.Despesa", b =>
                 {
                     b.HasOne("LumiMakeup.Domain.Entities.Usuario", "CriadoPorUsuario")
@@ -882,16 +836,9 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("LumiMakeup.Domain.Entities.VarianteProduto", "VarianteProduto")
-                        .WithMany("ItensPedido")
-                        .HasForeignKey("VarianteProdutoId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.Navigation("Pedido");
 
                     b.Navigation("Produto");
-
-                    b.Navigation("VarianteProduto");
                 });
 
             modelBuilder.Entity("LumiMakeup.Domain.Entities.MovimentoEstoque", b =>
@@ -967,17 +914,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                     b.Navigation("Pedido");
                 });
 
-            modelBuilder.Entity("LumiMakeup.Domain.Entities.VarianteProduto", b =>
-                {
-                    b.HasOne("LumiMakeup.Domain.Entities.Produto", "Produto")
-                        .WithMany("Variantes")
-                        .HasForeignKey("ProdutoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Produto");
-                });
-
             modelBuilder.Entity("LumiMakeup.Domain.Entities.Categoria", b =>
                 {
                     b.Navigation("Produtos");
@@ -997,8 +933,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                     b.Navigation("Imagens");
 
                     b.Navigation("ItensPedido");
-
-                    b.Navigation("Variantes");
                 });
 
             modelBuilder.Entity("LumiMakeup.Domain.Entities.Usuario", b =>
@@ -1010,11 +944,6 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
                     b.Navigation("Pedidos");
 
                     b.Navigation("RecuperacoesDeSenha");
-                });
-
-            modelBuilder.Entity("LumiMakeup.Domain.Entities.VarianteProduto", b =>
-                {
-                    b.Navigation("ItensPedido");
                 });
 #pragma warning restore 612, 618
         }
