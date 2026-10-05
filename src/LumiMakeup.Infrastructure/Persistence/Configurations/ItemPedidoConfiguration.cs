@@ -12,6 +12,7 @@ public class ItemPedidoConfiguration : IEntityTypeConfiguration<ItemPedido>
         builder.HasKey(i => i.Id);
 
         builder.Property(i => i.NomeProdutoRegistrado).HasMaxLength(150).IsRequired();
+        builder.Property(i => i.VarianteNomeRegistrado).HasMaxLength(80);
         builder.Property(i => i.PrecoCustoUnitario).HasColumnType("decimal(10,2)");
         builder.Property(i => i.PrecoVendaUnitario).HasColumnType("decimal(10,2)");
         builder.Property(i => i.PrecoPromocionalUnitario).HasColumnType("decimal(10,2)");

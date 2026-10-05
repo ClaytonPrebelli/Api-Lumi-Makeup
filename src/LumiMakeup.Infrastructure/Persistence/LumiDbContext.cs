@@ -27,6 +27,8 @@ public class LumiDbContext : DbContext
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
     public DbSet<VarianteProduto> VariantesProduto => Set<VarianteProduto>();
     public DbSet<RecuperacaoDeSenha> RecuperacoesDeSenha => Set<RecuperacaoDeSenha>();
+    public DbSet<ConfiguracaoDeRecompra> ConfiguracoesDeRecompra => Set<ConfiguracaoDeRecompra>();
+    public DbSet<EnvioDeRecompra> EnviosDeRecompra => Set<EnvioDeRecompra>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

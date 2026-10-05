@@ -76,7 +76,7 @@ internal sealed class EnviadorDeEmailSmtpViaClienteSmtp : IEnviadorDeEmailSmtp
     }
 }
 
-public sealed class SmtpEmailSender : IEmailSender
+public sealed class SmtpEmailSender : IEmailSender, IEmailSenderComConfirmacao
 {
     private readonly IOptions<SmtpOptions> _opcoes;
     private readonly IEnviadorDeEmailSmtp _enviador;
@@ -100,6 +100,25 @@ public sealed class SmtpEmailSender : IEmailSender
         catch (Exception excecao)
         {
             _logger.LogError(excecao, "Falha ao enviar e-mail via SMTP. Para={Destino} Assunto={Assunto}", destino, assunto);
+        }
+    }
+
+    public async Task<bool> EnviarComConfirmacaoAsync(
+        string destino,
+        string assunto,
+        string corpoHtml,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var mensagem = ConstruirMensagem(destino, assunto, corpoHtml);
+            await _enviador.EnviarAsync(mensagem, cancellationToken);
+            return true;
+        }
+        catch (Exception excecao) when (excecao is not OperationCanceledException)
+        {
+            _logger.LogError(excecao, "Falha ao enviar e-mail via SMTP. Para={Destino} Assunto={Assunto}", destino, assunto);
+            return false;
         }
     }
 

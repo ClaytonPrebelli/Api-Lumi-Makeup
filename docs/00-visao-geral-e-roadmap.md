@@ -24,7 +24,7 @@ O frontend Angular é um repositório separado (`LumiMakeup`) e consome esta API
 | Autenticação | JWT (HMAC-SHA256) |
 | Hash de senha | `PasswordHasher<Usuario>` (ASP.NET Core Identity) |
 | Documentação da API | Swagger / OpenAPI |
-| Testes | xUnit + Moq + EF Core InMemory |
+| Testes | xUnit + Moq + EF Core InMemory (549 testes) |
 | Cobertura | coverlet.msbuild |
 | E-mail | SMTP |
 | HTTP externo | `HttpClient` tipado (ViaCEP, Nominatim, Google, reCAPTCHA) |
@@ -38,7 +38,7 @@ LumiMakeup.Domain          entidades, enums — sem dependências externas
 LumiMakeup.Application     interfaces (abstrações) e DTOs
 LumiMakeup.Infrastructure  EF Core, serviços, segurança, integrações
 LumiMakeup.Api             controllers, composition root, Swagger, CORS
-LumiMakeup.Tests           524 testes automatizados
+LumiMakeup.Tests           549 testes automatizados
 ```
 
 A regra é sempre a mesma: **dependências apontam para dentro.**
@@ -59,13 +59,14 @@ Detalhe em [`01-fundacao-da-api.md`](01-fundacao-da-api.md).
 | 09 | Consulta de CEP | [`09-consulta-de-cep.md`](09-consulta-de-cep.md) |
 | 10 | Validação de reCAPTCHA no cadastro | [`10-validacao-recaptcha.md`](10-validacao-recaptcha.md) |
 | 11 | Envio de e-mail transacional via SMTP | [`11-envio-de-email-smtp.md`](11-envio-de-email-smtp.md) |
-| 12 | Catálogo de produtos e categorias (leitura) | [`12-catalogo.md`](12-catalogo.md) |
+| 12 | Catálogo público paginado, com filtro de categoria e variantes ativas | [`12-catalogo.md`](12-catalogo.md) |
 | 05 | Endereço de entrega próprio e imutável no pedido | [`05-enderecos-e-pedidos.md`](05-enderecos-e-pedidos.md) |
-| 15 | Gestão de produtos, categorias, imagens, preço promocional e destaque | [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md) |
+| 15 | Gestão de produtos, variantes, categorias, imagens, preço promocional e destaque | [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md) |
 | 17 | Banners do hero (dois formatos por slide, ativação e ordem) | [`17-banners.md`](17-banners.md) |
 | 13 | Melhoria de texto com IA e armazenamento local de imagens | [`13-integracoes-pendentes.md`](13-integracoes-pendentes.md) |
 | 18 | WhatsApp pelo Baileys, com pareamento e status | [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md) |
 | 18 | Frase inicial do WhatsApp editada no painel, com prévia | [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md) |
+| 19 | E-mail manual de recompra disparado pela administração, com deduplicação por pedido | [`19-recompra-manual.md`](19-recompra-manual.md) |
 
 ---
 
@@ -106,23 +107,24 @@ documento:
 - **Controle de estoque (backend)** — tabela `movimentos_estoque`, endpoint para somar
   unidades no formulário do produto, e histórico de movimentos por produto. Migration
   `CriacaoDaTabelaDeMovimentosEstoque`.
+- **Paginação e variantes do catálogo** — consulta paginada e filtrada por categoria,
+  opções com estoque/preço adicional e validação dessas opções nos pedidos. Migrations
+  de variantes preservam os dados existentes; ver documentos `12`, `15` e `05`.
+- **Recompra manual** — configuração persistida e disparo sob demanda para clientes
+  cujo último pedido foi pago entre 30 e 40 dias atrás. Cada pedido confirmado fica
+  registrado para impedir repetição. Não existe job nem envio agendado.
 
 ### Próximos
 
-A ordem reflete o que ainda bloqueia a loja, e não a ordem histórica de implementação.
+Itens que ainda dependem de trabalho no backend:
 
-1. **Checkout e pedidos no frontend.** O backend do núcleo de pedido está pronto; falta a
-   tela que o consome. É o que gera receita.
-2. **Gestão de endereços.** CRUD da agenda do usuário e reutilização no checkout. O
-   modelo de endereço do pedido já está pronto (ver `05`).
-3. **Controle de estoque (frontend).** A tela de movimentos por produto existe; falta
-   integrar o campo "somar ao estoque" no formulário (já feito) e garantir a navegação
-   da lista de produtos.
-4. **Venda de balcão.** Ver as decisões abaixo.
-5. **Emissão de nota fiscal.** Substituir `FocusNfeServiceStub` pela integração real. A
+1. **Emissão de nota fiscal.** Substituir `FocusNfeServiceStub` pela integração real. A
    coluna `NotaFiscalGeradaNoPedido` já existe; falta o cliente da Focus.
-6. **Rotacionar o segredo do Baileys** e tirá-lo do `appsettings.json` versionado. Ver
+2. **Rotacionar o segredo do Baileys** e tirá-lo do `appsettings.json` versionado. Ver
    [`18-whatsapp-e-baileys.md`](18-whatsapp-e-baileys.md).
+
+Checkout, gestão de endereços, controle de estoque na tela e venda de balcão estão
+implementados no frontend; não permanecem como pendências do backend.
 
 ---
 

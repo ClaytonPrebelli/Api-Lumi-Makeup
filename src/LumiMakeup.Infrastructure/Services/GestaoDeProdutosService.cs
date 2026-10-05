@@ -367,7 +367,6 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
                 .Select(i => new ImagemProdutoDto(i.Id, i.CaminhoRelativo, i.NomeOriginal, i.Ordem))
                 .ToList(),
             p.Variantes
-                .Where(v => v.Ativo)
                 .OrderBy(v => v.Ordem)
                 .Select(v => new VarianteProdutoDto(
                     v.Id,
@@ -520,7 +519,17 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
             .FirstOrDefaultAsync(p => p.Id == produtoId, cancellationToken)
             ?? throw new KeyNotFoundException("Produto não encontrado.");
 
-        if (!CorHexValida(requisicao.CorHex))
+        if (string.IsNullOrWhiteSpace(requisicao.Nome) ||
+            requisicao.Nome.Trim().Length > 80 ||
+            requisicao.QuantidadeEstoque < 0 ||
+            requisicao.PrecoAdicional < 0)
+        {
+            throw new InvalidOperationException("Informe um nome, estoque não negativo e preço adicional não negativo.");
+        }
+
+        var corHex = NormalizarCorHex(requisicao.CorHex);
+
+        if (!string.IsNullOrWhiteSpace(requisicao.CorHex) && corHex is null)
         {
             throw new InvalidOperationException("Cor inválida. Use formato #RRGGBB.");
         }
@@ -533,7 +542,7 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
         {
             ProdutoId = produto.Id,
             Nome = requisicao.Nome.Trim(),
-            CorHex = requisicao.CorHex.ToUpperInvariant(),
+            CorHex = corHex,
             QuantidadeEstoque = requisicao.QuantidadeEstoque,
             PrecoAdicional = requisicao.PrecoAdicional,
             Ativo = requisicao.Ativo,
@@ -557,13 +566,23 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
             .FirstOrDefaultAsync(v => v.Id == varianteId && v.ProdutoId == produtoId, cancellationToken)
             ?? throw new KeyNotFoundException("Variante não encontrada para este produto.");
 
-        if (!CorHexValida(requisicao.CorHex))
+        if (string.IsNullOrWhiteSpace(requisicao.Nome) ||
+            requisicao.Nome.Trim().Length > 80 ||
+            requisicao.QuantidadeEstoque < 0 ||
+            requisicao.PrecoAdicional < 0)
+        {
+            throw new InvalidOperationException("Informe um nome, estoque não negativo e preço adicional não negativo.");
+        }
+
+        var corHex = NormalizarCorHex(requisicao.CorHex);
+
+        if (!string.IsNullOrWhiteSpace(requisicao.CorHex) && corHex is null)
         {
             throw new InvalidOperationException("Cor inválida. Use formato #RRGGBB.");
         }
 
         variante.Nome = requisicao.Nome.Trim();
-        variante.CorHex = requisicao.CorHex.ToUpperInvariant();
+        variante.CorHex = corHex;
         variante.QuantidadeEstoque = requisicao.QuantidadeEstoque;
         variante.PrecoAdicional = requisicao.PrecoAdicional;
         variante.Ativo = requisicao.Ativo;
@@ -583,6 +602,12 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
         var variante = await _contexto.VariantesProduto
             .FirstOrDefaultAsync(v => v.Id == varianteId && v.ProdutoId == produtoId, cancellationToken)
             ?? throw new KeyNotFoundException("Variante não encontrada para este produto.");
+
+        if (await _contexto.ItensPedido.AnyAsync(i => i.VarianteProdutoId == varianteId, cancellationToken))
+        {
+            throw new InvalidOperationException(
+                "Esta opção já aparece em pedidos e não pode ser excluída. Desative-a para removê-la da vitrine.");
+        }
 
         _contexto.VariantesProduto.Remove(variante);
         await _contexto.SaveChangesAsync(cancellationToken);
@@ -689,7 +714,15 @@ public sealed class GestaoDeProdutosService : IGestaoDeProdutosService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private static bool CorHexValida(string cor) =>
-        !string.IsNullOrWhiteSpace(cor) &&
-        System.Text.RegularExpressions.Regex.IsMatch(cor, "^#[0-9A-Fa-f]{6}$");
+    private static string? NormalizarCorHex(string? cor)
+    {
+        if (string.IsNullOrWhiteSpace(cor))
+        {
+            return null;
+        }
+
+        return System.Text.RegularExpressions.Regex.IsMatch(cor, "^#[0-9A-Fa-f]{6}$")
+            ? cor.ToUpperInvariant()
+            : null;
+    }
 }

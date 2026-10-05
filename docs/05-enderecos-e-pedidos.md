@@ -145,6 +145,22 @@ apartamento, bloco, sala ou uma referência de entrega.
 
 ---
 
+## Variantes nos itens do pedido
+
+Quando o produto tem opções ativas, cada linha do pedido precisa identificar a
+`VarianteProdutoId`. A API verifica que a opção pertence ao produto e continua ativa,
+confere o estoque da opção e calcula o preço no servidor com o adicional da variante.
+O preço enviado pelo cliente não é usado como fonte confiável.
+
+O item guarda `VarianteNomeRegistrado`, uma cópia do nome da opção na compra. Na
+confirmação, o estoque da variante é baixado; ao cancelar o pedido, é devolvido à mesma
+variante. Produtos sem opções ativas continuam usando o estoque base do produto.
+
+Opções referenciadas por pedidos não podem ser excluídas: desativá-las mantém a
+integridade do histórico e remove a opção de novas compras.
+
+---
+
 ## Migration
 
 `EnderecoDeEntregaNoPedido` remove a FK e o índice, descarta a coluna

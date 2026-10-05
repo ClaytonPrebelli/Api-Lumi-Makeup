@@ -57,6 +57,29 @@ public sealed class GestaoDePedidosServiceTests
         return produto;
     }
 
+    private static async Task<VarianteProduto> SemearVarianteAsync(
+        LumiDbContext contexto,
+        Produto produto,
+        string nome = "Rosa",
+        int estoque = 5,
+        decimal? adicional = null,
+        bool ativa = true)
+    {
+        var variante = new VarianteProduto
+        {
+            ProdutoId = produto.Id,
+            Produto = produto,
+            Nome = nome,
+            CorHex = null,
+            QuantidadeEstoque = estoque,
+            PrecoAdicional = adicional,
+            Ativo = ativa
+        };
+        contexto.VariantesProduto.Add(variante);
+        await contexto.SaveChangesAsync();
+        return variante;
+    }
+
     private static async Task<Cupom> SemearCupomAsync(
         LumiDbContext contexto,
         string codigo = "NATAL20",
@@ -185,6 +208,65 @@ public sealed class GestaoDePedidosServiceTests
 
         Assert.Equal(50m, pedido.Subtotal);
         Assert.Equal(65m, pedido.Total);
+    }
+
+    [Fact]
+    public async Task CriarAsync_valida_variante_aplica_preco_e_baixa_estoque_da_opcao()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto, precoVenda: 35m, precoPromocional: 25m, estoque: 0);
+        var variante = await SemearVarianteAsync(contexto, produto, estoque: 4, adicional: 3m);
+        var requisicao = Requisicao(usuario.Id, (produto.Id, 2)) with
+        {
+            Itens = [new ItemDePedidoRequisicao(produto.Id, 2, variante.Id)]
+        };
+        var servico = Servico(contexto);
+
+        var pedido = await servico.CriarAsync(requisicao, OrigemPedido.Online, CancellationToken.None);
+
+        var item = Assert.Single(pedido.Itens);
+        Assert.Equal(variante.Id, item.VarianteProdutoId);
+        Assert.Equal("Rosa", item.VarianteNome);
+        Assert.Equal(38m, item.PrecoVendaUnitario);
+        Assert.Equal(28m, item.PrecoPromocionalUnitario);
+        Assert.Equal(56m, item.Subtotal);
+        Assert.Equal(2, await contexto.VariantesProduto.Where(v => v.Id == variante.Id).Select(v => v.QuantidadeEstoque).SingleAsync());
+        Assert.Equal(0, await contexto.Produtos.Where(p => p.Id == produto.Id).Select(p => p.QuantidadeEstoque).SingleAsync());
+    }
+
+    [Fact]
+    public async Task CriarAsync_exige_variante_quando_produto_tem_opcoes_ativas()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        await SemearVarianteAsync(contexto, produto);
+        var servico = Servico(contexto);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CriarAsync(Requisicao(usuario.Id, (produto.Id, 1)), OrigemPedido.Online, CancellationToken.None));
+
+        Assert.Contains("Escolha uma opção", erro.Message);
+    }
+
+    [Fact]
+    public async Task CriarAsync_recusa_variante_de_outro_produto_ou_inativa()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var varianteInativa = await SemearVarianteAsync(contexto, produto, ativa: false);
+        var requisicao = Requisicao(usuario.Id, (produto.Id, 1)) with
+        {
+            Itens = [new ItemDePedidoRequisicao(produto.Id, 1, varianteInativa.Id)]
+        };
+        var servico = Servico(contexto);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CriarAsync(requisicao, OrigemPedido.Online, CancellationToken.None));
+
+        Assert.Contains("indisponível", erro.Message);
     }
 
     [Fact]
@@ -560,6 +642,26 @@ public sealed class GestaoDePedidosServiceTests
 
         Assert.Equal(StatusPedido.Cancelado, cancelado.Status);
         Assert.Equal(10, await contexto.Produtos.Select(p => p.QuantidadeEstoque).SingleAsync());
+    }
+
+    [Fact]
+    public async Task CancelarAsync_devolve_estoque_a_variante()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto, estoque: 0);
+        var variante = await SemearVarianteAsync(contexto, produto, estoque: 5);
+        var requisicao = Requisicao(usuario.Id, (produto.Id, 2)) with
+        {
+            Itens = [new ItemDePedidoRequisicao(produto.Id, 2, variante.Id)]
+        };
+        var servico = Servico(contexto);
+        var pedido = await servico.CriarAsync(requisicao, OrigemPedido.Online, CancellationToken.None);
+
+        await servico.CancelarAsync(pedido.Id, CancellationToken.None);
+
+        Assert.Equal(5, await contexto.VariantesProduto.Where(v => v.Id == variante.Id).Select(v => v.QuantidadeEstoque).SingleAsync());
+        Assert.Equal(0, await contexto.Produtos.Where(p => p.Id == produto.Id).Select(p => p.QuantidadeEstoque).SingleAsync());
     }
 
     [Fact]

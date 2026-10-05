@@ -144,7 +144,7 @@ public class DtosTests
     public void ProdutoDto_armazena_valores()
     {
         var imagens = new List<ImagemProdutoDto> { new(1, "produtos/foto.jpg", "foto.jpg", 1) };
-        var dto = new ProdutoDto(1, "Batom", "batom", "Batom vermelho", 39.9m, 29.9m, 5, true, false, 1, "Bases", imagens);
+        var dto = new ProdutoDto(1, "Batom", "batom", "Batom vermelho", 39.9m, 29.9m, 5, true, false, 1, "Bases", imagens, []);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal("Batom", dto.Nome);
