@@ -48,11 +48,15 @@ public static class DependencyInjection
         var smtpConfigurado = !string.IsNullOrWhiteSpace(configuration["ExternalServices:Smtp:Host"]);
         if (smtpConfigurado)
         {
-            services.AddScoped<IEmailSender, SmtpEmailSender>();
+            services.AddScoped<SmtpEmailSender>();
+            services.AddScoped<IEmailSender>(provedor => provedor.GetRequiredService<SmtpEmailSender>());
+            services.AddScoped<IEmailSenderComConfirmacao>(provedor => provedor.GetRequiredService<SmtpEmailSender>());
         }
         else
         {
-            services.AddScoped<IEmailSender, EmailSenderStub>();
+            services.AddScoped<EmailSenderStub>();
+            services.AddScoped<IEmailSender>(provedor => provedor.GetRequiredService<EmailSenderStub>());
+            services.AddScoped<IEmailSenderComConfirmacao>(provedor => provedor.GetRequiredService<EmailSenderStub>());
         }
 
         services.AddHttpClient<IRecaptchaValidator, RecaptchaValidator>(client =>
@@ -90,8 +94,10 @@ public static class DependencyInjection
         services.AddScoped<IGestaoDeFreteService, GestaoDeFreteService>();
         services.AddScoped<IGestaoDePedidosService, GestaoDePedidosService>();
         services.AddScoped<IGestaoDeWhatsAppService, GestaoDeWhatsAppService>();
+        services.AddScoped<IRecompraService, RecompraService>();
         services.AddScoped<INotificadorDePedido, NotificadorDePedido>();
         services.AddScoped<RepositorioDeSessaoWhatsApp>();
+        services.AddSingleton(TimeProvider.System);
 
         services.Configure<NotificacoesDePedidoOptions>(
             configuration.GetSection("NotificacoesDePedido"));

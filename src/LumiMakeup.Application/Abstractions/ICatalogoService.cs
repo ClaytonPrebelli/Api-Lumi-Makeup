@@ -19,6 +19,11 @@ public interface ICatalogoService
     Task<IReadOnlyList<BannerDto>> ObterBannersAtivosAsync(CancellationToken cancellationToken = default);
 
     Task<ProdutoDto?> ObterProdutoPorSlugAsync(string slug, CancellationToken cancellationToken = default);
+    Task<ProdutosPaginadosDto> ObterProdutosPaginadosAsync(
+        int pagina,
+        int tamanhoPagina,
+        string? categoriaSlug,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IGestaoDeProdutosService

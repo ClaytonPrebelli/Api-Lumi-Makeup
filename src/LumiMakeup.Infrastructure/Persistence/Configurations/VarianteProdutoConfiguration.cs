@@ -12,7 +12,7 @@ public class VarianteProdutoConfiguration : IEntityTypeConfiguration<VariantePro
         builder.HasKey(v => v.Id);
 
         builder.Property(v => v.Nome).HasMaxLength(80).IsRequired();
-        builder.Property(v => v.CorHex).HasMaxLength(7).IsRequired(); // #RRGGBB
+        builder.Property(v => v.CorHex).HasMaxLength(7);
         builder.Property(v => v.QuantidadeEstoque).HasColumnType("int");
         builder.Property(v => v.PrecoAdicional).HasColumnType("decimal(10,2)");
         builder.Property(v => v.Ativo).HasColumnType("tinyint(1)");

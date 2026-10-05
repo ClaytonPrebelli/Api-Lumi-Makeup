@@ -369,7 +369,7 @@ public class ProdutosControllerTests
 {
     private static ProdutoDto CriarProduto()
     {
-        return new ProdutoDto(10, "Batom Matte", "batom-matte", "Batom de alta duração", 39.90m, null, 5, true, false, 2, "Batom", new ImagemProdutoDto[] { new(1, "produtos/batom.jpg", "batom.jpg", 0) });
+        return new ProdutoDto(10, "Batom Matte", "batom-matte", "Batom de alta duração", 39.90m, null, 5, true, false, 2, "Batom", new ImagemProdutoDto[] { new(1, "produtos/batom.jpg", "batom.jpg", 0) }, []);
     }
 
     [Fact]
@@ -413,5 +413,36 @@ public class ProdutosControllerTests
         var resultado = await controller.ObterPorSlug("inexistente", CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(resultado);
+    }
+
+    [Fact]
+    public async Task ObterPaginados_retorna_pagina_e_filtro_de_categoria()
+    {
+        var catalogo = new Mock<ICatalogoService>();
+        var resposta = new ProdutosPaginadosDto([CriarProduto()], 2, 12, 13, 2);
+        catalogo.Setup(c => c.ObterProdutosPaginadosAsync(2, 12, "batons", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resposta);
+        var controller = new ProdutosController(catalogo.Object);
+
+        var resultado = await controller.ObterPaginados(2, 12, "batons", CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(resultado);
+        Assert.Equal(resposta, ok.Value);
+    }
+
+    [Theory]
+    [InlineData(0, 12)]
+    [InlineData(1, 0)]
+    [InlineData(1, 101)]
+    public async Task ObterPaginados_recusa_paginacao_fora_dos_limites(int pagina, int tamanhoPagina)
+    {
+        var catalogo = new Mock<ICatalogoService>();
+        var controller = new ProdutosController(catalogo.Object);
+
+        var resultado = await controller.ObterPaginados(pagina, tamanhoPagina, null, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(resultado);
+        catalogo.Verify(c => c.ObterProdutosPaginadosAsync(
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

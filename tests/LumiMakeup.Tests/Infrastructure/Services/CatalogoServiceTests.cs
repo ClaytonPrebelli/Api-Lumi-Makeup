@@ -152,6 +152,55 @@ public class CatalogoServiceTests
     }
 
     [Fact]
+    public async Task ObterProdutosPaginadosAsync_filtra_categoria_ordena_de_forma_estavel_e_expoe_opcoes_ativas()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = new Categoria { Nome = "Batons", Slug = "batons", Ativo = true };
+        var outraCategoria = new Categoria { Nome = "Bases", Slug = "bases", Ativo = true };
+        contexto.Categorias.AddRange(categoria, outraCategoria);
+        await contexto.SaveChangesAsync();
+
+        var mesmoNomePrimeiro = new Produto
+        {
+            Nome = "Batom", Slug = "batom-1", Descricao = "", Categoria = categoria, CategoriaId = categoria.Id,
+            PrecoVenda = 40m, QuantidadeEstoque = 8, Ativo = true
+        };
+        mesmoNomePrimeiro.Variantes.Add(new VarianteProduto
+        {
+            Nome = "Vinho", CorHex = null, QuantidadeEstoque = 3, PrecoAdicional = 2m, Ativo = true, Ordem = 1
+        });
+        mesmoNomePrimeiro.Variantes.Add(new VarianteProduto
+        {
+            Nome = "Inativa", QuantidadeEstoque = 10, Ativo = false, Ordem = 0
+        });
+        var mesmoNomeSegundo = new Produto
+        {
+            Nome = "Batom", Slug = "batom-2", Descricao = "", Categoria = categoria, CategoriaId = categoria.Id,
+            PrecoVenda = 45m, QuantidadeEstoque = 5, Ativo = true
+        };
+        contexto.Produtos.AddRange(
+            mesmoNomePrimeiro,
+            mesmoNomeSegundo,
+            new Produto
+            {
+                Nome = "Base", Slug = "base", Descricao = "", Categoria = outraCategoria, CategoriaId = outraCategoria.Id,
+                PrecoVenda = 20m, Ativo = true
+            });
+        await contexto.SaveChangesAsync();
+
+        var servico = new CatalogoService(contexto);
+        var resultado = await servico.ObterProdutosPaginadosAsync(1, 1, "batons", CancellationToken.None);
+
+        Assert.Equal(2, resultado.TotalItens);
+        Assert.Equal(2, resultado.TotalPaginas);
+        var produto = Assert.Single(resultado.Itens);
+        Assert.Equal("batom-1", produto.Slug);
+        var variante = Assert.Single(produto.Variantes);
+        Assert.Equal("Vinho", variante.Nome);
+        Assert.Null(variante.CorHex);
+    }
+
+    [Fact]
     public async Task ObterProdutosDestaqueAsync_traz_so_os_ativos_com_destaque()
     {
         using var contexto = Testes.CriarContextoInMemory();

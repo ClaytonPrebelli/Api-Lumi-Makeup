@@ -29,6 +29,11 @@ Detalhamento do armazenamento de imagens e da melhoria de texto por IA:
 | `POST` | `/api/admin/produtos/{id}/imagens` | Envia uma imagem (`multipart/form-data`, campo `arquivo`) |
 | `POST` | `/api/admin/produtos/{id}/imagens/{imagemId}/excluir` | Exclui imagem e reindexa a ordem |
 | `POST` | `/api/admin/produtos/{id}/imagens/ordem` | Reordena pelo conjunto de ids |
+| `POST` | `/api/admin/produtos/{id}/variantes` | Cria uma opção |
+| `POST` | `/api/admin/produtos/{id}/variantes/{varianteId}/atualizar` | Atualiza uma opção |
+| `POST` | `/api/admin/produtos/{id}/variantes/{varianteId}/excluir` | Exclui se ainda não estiver em pedido |
+| `POST` | `/api/admin/produtos/{id}/variantes/ordem` | Reordena as opções |
+| `POST` | `/api/admin/produtos/{id}/variantes/{varianteId}/estoque/somar` | Soma unidades ao estoque da opção |
 
 ### Categorias — `api/admin/categorias`
 
@@ -138,6 +143,35 @@ interna, e expor na API pública entregaria a margem de quem compra.
 
 ---
 
+## Variantes de produto
+
+Uma variante representa uma opção do produto, como uma cor ou um tipo. Cada uma tem
+nome, estoque, preço adicional opcional, estado ativo e ordem. `CorHex` também é
+opcional; a opção continua identificável pelo nome sem uma amostra de cor.
+
+Os DTOs administrativos incluem opções ativas e inativas. O catálogo público inclui
+somente opções ativas, ordenadas por `Ordem` e `Id`, com estoque e preço adicional. A
+API valida que a opção pertence ao produto, está ativa e tem estoque suficiente na
+criação de pedido. Se um produto tem opções ativas, a seleção é obrigatória.
+
+O preço é calculado no servidor: valor promocional quando existe, senão valor de venda,
+mais o adicional da opção. O preço que o frontend envia não é fonte de cobrança.
+Quantidade solicitada é validada e baixada no estoque da variante; cancelamento devolve
+as unidades para a mesma opção.
+
+Uma opção usada por um pedido não pode ser excluída. Deve ser desativada para deixar de
+ser oferecida, mantendo intacto o histórico. O pedido registra também o nome da opção
+no momento da compra, para não alterar a descrição de pedidos antigos quando a opção
+for renomeada.
+
+As migrations relacionadas são `EnsureVariantesInnoDB` e
+`VariantesSemCorEHistoricoDePedido`. A segunda permite `CorHex` nulo e adiciona
+`VarianteNomeRegistrado` nullable a `itens_pedido`; são mudanças aditivas. A migration
+de correção assegura InnoDB nas tabelas relacionadas antes de criar a chave estrangeira.
+**A documentação não implica que migrations pendentes já tenham sido aplicadas.**
+
+---
+
 ## Preço promocional e destaque
 
 Migration `20260928044006_PrecoPromocionalEDestaque`:
@@ -220,7 +254,9 @@ teste.
 - **Endpoint dedicado para o destaque.** A tela alterna a estrela reenviando o produto
   inteiro. Funciona porque a atualização substitui todos os campos, mas
   qualquer campo novo que a tela não conheça passa a poder ser apagado por essa troca.
-- **Paginação** em `GET /api/admin/produtos` e em `GET /api/produtos`.
+- **Paginação administrativa** em `GET /api/admin/produtos`. O catálogo público
+  (`GET /api/produtos/paginados`) já aceita paginação e filtro por categoria; ver
+  [`12-catalogo.md`](12-catalogo.md).
 
 ---
 

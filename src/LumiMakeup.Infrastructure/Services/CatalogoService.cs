@@ -3,11 +3,43 @@ using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Entities;
 using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace LumiMakeup.Infrastructure.Services;
 
 public sealed class CatalogoService : ICatalogoService
 {
+    private static readonly Expression<Func<Produto, ProdutoDto>> ProjetarProduto = p =>
+        new ProdutoDto(
+            p.Id,
+            p.Nome,
+            p.Slug,
+            p.Descricao,
+            p.PrecoVenda,
+            p.PrecoPromocional,
+            p.QuantidadeEstoque,
+            p.Ativo,
+            p.Destaque,
+            p.CategoriaId,
+            p.Categoria.Nome,
+            p.Imagens
+                .OrderBy(i => i.Ordem)
+                .Select(i => new ImagemProdutoDto(i.Id, i.CaminhoRelativo, i.NomeOriginal, i.Ordem))
+                .ToList(),
+            p.Variantes
+                .Where(v => v.Ativo)
+                .OrderBy(v => v.Ordem)
+                .ThenBy(v => v.Id)
+                .Select(v => new VarianteProdutoLojaDto(
+                    v.Id,
+                    v.Nome,
+                    v.CorHex,
+                    v.QuantidadeEstoque,
+                    v.PrecoAdicional,
+                    v.Ativo,
+                    v.Ordem))
+                .ToList());
+
     private readonly LumiDbContext _contexto;
 
     public CatalogoService(LumiDbContext contexto)
@@ -47,7 +79,8 @@ public sealed class CatalogoService : ICatalogoService
             _contexto.Produtos
                 .AsNoTracking()
                 .Where(p => p.Ativo)
-                .OrderBy(p => p.Nome),
+                .OrderBy(p => p.Nome)
+                .ThenBy(p => p.Id),
             cancellationToken);
     }
 
@@ -57,8 +90,44 @@ public sealed class CatalogoService : ICatalogoService
             _contexto.Produtos
                 .AsNoTracking()
                 .Where(p => p.Ativo && p.Destaque)
-                .OrderBy(p => p.Nome),
+                .OrderBy(p => p.Nome)
+                .ThenBy(p => p.Id),
             cancellationToken);
+    }
+
+    public async Task<ProdutosPaginadosDto> ObterProdutosPaginadosAsync(
+        int pagina,
+        int tamanhoPagina,
+        string? categoriaSlug,
+        CancellationToken cancellationToken = default)
+    {
+        if (pagina < 1 || tamanhoPagina is < 1 or > 100 ||
+            pagina > int.MaxValue / tamanhoPagina)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pagina), "Página ou tamanho de página inválido.");
+        }
+
+        var consulta = _contexto.Produtos
+            .AsNoTracking()
+            .Where(p => p.Ativo);
+
+        if (!string.IsNullOrWhiteSpace(categoriaSlug))
+        {
+            var slugNormalizado = categoriaSlug.Trim();
+            consulta = consulta.Where(p => p.Categoria.Slug == slugNormalizado && p.Categoria.Ativo);
+        }
+
+        var totalItens = await consulta.CountAsync(cancellationToken);
+        var totalPaginas = (int)Math.Ceiling(totalItens / (double)tamanhoPagina);
+        var itens = await consulta
+            .OrderBy(p => p.Nome)
+            .ThenBy(p => p.Id)
+            .Skip((pagina - 1) * tamanhoPagina)
+            .Take(tamanhoPagina)
+            .Select(ProjetarProduto)
+            .ToListAsync(cancellationToken);
+
+        return new ProdutosPaginadosDto(itens, pagina, tamanhoPagina, totalItens, totalPaginas);
     }
 
     private static async Task<IReadOnlyList<ProdutoDto>> ProjetarAsync(
@@ -66,22 +135,7 @@ public sealed class CatalogoService : ICatalogoService
         CancellationToken cancellationToken)
     {
         return await consulta
-            .Select(p => new ProdutoDto(
-                p.Id,
-                p.Nome,
-                p.Slug,
-                p.Descricao,
-                p.PrecoVenda,
-                p.PrecoPromocional,
-                p.QuantidadeEstoque,
-                p.Ativo,
-                p.Destaque,
-                p.CategoriaId,
-                p.Categoria.Nome,
-                p.Imagens
-                    .OrderBy(i => i.Ordem)
-                    .Select(i => new ImagemProdutoDto(i.Id, i.CaminhoRelativo, i.NomeOriginal, i.Ordem))
-                    .ToList()))
+            .Select(ProjetarProduto)
             .ToListAsync(cancellationToken);
     }
 
@@ -90,22 +144,7 @@ public sealed class CatalogoService : ICatalogoService
         return await _contexto.Produtos
             .AsNoTracking()
             .Where(p => p.Slug == slug && p.Ativo)
-            .Select(p => new ProdutoDto(
-                p.Id,
-                p.Nome,
-                p.Slug,
-                p.Descricao,
-                p.PrecoVenda,
-                p.PrecoPromocional,
-                p.QuantidadeEstoque,
-                p.Ativo,
-                p.Destaque,
-                p.CategoriaId,
-                p.Categoria.Nome,
-                p.Imagens
-                    .OrderBy(i => i.Ordem)
-                    .Select(i => new ImagemProdutoDto(i.Id, i.CaminhoRelativo, i.NomeOriginal, i.Ordem))
-                    .ToList()))
+            .Select(ProjetarProduto)
             .SingleOrDefaultAsync(cancellationToken);
     }
 }

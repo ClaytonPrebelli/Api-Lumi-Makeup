@@ -239,7 +239,9 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                         i.Quantidade,
                         i.PrecoVendaUnitario,
                         i.PrecoPromocionalUnitario,
-                        i.Subtotal))
+                        i.Subtotal,
+                        i.VarianteProdutoId,
+                        i.VarianteNomeRegistrado ?? (i.VarianteProduto == null ? null : i.VarianteProduto.Nome)))
                     .ToList()))
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -289,7 +291,9 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                         i.Quantidade,
                         i.PrecoVendaUnitario,
                         i.PrecoPromocionalUnitario,
-                        i.Subtotal))
+                        i.Subtotal,
+                        i.VarianteProdutoId,
+                        i.VarianteNomeRegistrado ?? (i.VarianteProduto == null ? null : i.VarianteProduto.Nome)))
                     .ToList()))
             .ToListAsync(cancellationToken);
     }
@@ -459,30 +463,83 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                 $"Produto indisponível: {string.Join(", ", inativos)}.");
         }
 
+        var variantesAtivas = await _contexto.VariantesProduto
+            .AsNoTracking()
+            .Where(v => ids.Contains(v.ProdutoId) && v.Ativo)
+            .ToListAsync(cancellationToken);
+        var variantesPorProduto = variantesAtivas
+            .GroupBy(v => v.ProdutoId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var grupo in requisitados.GroupBy(i => (i.ProdutoId, i.VarianteProdutoId)))
+        {
+            var produto = produtos.First(p => p.Id == grupo.Key.ProdutoId);
+            var temVariantesAtivas = variantesPorProduto.TryGetValue(produto.Id, out var opcoes) &&
+                opcoes.Count > 0;
+
+            if (temVariantesAtivas && grupo.Key.VarianteProdutoId is null)
+            {
+                throw new InvalidOperationException(
+                    $"Escolha uma opção para o produto {produto.Nome}.");
+            }
+
+            if (grupo.Key.VarianteProdutoId is { } varianteId)
+            {
+                var variante = opcoes?.FirstOrDefault(v => v.Id == varianteId);
+                if (variante is null)
+                {
+                    throw new InvalidOperationException(
+                        $"A opção escolhida para {produto.Nome} não existe ou está indisponível.");
+                }
+
+                var quantidadeSolicitada = grupo.Sum(i => i.Quantidade);
+                if (variante.QuantidadeEstoque < quantidadeSolicitada)
+                {
+                    throw new InvalidOperationException(
+                        $"Estoque insuficiente da opção {variante.Nome} de {produto.Nome}. Disponível: {variante.QuantidadeEstoque}.");
+                }
+            }
+            else
+            {
+                var quantidadeSolicitada = grupo.Sum(i => i.Quantidade);
+                if (produto.QuantidadeEstoque < quantidadeSolicitada)
+                {
+                    throw new InvalidOperationException(
+                        $"Estoque insuficiente de {produto.Nome}. Disponível: {produto.QuantidadeEstoque}.");
+                }
+            }
+        }
+
         var itens = new List<ItemPedido>();
 
         foreach (var requisitado in requisitados)
         {
             var produto = produtos.First(p => p.Id == requisitado.ProdutoId);
-
-            if (produto.QuantidadeEstoque < requisitado.Quantidade)
+            VarianteProduto? variante = null;
+            if (requisitado.VarianteProdutoId is { } varianteId)
             {
-                throw new InvalidOperationException(
-                    $"Estoque insuficiente de {produto.Nome}. Disponível: {produto.QuantidadeEstoque}.");
+                variante = variantesPorProduto[produto.Id].First(v => v.Id == varianteId);
             }
 
             // O preco promocional tem precedencia sobre o de venda, e os dois sao
             // gravados. Guardar so o cobrado impediria o relatorio de dizer quanto
             // foi discounting de promocao alem do cupom.
-            var precoPraticado = produto.PrecoPromocional ?? produto.PrecoVenda;
+            var adicional = variante?.PrecoAdicional ?? 0m;
+            var precoVenda = produto.PrecoVenda + adicional;
+            decimal? precoPromocional = produto.PrecoPromocional is { } promocional
+                ? promocional + adicional
+                : null;
+            var precoPraticado = precoPromocional ?? precoVenda;
 
             itens.Add(new ItemPedido
             {
                 ProdutoId = produto.Id,
+                VarianteProdutoId = variante?.Id,
+                VarianteNomeRegistrado = variante?.Nome,
                 NomeProdutoRegistrado = produto.Nome,
                 PrecoCustoUnitario = produto.PrecoCusto,
-                PrecoVendaUnitario = produto.PrecoVenda,
-                PrecoPromocionalUnitario = produto.PrecoPromocional,
+                PrecoVendaUnitario = precoVenda,
+                PrecoPromocionalUnitario = precoPromocional,
                 Quantidade = requisitado.Quantidade,
                 Subtotal = Arredondar(precoPraticado * requisitado.Quantidade)
             });
@@ -496,12 +553,18 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
         List<ItemPedido> itens,
         CancellationToken cancellationToken)
     {
-        var porProduto = itens
-            .GroupBy(i => i.ProdutoId)
-            .Select(g => new { ProdutoId = g.Key, Quantidade = g.Sum(i => i.Quantidade) })
+        var porProdutoEVariante = itens
+            .GroupBy(i => (i.ProdutoId, i.VarianteProdutoId, i.VarianteNomeRegistrado))
+            .Select(g => new
+            {
+                g.Key.ProdutoId,
+                g.Key.VarianteProdutoId,
+                g.Key.VarianteNomeRegistrado,
+                Quantidade = g.Sum(i => i.Quantidade)
+            })
             .ToList();
 
-        foreach (var item in porProduto)
+        foreach (var item in porProdutoEVariante)
         {
             var produto = await _contexto.Produtos
                 .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken);
@@ -517,7 +580,9 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                 Tipo = TipoMovimentoEstoque.Saida,
                 Quantidade = item.Quantidade,
                 Referencia = $"Pedido #{pedidoId}",
-                Observacao = $"Saída automática por criação do pedido #{pedidoId}."
+                Observacao = item.VarianteNomeRegistrado is null
+                    ? $"Saída automática por criação do pedido #{pedidoId}."
+                    : $"Saída automática por criação do pedido #{pedidoId}. Opção: {item.VarianteNomeRegistrado}."
             };
 
             _contexto.MovimentosEstoque.Add(movimento);
@@ -526,36 +591,66 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
 
     private async Task BaixarEstoqueAsync(List<ItemPedido> itens, CancellationToken cancellationToken)
     {
-        var porProduto = itens
-            .GroupBy(i => i.ProdutoId)
-            .Select(g => new { ProdutoId = g.Key, Quantidade = g.Sum(i => i.Quantidade) })
+        var porProdutoEVariante = itens
+            .GroupBy(i => (i.ProdutoId, i.VarianteProdutoId))
+            .Select(g => new { g.Key.ProdutoId, g.Key.VarianteProdutoId, Quantidade = g.Sum(i => i.Quantidade) })
             .ToList();
 
         // Somar por produto antes de baixar evita que duas linhas do mesmo produto
         // validassem 3 + 3 contra um estoque de 5 e o deixassem negativo.
-        foreach (var item in porProduto)
+        foreach (var item in porProdutoEVariante)
         {
-            var produto = await _contexto.Produtos
-                .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken);
-
-            if (produto is null)
+            if (item.VarianteProdutoId is { } varianteId)
             {
-                throw new KeyNotFoundException($"Produto não encontrado: {item.ProdutoId}.");
+                var variante = await _contexto.VariantesProduto
+                    .FirstOrDefaultAsync(v => v.Id == varianteId && v.ProdutoId == item.ProdutoId, cancellationToken)
+                    ?? throw new InvalidOperationException("A opção do produto não existe mais.");
+
+                if (variante.QuantidadeEstoque < item.Quantidade)
+                {
+                    throw new InvalidOperationException(
+                        $"Estoque insuficiente da opção {variante.Nome}. Disponível: {variante.QuantidadeEstoque}.");
+                }
+
+                variante.QuantidadeEstoque -= item.Quantidade;
+                continue;
             }
 
+            var produto = await _contexto.Produtos
+                .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Produto não encontrado: {item.ProdutoId}.");
+
+            if (produto.QuantidadeEstoque < item.Quantidade)
+            {
+                throw new InvalidOperationException(
+                    $"Estoque insuficiente de {produto.Nome}. Disponível: {produto.QuantidadeEstoque}.");
+            }
             produto.QuantidadeEstoque -= item.Quantidade;
         }
     }
 
     private async Task DevolverEstoqueAsync(ICollection<ItemPedido> itens, CancellationToken cancellationToken)
     {
-        var porProduto = itens
-            .GroupBy(i => i.ProdutoId)
-            .Select(g => new { ProdutoId = g.Key, Quantidade = g.Sum(i => i.Quantidade) })
+        var porProdutoEVariante = itens
+            .GroupBy(i => (i.ProdutoId, i.VarianteProdutoId))
+            .Select(g => new { g.Key.ProdutoId, g.Key.VarianteProdutoId, Quantidade = g.Sum(i => i.Quantidade) })
             .ToList();
 
-        foreach (var item in porProduto)
+        foreach (var item in porProdutoEVariante)
         {
+            if (item.VarianteProdutoId is { } varianteId)
+            {
+                var variante = await _contexto.VariantesProduto
+                    .FirstOrDefaultAsync(v => v.Id == varianteId && v.ProdutoId == item.ProdutoId, cancellationToken);
+
+                if (variante is not null)
+                {
+                    variante.QuantidadeEstoque += item.Quantidade;
+                }
+
+                continue;
+            }
+
             var produto = await _contexto.Produtos
                 .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken);
 

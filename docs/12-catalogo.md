@@ -6,8 +6,8 @@
 
 ## Objetivo
 
-Expor o catálogo da loja: listar produtos ativos, buscar um produto pelo slug e listar
-categorias ativas, com as imagens ordenadas.
+Expor o catálogo da loja: listar e paginar produtos ativos, buscar um produto pelo slug
+e listar categorias ativas. Produtos públicos incluem imagens e opções ativas ordenadas.
 
 ---
 
@@ -16,6 +16,7 @@ categorias ativas, com as imagens ordenadas.
 | Método | Rota | Resposta |
 |---|---|---|
 | `GET` | `/api/produtos` | Lista de produtos ativos |
+| `GET` | `/api/produtos/paginados` | Página de produtos, opcionalmente filtrada por categoria |
 | `GET` | `/api/produtos/destaques` | Lista de produtos ativos **e** marcados como destaque |
 | `GET` | `/api/produtos/{slug}` | Produto ou `404` |
 | `GET` | `/api/categorias` | Lista de categorias ativas |
@@ -49,23 +50,47 @@ Não há lógica de catálogo nos controllers — eles apenas traduzem HTTP.
 
 ---
 
+## Paginação e filtro por categoria
+
+`GET /api/produtos/paginados` aceita:
+
+| Query param | Padrão | Regra |
+|---|---:|---|
+| `pagina` | `1` | Inteiro positivo |
+| `tamanhoPagina` | `12` | Inteiro entre 1 e 100 |
+| `categoriaSlug` | ausente | Filtra produtos pela categoria ativa |
+
+Exemplo:
+
+```text
+GET /api/produtos/paginados?pagina=2&tamanhoPagina=12&categoriaSlug=bases
+```
+
+O endpoint responde `400` se página ou tamanho forem inválidos. A resposta contém
+`itens`, `pagina`, `tamanhoPagina`, `totalItens` e `totalPaginas`. O total é contado
+antes do `Skip`/`Take`. Uma categoria inexistente ou inativa produz uma página vazia.
+
+A ordenação é estável por `Nome` e depois `Id`; sem o segundo critério, nomes iguais
+poderiam mudar de posição entre páginas. Filtro, contagem, ordenação, paginação e
+projeção são executados na consulta ao banco. `/api/produtos` continua disponível para
+compatibilidade e para consumidores que ainda pedem a lista completa; a vitrine usa a
+rota paginada.
+
+---
+
 ## Listagem
 
-O filtro de atividade é aplicado **no banco**, não depois:
+As rotas de listagem reutilizam `ProjetarProduto`, uma expressão comum que projeta
+produto, categoria, imagens e variantes diretamente em `ProdutoDto`. Não materializam
+entidades nem carregam custos administrativos.
 
 ```csharp
-return await _contexto.Produtos
-    .AsNoTracking()
-    .Where(p => p.Ativo)
+var itens = await consulta
     .OrderBy(p => p.Nome)
-    .Select(p => new ProdutoDto(
-        p.Id, p.Nome, p.Slug, p.Descricao,
-        p.PrecoVenda, p.QuantidadeEstoque, p.Ativo,
-        p.CategoriaId, p.Categoria.Nome,
-        p.Imagens
-            .OrderBy(i => i.Ordem)
-            .Select(i => new ImagemProdutoDto(i.Id, i.UrlImagem, i.Ordem))
-            .ToList()))
+    .ThenBy(p => p.Id)
+    .Skip((pagina - 1) * tamanhoPagina)
+    .Take(tamanhoPagina)
+    .Select(ProjetarProduto)
     .ToListAsync(cancellationToken);
 ```
 
@@ -76,16 +101,14 @@ exatamente para isso: um produto descontinuado some da vitrine sem precisar ser
 excluído, e o histórico de pedidos que o referenciam continua íntegro. Por isso
 `Produto` → `ItensPedido` é `Restrict`.
 
-**`Select(...)` projeta direto no DTO.** Sem `Include`, o EF monta o `ProdutoDto` com
-uma consulta só e nunca materializa a entidade — nem categoria, nem imagens. É a
-diferença entre um endpoint rápido e o equivalente carregando o grafo inteiro e
-convertendo depois.
+**`Select(...)` projeta direto no DTO.** Sem `Include`, o EF monta o `ProdutoDto` sem
+materializar o grafo de entidades.
 
 **`OrderBy(i => i.Ordem)` dentro da projeção** ordena as imagens já no banco, então o
 frontend recebe a principal primeiro sem precisar reordenar. Categorias e produtos são
 ordenados por `Nome`.
 
-`AsNoTracking()` aparece nas três consultas: nenhuma delas altera dados, e dispensar
+`AsNoTracking()` aparece nas consultas de catálogo: nenhuma delas altera dados, e dispensar
 o rastreamento evita materializar o grafo de concorrência sem necessidade.
 
 ---
@@ -114,7 +137,9 @@ para quem consulta.
 
 | DTO | Conteúdo |
 |---|---|
-| `ProdutoDto` | Id, nome, slug, descrição, preço de venda, preço promocional, estoque, ativo, destaque, id da categoria, nome da categoria, imagens |
+| `ProdutoDto` | Id, nome, slug, descrição, preço de venda, preço promocional, estoque base, ativo, destaque, categoria, imagens e variantes ativas |
+| `VarianteProdutoLojaDto` | Id, nome, cor opcional, estoque, preço adicional opcional, estado e ordem |
+| `ProdutosPaginadosDto` | Itens e metadados da página |
 | `CategoriaDto` | Id, nome, slug, descrição, ativo |
 | `ImagemProdutoDto` | Id, caminho relativo, nome original, ordem |
 
@@ -135,25 +160,21 @@ venda.
 
 ---
 
-## Uma projeção, três consultas
+## Uma projeção compartilhada
 
-`ObterProdutosAtivosAsync`, `ObterProdutoPorSlugAsync` e `ObterProdutosDestaqueAsync`
-usam a **mesma** `Expression<Func<Produto, ProdutoDto>>` privada. A lista de campos
-mudou uma vez — com a entrada do preço promocional e do destaque — e as três consultas
-precisaram mudar junto. Copiar a seleção três vezes é como a próxima mudança no DTO
-deixa de lembrar de uma delas.
+`ObterProdutosAtivosAsync`, `ObterProdutosPaginadosAsync`, `ObterProdutoPorSlugAsync` e
+`ObterProdutosDestaqueAsync` usam a **mesma**
+`Expression<Func<Produto, ProdutoDto>>` privada. Assim preço, imagens e variantes são
+projetados de maneira consistente em todas as rotas públicas.
 
 ---
 
-## O que ainda não existe
+## Escrita e estoque
 
 A API pública é **somente leitura**, e isso é definitivo: a escrita existe, mas atrás de
 `api/admin/produtos` e `api/admin/categorias`, protegidas pela policy
 `SomenteAdministrador` — ver [`15-gestao-de-produtos.md`](15-gestao-de-produtos.md).
 
-Ainda falta:
-
-- **Paginação.** As duas listagens trazem tudo de uma vez.
-- Controle de estoque (entrada, saída e ajuste) — hoje `QuantidadeEstoque` é um número
-  editável à mão.
-
+O estoque é mantido nas rotas administrativas e na criação/cancelamento de pedidos. A
+gestão das opções e os efeitos da variante sobre preço e estoque estão descritos em
+[`15-gestao-de-produtos.md`](15-gestao-de-produtos.md).

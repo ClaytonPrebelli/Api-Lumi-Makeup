@@ -11,8 +11,7 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("ALTER TABLE `variantes_produto` ENGINE = InnoDB;");
-
-            migrationBuilder.Sql("ALTER TABLE `itens_pedido` DROP COLUMN IF EXISTS `VarianteProdutoId`;");
+            migrationBuilder.Sql("ALTER TABLE `itens_pedido` ENGINE = InnoDB;");
 
             migrationBuilder.AddColumn<long>(
                 name: "VarianteProdutoId",
@@ -37,17 +36,7 @@ namespace LumiMakeup.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_itens_pedido_variantes_produto_VarianteProdutoId",
-                table: "itens_pedido");
-
-            migrationBuilder.DropIndex(
-                name: "IX_itens_pedido_VarianteProdutoId",
-                table: "itens_pedido");
-
-            migrationBuilder.DropColumn(
-                name: "VarianteProdutoId",
-                table: "itens_pedido");
+            throw new InvalidOperationException("A migration de variantes é aditiva e não pode remover dados.");
         }
     }
 }

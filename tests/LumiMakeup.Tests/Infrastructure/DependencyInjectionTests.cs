@@ -66,6 +66,7 @@ public class DependencyInjectionTests
         Assert.NotNull(provedor.GetRequiredService<IGeocodificador>());
         Assert.NotNull(provedor.GetRequiredService<IRecaptchaValidator>());
         Assert.NotNull(provedor.GetRequiredService<IEmailSender>());
+        Assert.NotNull(provedor.GetRequiredService<IEmailSenderComConfirmacao>());
         Assert.NotNull(provedor.GetRequiredService<IArmazenamentoDeImagens>());
         Assert.NotNull(provedor.GetRequiredService<IWhatsAppService>());
         Assert.NotNull(provedor.GetRequiredService<IFocusNfeService>());
@@ -77,8 +78,10 @@ public class DependencyInjectionTests
         Assert.NotNull(provedor.GetRequiredService<IAutenticacaoGoogleService>());
         Assert.NotNull(provedor.GetRequiredService<IAutenticacaoService>());
         Assert.NotNull(provedor.GetRequiredService<IRecuperacaoDeSenhaService>());
+        Assert.NotNull(provedor.GetRequiredService<IRecompraService>());
         Assert.NotNull(provedor.GetRequiredService<DatabaseSeeder>());
         Assert.IsType<EmailSenderStub>(provedor.GetRequiredService<IEmailSender>());
+        Assert.IsType<EmailSenderStub>(provedor.GetRequiredService<IEmailSenderComConfirmacao>());
         Assert.NotNull(provedor.GetRequiredService<IOptions<RecaptchaOptions>>().Value);
         Assert.NotNull(provedor.GetRequiredService<IOptions<TokenJwtOptions>>().Value);
         Assert.NotNull(provedor.GetRequiredService<IOptions<AutenticacaoGoogleOptions>>().Value);
@@ -109,6 +112,7 @@ public class DependencyInjectionTests
         var provedor = services.BuildServiceProvider();
 
         Assert.IsType<SmtpEmailSender>(provedor.GetRequiredService<IEmailSender>());
+        Assert.IsType<SmtpEmailSender>(provedor.GetRequiredService<IEmailSenderComConfirmacao>());
     }
 
     [Fact]
@@ -125,6 +129,7 @@ public class DependencyInjectionTests
             typeof(IGeocodificador),
             typeof(IRecaptchaValidator),
             typeof(IEmailSender),
+            typeof(IEmailSenderComConfirmacao),
             typeof(IArmazenamentoDeImagens),
             typeof(IWhatsAppService),
             typeof(IFocusNfeService),
@@ -135,6 +140,7 @@ public class DependencyInjectionTests
             typeof(ITokenService),
             typeof(IAutenticacaoGoogleService),
             typeof(IAutenticacaoService),
+            typeof(IRecompraService),
             typeof(IEnviadorDeEmailSmtp),
             typeof(DatabaseSeeder)
         };

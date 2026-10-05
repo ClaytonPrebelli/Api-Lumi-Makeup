@@ -19,11 +19,18 @@ desenho:
 | Camada | Tipo | Responsabilidade |
 |---|---|---|
 | `SmtpEmailSender` | `IEmailSender` | Montar a mensagem a partir das opções |
+| `SmtpEmailSender` | `IEmailSenderComConfirmacao` | Confirmar se a chamada ao transporte SMTP terminou sem erro |
 | `EnviadorDeEmailSmtpViaClienteSmtp` | `IEnviadorDeEmailSmtp` | Transportar a mensagem pela rede |
 
 O serviço de recuperação de senha depende só de `IEmailSender`. Trocar SMTP por um
 serviço HTTP de e-mail significa escrever um novo `IEmailSender` — nada em
 `RecuperacaoDeSenhaService` muda.
+
+O disparo manual de recompra usa `IEmailSenderComConfirmacao`, sem alterar o contrato
+do envio transacional já usado pela recuperação de senha. O SMTP retorna `true` só
+depois que o transporte confirma o envio; o stub retorna `false`, pois apenas
+registra que não enviou. A recompra contabiliza somente o retorno confirmado.
+Esse fluxo é iniciado manualmente pelo painel e não usa agendador.
 
 ---
 
@@ -57,9 +64,9 @@ public sealed class SmtpOptions
 }
 ```
 
-Lida de `ExternalServices:Smtp`. Porta **465** com `UsarSsl = true` é SMTP
-implícito sobre TLS — a conexão já é criptografada desde o início, sem o upgrade
-`STARTTLS` da porta 587.
+Lida de `ExternalServices:Smtp`. Host, usuário, senha e remetente vêm da configuração
+do ambiente. Porta **465** com `UsarSsl = true` é SMTP implícito sobre TLS — a conexão
+já é criptografada desde o início, sem o upgrade `STARTTLS` da porta 587.
 
 ---
 

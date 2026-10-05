@@ -27,7 +27,7 @@ public sealed record VarianteProdutoDto(
     long Id,
     long ProdutoId,
     string Nome,
-    string CorHex,
+    string? CorHex,
     int QuantidadeEstoque,
     decimal? PrecoAdicional,
     bool Ativo,
@@ -36,7 +36,7 @@ public sealed record VarianteProdutoDto(
 
 public sealed record RequisicaoDeVarianteProduto(
     string Nome,
-    string CorHex,
+    string? CorHex,
     int QuantidadeEstoque,
     decimal? PrecoAdicional,
     bool Ativo,
@@ -44,7 +44,7 @@ public sealed record RequisicaoDeVarianteProduto(
 
 public sealed record RequisicaoDeAtualizacaoDeVariante(
     string Nome,
-    string CorHex,
+    string? CorHex,
     int QuantidadeEstoque,
     decimal? PrecoAdicional,
     bool Ativo,
@@ -143,7 +143,7 @@ public sealed record AplicacaoDeCupom(
     decimal Percentual,
     decimal Desconto);
 
-public sealed record ItemDePedidoRequisicao(long ProdutoId, int Quantidade);
+public sealed record ItemDePedidoRequisicao(long ProdutoId, int Quantidade, long? VarianteProdutoId = null);
 
 public sealed record EnderecoDeEntregaRequisicao(
     string Cep,
@@ -180,7 +180,9 @@ public sealed record PedidoItemDto(
     int Quantidade,
     decimal PrecoVendaUnitario,
     decimal? PrecoPromocionalUnitario,
-    decimal Subtotal);
+    decimal Subtotal,
+    long? VarianteProdutoId = null,
+    string? VarianteNome = null);
 
 public sealed record PedidoDto(
     long Id,
@@ -410,7 +412,24 @@ public sealed record ProdutoDto(
     bool Destaque,
     long CategoriaId,
     string NomeCategoria,
-    IReadOnlyList<ImagemProdutoDto> Imagens);
+    IReadOnlyList<ImagemProdutoDto> Imagens,
+    IReadOnlyList<VarianteProdutoLojaDto> Variantes);
+
+public sealed record VarianteProdutoLojaDto(
+    long Id,
+    string Nome,
+    string? CorHex,
+    int QuantidadeEstoque,
+    decimal? PrecoAdicional,
+    bool Ativo,
+    int Ordem);
+
+public sealed record ProdutosPaginadosDto(
+    IReadOnlyList<ProdutoDto> Itens,
+    int Pagina,
+    int TamanhoPagina,
+    int TotalItens,
+    int TotalPaginas);
 
 public sealed record MovimentoEstoqueDto(
     long Id,

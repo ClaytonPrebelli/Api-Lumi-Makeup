@@ -21,6 +21,28 @@ public sealed class ProdutosController : ControllerBase
         return Ok(produtos);
     }
 
+    [HttpGet("paginados")]
+    public async Task<IActionResult> ObterPaginados(
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamanhoPagina = 12,
+        [FromQuery] string? categoriaSlug = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (pagina < 1 || tamanhoPagina is < 1 or > 100 ||
+            pagina > int.MaxValue / tamanhoPagina)
+        {
+            return BadRequest(new { message = "Informe uma página positiva e um tamanho de página entre 1 e 100." });
+        }
+
+        var produtos = await _catalogoService.ObterProdutosPaginadosAsync(
+            pagina,
+            tamanhoPagina,
+            categoriaSlug,
+            cancellationToken);
+
+        return Ok(produtos);
+    }
+
     [HttpGet("destaques")]
     public async Task<IActionResult> ObterDestaques(CancellationToken cancellationToken)
     {

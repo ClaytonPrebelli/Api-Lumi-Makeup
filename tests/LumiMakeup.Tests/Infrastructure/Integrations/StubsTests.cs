@@ -14,6 +14,17 @@ public class StubsTests
     }
 
     [Fact]
+    public async Task EmailSenderStub_nao_confirma_envio_real()
+    {
+        var stub = new EmailSenderStub(NullLogger<EmailSenderStub>.Instance);
+
+        var confirmado = await stub.EnviarComConfirmacaoAsync(
+            "destino@exemplo.com", "Assunto", "<p>corpo</p>", CancellationToken.None);
+
+        Assert.False(confirmado);
+    }
+
+    [Fact]
     public async Task WhatsAppServiceStub_retorna_false_indicando_nao_enviado()
     {
         var stub = new WhatsAppServiceStub(NullLogger<WhatsAppServiceStub>.Instance);

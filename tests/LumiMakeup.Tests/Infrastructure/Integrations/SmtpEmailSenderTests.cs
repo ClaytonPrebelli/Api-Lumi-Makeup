@@ -68,4 +68,21 @@ public class SmtpEmailSenderTests
 
         await remetente.EnviarAsync("destino@exemplo.com", "Assunto teste", "<b>corpo</b>", CancellationToken.None);
     }
+
+    [Fact]
+    public async Task EnviarComConfirmacaoAsync_confirma_somente_quando_o_transporte_conclui()
+    {
+        var enviador = new EnviadorSimulado();
+        var remetente = new SmtpEmailSender(
+            Options.Create(CriarOpcoes()),
+            enviador,
+            NullLogger<SmtpEmailSender>.Instance);
+
+        Assert.True(await remetente.EnviarComConfirmacaoAsync(
+            "destino@exemplo.com", "Assunto teste", "<b>corpo</b>", CancellationToken.None));
+
+        enviador.DeveFalhar = true;
+        Assert.False(await remetente.EnviarComConfirmacaoAsync(
+            "destino@exemplo.com", "Assunto teste", "<b>corpo</b>", CancellationToken.None));
+    }
 }

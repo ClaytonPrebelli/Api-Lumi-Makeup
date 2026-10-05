@@ -75,6 +75,24 @@ public sealed class GestaoDeProdutosServiceTests
     }
 
     [Fact]
+    public async Task AdicionarVarianteAsync_aceita_opcao_sem_cor_visual()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var categoria = await SemearCategoriaAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto, categoria);
+        var servico = CriarServico(contexto);
+
+        var variante = await servico.AdicionarVarianteAsync(
+            produto.Id,
+            new RequisicaoDeVarianteProduto("Matte", null, 3, null, true, 0),
+            CancellationToken.None);
+
+        Assert.Equal("Matte", variante.Nome);
+        Assert.Null(variante.CorHex);
+        Assert.Equal(3, variante.QuantidadeEstoque);
+    }
+
+    [Fact]
     public async Task ObterPorIdAsync_retorna_nulo_quando_inexistente()
     {
         using var contexto = Testes.CriarContextoInMemory();
