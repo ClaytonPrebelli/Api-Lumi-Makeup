@@ -96,6 +96,12 @@ public sealed class GestaoDeEnderecosService : IGestaoDeEnderecosService
             throw new InvalidOperationException("Este pedido está cancelado.");
         }
 
+        if (string.IsNullOrWhiteSpace(pedido.EnderecoLogradouro))
+        {
+            throw new InvalidOperationException(
+                "Este pedido não tem endereço de entrega para ser alterado.");
+        }
+
         var preenchido = await PreencherPeloCepAsync(requisicao, cancellationToken);
 
         pedido.EnderecoCep = preenchido.Cep;

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using LumiMakeup.Application.DTOs;
+using LumiMakeup.Domain.Enums;
 
 namespace LumiMakeup.Infrastructure.Services;
 
@@ -109,6 +110,12 @@ public static class MontadorDeMensagemDePedido
         {
             texto.AppendLine();
             texto.AppendLine(endereco);
+        }
+        else if (pedido.Origem == OrigemPedido.Balcao)
+        {
+            texto.AppendLine();
+            texto.AppendLine("*Retirada na loja*");
+            texto.AppendLine("A gente combina o horário pelo WhatsApp.");
         }
 
         texto.AppendLine();

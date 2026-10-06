@@ -68,14 +68,16 @@ public sealed class PedidosController : ControllerBase
 
         try
         {
-            // O frete Ã© calculado aqui, com o endereÃ§o que o corpo traz, e nÃ£o
-            // lido do corpo como `CustoFrete`. A razÃ£o Ã© a mesma do cupom: o
-            // nÃºmero que o navegador manda nÃ£o Ã© conferido, e frete inventado pelo
-            // cliente Ã© frete grÃ¡tis.
-            var endereco = requisicao.Endereco
-                ?? throw new InvalidOperationException("Escolha o endereÃ§o de entrega.");
+            var endereco = requisicao.Endereco;
 
-            var calculo = await _frete.CalcularAsync(endereco, cancellationToken);
+            if (!requisicao.Retirada && endereco is null)
+            {
+                throw new InvalidOperationException("Escolha o endereço de entrega.");
+            }
+
+            var calculo = requisicao.Retirada
+                ? new CalculoDeFreteDto(0m, 0m, 0m, 0m)
+                : await _frete.CalcularAsync(endereco!, cancellationToken);
 
             var pedido = await _pedidos.CriarAsync(
                 new RequisicaoDePedido(
@@ -87,7 +89,7 @@ public sealed class PedidosController : ControllerBase
                     calculo.Custo,
                     calculo.DistanciaKm,
                     null),
-                OrigemPedido.Online,
+                requisicao.Retirada ? OrigemPedido.Balcao : OrigemPedido.Online,
                 cancellationToken);
 
             return CreatedAtAction(nameof(ObterPorId), new { id = pedido.Id }, pedido);
