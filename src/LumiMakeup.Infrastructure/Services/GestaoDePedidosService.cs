@@ -13,17 +13,22 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
     private readonly IGestaoDeCuponsService _cupons;
     private readonly INotificadorDePedido _notificador;
     private readonly IGestaoDeProdutosService _produtos;
+    private readonly IArmazenamentoDeImagens _armazenamento;
+
+    private const string PastaDosComprovantes = "comprovantes";
 
     public GestaoDePedidosService(
         LumiDbContext contexto,
         IGestaoDeCuponsService cupons,
         INotificadorDePedido notificador,
-        IGestaoDeProdutosService produtos)
+        IGestaoDeProdutosService produtos,
+        IArmazenamentoDeImagens armazenamento)
     {
         _contexto = contexto;
         _cupons = cupons;
         _notificador = notificador;
         _produtos = produtos;
+        _armazenamento = armazenamento;
     }
 
     public async Task<PedidoDto> CriarAsync(
@@ -242,7 +247,9 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                         i.Subtotal,
                         i.VarianteProdutoId,
                         i.VarianteNomeRegistrado ?? (i.VarianteProduto == null ? null : i.VarianteProduto.Nome)))
-                    .ToList()))
+                    .ToList(),
+                p.CaminhoComprovante,
+                p.NomeOriginalComprovante))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -294,7 +301,9 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                         i.Subtotal,
                         i.VarianteProdutoId,
                         i.VarianteNomeRegistrado ?? (i.VarianteProduto == null ? null : i.VarianteProduto.Nome)))
-                    .ToList()))
+                    .ToList(),
+                p.CaminhoComprovante,
+                p.NomeOriginalComprovante))
             .ToListAsync(cancellationToken);
     }
 
@@ -367,6 +376,54 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
 
         return await ObterPorIdAsync(pedido.Id, cancellationToken)
             ?? throw new InvalidOperationException("O pedido foi atualizado mas não pôde ser lido.");
+    }
+
+    public async Task<PedidoDto> AnexarComprovanteAsync(
+        long id,
+        Stream conteudo,
+        string nomeOriginal,
+        CancellationToken cancellationToken = default)
+    {
+        var pedido = await _contexto.Pedidos
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Pedido não encontrado.");
+
+        if (pedido.Status is StatusPedido.Cancelado)
+        {
+            throw new InvalidOperationException("Este pedido está cancelado e não pode receber comprovante.");
+        }
+
+        var armazenado = await _armazenamento.ArmazenarEmPastaAsync(
+            conteudo,
+            nomeOriginal,
+            PastaDosComprovantes,
+            cancellationToken);
+
+        var anterior = pedido.CaminhoComprovante;
+        pedido.CaminhoComprovante = armazenado.CaminhoRelativo;
+        pedido.NomeOriginalComprovante = armazenado.NomeOriginal;
+
+        try
+        {
+            await _contexto.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // O banco recusou: apaga o arquivo novo para não deixar órfão em
+            // disco sem pedido apontando para ele.
+            await _armazenamento.ExcluirAsync(armazenado.CaminhoRelativo, cancellationToken);
+            throw;
+        }
+
+        // Troca de comprovante: o anterior só sai do disco depois do novo
+        // gravado, para uma falha no meio não deixar o pedido sem nenhum.
+        if (!string.IsNullOrWhiteSpace(anterior) && anterior != armazenado.CaminhoRelativo)
+        {
+            await _armazenamento.ExcluirAsync(anterior, cancellationToken);
+        }
+
+        return await ObterPorIdAsync(pedido.Id, cancellationToken)
+            ?? throw new InvalidOperationException("O comprovante foi anexado mas o pedido não pôde ser lido.");
     }
 
     public async Task<PedidoDto> CancelarAsync(long id, CancellationToken cancellationToken = default)

@@ -54,6 +54,16 @@ public class Pedido
     /// </summary>
     public MetodoPagamento? MetodoPagamento { get; set; }
 
+    /// <summary>
+    /// Foto do comprovante de pagamento, anexada pela admin ao dar pago.
+    /// Caminho relativo dentro da pasta de comprovantes, nas mesmas regras das
+    /// imagens de produto e banner. Nulo quando nenhum comprovante foi anexado.
+    /// </summary>
+    public string? CaminhoComprovante { get; set; }
+
+    /// <summary>Nome original do arquivo do comprovante, para exibição.</summary>
+    public string? NomeOriginalComprovante { get; set; }
+
     public decimal DistanciaKm { get; set; }
     public decimal CustoFrete { get; set; }
 

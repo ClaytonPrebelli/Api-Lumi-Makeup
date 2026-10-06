@@ -2,8 +2,12 @@ using LumiMakeup.Api.Extensions;
 using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Enums;
+using LumiMakeup.Infrastructure.Integrations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using System.IO;
 
 namespace LumiMakeup.Api.Controllers;
 
@@ -19,10 +23,14 @@ namespace LumiMakeup.Api.Controllers;
 public sealed class AdminPedidosController : ControllerBase
 {
     private readonly IGestaoDePedidosService _pedidos;
+    private readonly ArmazenamentoDeImagensOptions _opcoes;
 
-    public AdminPedidosController(IGestaoDePedidosService pedidos)
+    public AdminPedidosController(
+        IGestaoDePedidosService pedidos,
+        IOptions<ArmazenamentoDeImagensOptions> opcoes)
     {
         _pedidos = pedidos;
+        _opcoes = opcoes.Value;
     }
 
     /// <summary>
@@ -158,6 +166,74 @@ public sealed class AdminPedidosController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Anexa a foto do comprovante de pagamento ao pedido.
+    ///
+    /// Segue as mesmas regras das imagens de produto e banner (JPG ou PNG até
+    /// 5 MB, validação pelo conteúdo), gravando na pasta de comprovantes. O
+    /// anexo é opcional no pagamento: pode entrar junto do aceite ou depois,
+    /// num pedido já pago.
+    /// </summary>
+    [HttpPost("{id:long}/pagamento/comprovante")]
+    [RequestSizeLimit(6_291_456)]
+    public async Task<IActionResult> AnexarComprovante(
+        long id,
+        IFormFile comprovante,
+        CancellationToken cancellationToken)
+    {
+        if (comprovante is null || comprovante.Length == 0)
+        {
+            return BadRequest(new { message = "Selecione um arquivo de imagem." });
+        }
+
+        if (comprovante.Length > _opcoes.TamanhoMaximoEmBytes)
+        {
+            return BadRequest(new
+            {
+                message = $"A imagem excede o limite de {_opcoes.TamanhoMaximoEmBytes / (1024 * 1024)} MB."
+            });
+        }
+
+        try
+        {
+            await using var conteudo = comprovante.OpenReadStream();
+            var pedido = await _pedidos.AnexarComprovanteAsync(id, conteudo, comprovante.FileName, cancellationToken);
+            return Ok(pedido);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (IOException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new
+            {
+                message = $"Falha ao salvar o comprovante: {ex.GetType().Name} ao acessar '{ex.Message}'. Caminho/pasta configurada: {_opcoes.PastaPadrao}"
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new
+            {
+                message = $"Falha ao salvar o comprovante: {ex.GetType().Name}. Caminho/pasta configurada: {_opcoes.PastaPadrao}"
+            });
+        }
+        catch (DbUpdateException ex)
+        {
+            Response.Headers["Access-Control-Allow-Origin"] = "*";
+            return StatusCode(500, new
+            {
+                message = $"Falha ao salvar o comprovante: {ex.GetType().Name}. Caminho/pasta configurada: {_opcoes.PastaPadrao}"
+            });
         }
     }
 }

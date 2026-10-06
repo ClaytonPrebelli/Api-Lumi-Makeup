@@ -26,6 +26,9 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
             .HasConversion<string>()
             .HasMaxLength(30);
 
+        builder.Property(o => o.CaminhoComprovante).HasMaxLength(500);
+        builder.Property(o => o.NomeOriginalComprovante).HasMaxLength(255);
+
         builder.Property(o => o.Origem)
             .HasConversion<string>()
             .HasMaxLength(30)

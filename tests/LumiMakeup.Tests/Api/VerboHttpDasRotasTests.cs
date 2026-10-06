@@ -76,6 +76,7 @@ public sealed class VerboHttpDasRotasTests
             (typeof(AdminCuponsController), "Excluir", "api/admin/cupons/{id:long}/excluir"),
             (typeof(AdminPedidosController), "CriarVendaDeBalcao", "api/admin/pedidos/balcao"),
             (typeof(AdminPedidosController), "RegistrarPagamento", "api/admin/pedidos/{id:long}/pagamento"),
+            (typeof(AdminPedidosController), "AnexarComprovante", "api/admin/pedidos/{id:long}/pagamento/comprovante"),
             (typeof(AdminPedidosController), "Cancelar", "api/admin/pedidos/{id:long}/cancelar"),
             (typeof(AdminFreteController), "Salvar", "api/admin/frete"),
             (typeof(AdminFreteController), "Simular", "api/admin/frete/simular"),
