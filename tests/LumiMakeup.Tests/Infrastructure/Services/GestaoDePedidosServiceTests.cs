@@ -700,21 +700,30 @@ public sealed class GestaoDePedidosServiceTests
     }
 
     [Fact]
-    public async Task CancelarAsync_recusa_cancelar_um_pedido_pago()
+    public async Task CancelarAsync_cancela_um_pedido_pago_devolvendo_estoque()
     {
         using var contexto = Testes.CriarContextoInMemory();
         var usuario = await SemearUsuarioAsync(contexto);
         var produto = await SemearProdutoAsync(contexto);
+        var cupom = await SemearCupomAsync(contexto, quantidade: 3);
         var servico = Servico(contexto);
-        var pedido = await servico.CriarAsync(Requisicao(usuario.Id, (produto.Id, 1)), OrigemPedido.Online, CancellationToken.None);
+        var pedido = await servico.CriarAsync(
+            Requisicao(usuario.Id, (produto.Id, 2)) with { CupomCodigo = "NATAL20" },
+            OrigemPedido.Online,
+            CancellationToken.None);
         await servico.RegistrarPagamentoAsync(pedido.Id, MetodoPagamento.Pix, CancellationToken.None);
 
-        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            servico.CancelarAsync(pedido.Id, CancellationToken.None));
+        // 10 em estoque e 3 cupons; o pedido reservou 2 unidades e 1 cupom.
+        Assert.Equal(8, await contexto.Produtos.Select(p => p.QuantidadeEstoque).SingleAsync());
+        Assert.Equal(2, await contexto.Cupons.Where(c => c.Id == cupom.Id).Select(c => c.QuantidadeDisponivel).SingleAsync());
 
-        // Cancelar um pedido pago e devolver mercadoria, nao um erro de estado. Sem
-        // fluxo de devolucao, barrar evita que o estoque suba sem o dinheiro voltar.
-        Assert.Contains("devolução", erro.Message);
+        var cancelado = await servico.CancelarAsync(pedido.Id, CancellationToken.None);
+
+        // Desistência depois do pagamento: o pedido sai do financeiro (a receita
+        // conta só pedido Pago) e o estoque e o cupom voltam.
+        Assert.Equal(StatusPedido.Cancelado, cancelado.Status);
+        Assert.Equal(10, await contexto.Produtos.Select(p => p.QuantidadeEstoque).SingleAsync());
+        Assert.Equal(3, await contexto.Cupons.Where(c => c.Id == cupom.Id).Select(c => c.QuantidadeDisponivel).SingleAsync());
     }
 
     [Fact]

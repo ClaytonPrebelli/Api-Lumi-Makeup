@@ -381,14 +381,11 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
             throw new InvalidOperationException("Este pedido já está cancelado.");
         }
 
-        if (pedido.Status is StatusPedido.Pago)
-        {
-            // Cancelar um pedido pago e devolver merchandise, nao um erro de estado.
-            // Enquanto nao existir o fluxo de devolucao, barrar e pedir para tratar
-            // a mao evita que o estoque suba sem o dinheiro de volta.
-            throw new InvalidOperationException(
-                "Este pedido já está pago. Trate a devolução separadamente antes de cancelar.");
-        }
+        // Pedido pago também pode ser cancelado (desistência antes da entrega):
+        // o estoque e o cupom voltam pelo caminho normal abaixo, e o pedido sai
+        // do financeiro porque a receita conta só pedido com status Pago. O
+        // dinheiro em si não volta sozinho: a devolução ao cliente é tratada
+        // fora do sistema, depois do cancelamento.
 
         await using var transacao = await _contexto.Database.BeginTransactionAsync(cancellationToken);
 
