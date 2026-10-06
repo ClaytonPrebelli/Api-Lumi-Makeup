@@ -237,7 +237,8 @@ public sealed record RequisicaoDeCriacaoDePedido(
     IReadOnlyList<ItemDePedidoRequisicao> Itens,
     EnderecoDeEntregaRequisicao? Endereco,
     string? CupomCodigo,
-    string? Observacoes);
+    string? Observacoes,
+    bool Retirada = false);
 
 /// <summary>
 /// Pedido na listagem do painel. Sem os itens: a lista mostra resumo, e puxar os

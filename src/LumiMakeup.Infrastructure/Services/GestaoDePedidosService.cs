@@ -52,7 +52,7 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                 throw new InvalidOperationException("Venda de balcão não tem endereço de entrega.");
             }
 
-            if (requisicao.CustoFrete > 0)
+            if (requisicao.CustoFrete > 0 || requisicao.DistanciaKm > 0)
             {
                 throw new InvalidOperationException("Venda de balcão não tem frete.");
             }
