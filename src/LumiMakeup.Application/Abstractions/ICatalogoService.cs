@@ -341,6 +341,20 @@ public interface IGestaoDePedidosService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Anexa a foto do comprovante de pagamento ao pedido.
+    ///
+    /// Segue as mesmas regras das imagens de produto e banner (formato por
+    /// magic bytes, tamanho máximo, pasta própria), gravando na pasta de
+    /// comprovantes. Trocar o arquivo apaga o anterior, e falha no banco
+    /// apaga o arquivo novo para não deixar órfão em disco.
+    /// </summary>
+    Task<PedidoDto> AnexarComprovanteAsync(
+        long id,
+        Stream conteudo,
+        string nomeOriginal,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Cancela o pedido, devolvendo o estoque e a unidade de cupom consumida.
     /// Não há o que devolver em venda de balcão sem cupom, e por isso a devolução
     /// é condicional.

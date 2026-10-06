@@ -1,6 +1,7 @@
 using LumiMakeup.Api.Controllers;
 using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
+using LumiMakeup.Domain.Enums;
 using LumiMakeup.Infrastructure.Integrations;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -442,5 +443,112 @@ public class AdminCategoriasControllerTests
         var controller = new AdminCategoriasController(gestao.Object);
 
         Assert.IsType<BadRequestObjectResult>(await controller.Excluir(1, CancellationToken.None));
+    }
+}
+
+public class AdminPedidosControllerTests
+{
+    private static AdminPedidosController CriarController(
+        Mock<IGestaoDePedidosService> pedidos,
+        long tamanhoMaximo = 5_242_880)
+    {
+        var opcoes = Options.Create(new ArmazenamentoDeImagensOptions
+        {
+            CaminhoBase = AppContext.BaseDirectory,
+            TamanhoMaximoEmBytes = tamanhoMaximo
+        });
+
+        return new AdminPedidosController(pedidos.Object, opcoes);
+    }
+
+    private static PedidoDto PedidoComprovante(long id = 7) => new(
+        id, 42, "Ana", null, "11999999999", "ana@exemplo.com",
+        OrigemPedido.Online, StatusPedido.Pago, MetodoPagamento.Pix,
+        null, 100m, 0m, 0m, 100m, null,
+        DateTime.UtcNow, DateTime.UtcNow,
+        null, null, null, null, null, null, null,
+        Array.Empty<PedidoItemDto>(),
+        "comprovantes/abc123.png", "comp.png");
+
+    private static IFormFile CriarArquivo(string nome = "comp.png", int tamanho = 64)
+    {
+        var cabecalho = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        var conteudo = new byte[8 + tamanho];
+        cabecalho.CopyTo(conteudo, 0);
+        return new FormFile(new MemoryStream(conteudo), 0, conteudo.Length, "comprovante", nome);
+    }
+
+    private static string MensagemDe(object? resultado) =>
+        (string)resultado!.GetType().GetProperty("message")!.GetValue(resultado)!;
+
+    [Fact]
+    public async Task AnexarComprovante_retorna_ok_com_o_pedido()
+    {
+        var gestao = new Mock<IGestaoDePedidosService>();
+        var pedido = PedidoComprovante();
+        gestao.Setup(g => g.AnexarComprovanteAsync(7, It.IsAny<Stream>(), "comp.png", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pedido);
+        var controller = CriarController(gestao);
+
+        var resultado = await controller.AnexarComprovante(7, CriarArquivo(), CancellationToken.None);
+
+        Assert.Equal(pedido, Assert.IsType<OkObjectResult>(resultado).Value);
+    }
+
+    [Fact]
+    public async Task AnexarComprovante_retorna_bad_request_quando_nenhum_arquivo_e_enviado()
+    {
+        var controller = CriarController(new Mock<IGestaoDePedidosService>());
+
+        var resultado = await controller.AnexarComprovante(7, null!, CancellationToken.None);
+
+        Assert.Equal("Selecione um arquivo de imagem.", MensagemDe(Assert.IsType<BadRequestObjectResult>(resultado).Value));
+    }
+
+    [Fact]
+    public async Task AnexarComprovante_retorna_bad_request_quando_o_arquivo_e_vazio()
+    {
+        var controller = CriarController(new Mock<IGestaoDePedidosService>());
+
+        var vazio = new FormFile(new MemoryStream([]), 0, 0, "comprovante", "vazio.png");
+        var resultado = await controller.AnexarComprovante(7, vazio, CancellationToken.None);
+
+        Assert.Equal("Selecione um arquivo de imagem.", MensagemDe(Assert.IsType<BadRequestObjectResult>(resultado).Value));
+    }
+
+    [Fact]
+    public async Task AnexarComprovante_retorna_bad_request_quando_excede_o_limite()
+    {
+        var controller = CriarController(new Mock<IGestaoDePedidosService>(), tamanhoMaximo: 16);
+
+        var resultado = await controller.AnexarComprovante(7, CriarArquivo(tamanho: 512), CancellationToken.None);
+
+        Assert.Contains("excede o limite", MensagemDe(Assert.IsType<BadRequestObjectResult>(resultado).Value));
+    }
+
+    [Fact]
+    public async Task AnexarComprovante_retorna_not_found_quando_pedido_inexistente()
+    {
+        var gestao = new Mock<IGestaoDePedidosService>();
+        gestao.Setup(g => g.AnexarComprovanteAsync(7, It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new KeyNotFoundException("Pedido não encontrado."));
+        var controller = CriarController(gestao);
+
+        var resultado = await controller.AnexarComprovante(7, CriarArquivo(), CancellationToken.None);
+
+        Assert.Equal("Pedido não encontrado.", MensagemDe(Assert.IsType<NotFoundObjectResult>(resultado).Value));
+    }
+
+    [Fact]
+    public async Task AnexarComprovante_retorna_bad_request_quando_pedido_cancelado()
+    {
+        var gestao = new Mock<IGestaoDePedidosService>();
+        gestao.Setup(g => g.AnexarComprovanteAsync(7, It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Este pedido está cancelado e não pode receber comprovante."));
+        var controller = CriarController(gestao);
+
+        var resultado = await controller.AnexarComprovante(7, CriarArquivo(), CancellationToken.None);
+
+        Assert.Contains("cancelado", MensagemDe(Assert.IsType<BadRequestObjectResult>(resultado).Value));
     }
 }

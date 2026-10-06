@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
+using System.IO;
 
 namespace LumiMakeup.Tests.Infrastructure.Services;
 
@@ -109,13 +110,15 @@ public sealed class GestaoDePedidosServiceTests
     /// </summary>
     private static GestaoDePedidosService Servico(
         LumiDbContext contexto,
-        INotificadorDePedido? notificador = null)
+        INotificadorDePedido? notificador = null,
+        IArmazenamentoDeImagens? armazenamento = null)
     {
         return new GestaoDePedidosService(
             contexto,
             new GestaoDeCuponsService(contexto),
             notificador ?? Mock.Of<INotificadorDePedido>(),
-            Mock.Of<IGestaoDeProdutosService>());
+            Mock.Of<IGestaoDeProdutosService>(),
+            armazenamento ?? Mock.Of<IArmazenamentoDeImagens>());
     }
 
     private static RequisicaoDePedido Requisicao(
@@ -740,6 +743,94 @@ public sealed class GestaoDePedidosServiceTests
             servico.CancelarAsync(pedido.Id, CancellationToken.None));
     }
 
+    // ----Comprovante de pagamento ------------------------------------------
+
+    private static Mock<IArmazenamentoDeImagens> ArmazenamentoQueGrava(params string[] caminhos)
+    {
+        var mock = new Mock<IArmazenamentoDeImagens>();
+        var fila = new Queue<string>(caminhos.Length == 0 ? new[] { "comprovantes/abc123.png" } : caminhos);
+
+        mock.Setup(a => a.ArmazenarEmPastaAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Stream conteudo, string nome, string pasta, CancellationToken ct) =>
+                new ImagemArmazenada(fila.Count > 1 ? fila.Dequeue() : fila.Peek(), nome, "image/png", 10));
+
+        return mock;
+    }
+
+    [Fact]
+    public async Task AnexarComprovanteAsync_grava_na_pasta_de_comprovantes()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var armazenamento = ArmazenamentoQueGrava();
+        var servico = Servico(contexto, armazenamento: armazenamento.Object);
+        var pedido = await servico.CriarAsync(Requisicao(usuario.Id, (produto.Id, 1)), OrigemPedido.Online, CancellationToken.None);
+
+        await using var conteudo = new MemoryStream(new byte[] { 1, 2, 3 });
+        var atualizado = await servico.AnexarComprovanteAsync(pedido.Id, conteudo, "comp.png", CancellationToken.None);
+
+        // Mesmas regras de produto e banner, mas na pasta de comprovantes.
+        armazenamento.Verify(a => a.ArmazenarEmPastaAsync(
+            It.IsAny<Stream>(), "comp.png", "comprovantes", It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal("comprovantes/abc123.png", atualizado.CaminhoComprovante);
+        Assert.Equal("comp.png", atualizado.NomeOriginalComprovante);
+    }
+
+    [Fact]
+    public async Task AnexarComprovanteAsync_troca_o_arquivo_e_apaga_o_anterior()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var armazenamento = ArmazenamentoQueGrava("comprovantes/um.png", "comprovantes/dois.png");
+        var servico = Servico(contexto, armazenamento: armazenamento.Object);
+        var pedido = await servico.CriarAsync(Requisicao(usuario.Id, (produto.Id, 1)), OrigemPedido.Online, CancellationToken.None);
+
+        await using var primeiro = new MemoryStream(new byte[] { 1 });
+        await servico.AnexarComprovanteAsync(pedido.Id, primeiro, "um.png", CancellationToken.None);
+        await using var segundo = new MemoryStream(new byte[] { 2 });
+        var atualizado = await servico.AnexarComprovanteAsync(pedido.Id, segundo, "dois.png", CancellationToken.None);
+
+        Assert.Equal("comprovantes/dois.png", atualizado.CaminhoComprovante);
+        armazenamento.Verify(a => a.ExcluirAsync("comprovantes/um.png", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task AnexarComprovanteAsync_recusa_pedido_cancelado()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var pedido = await servico.CriarAsync(Requisicao(usuario.Id, (produto.Id, 1)), OrigemPedido.Online, CancellationToken.None);
+        await servico.CancelarAsync(pedido.Id, CancellationToken.None);
+
+        await using var conteudo = new MemoryStream(new byte[] { 1 });
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.AnexarComprovanteAsync(pedido.Id, conteudo, "comp.png", CancellationToken.None));
+
+        Assert.Contains("cancelado", erro.Message);
+    }
+
+    [Fact]
+    public async Task AnexarComprovanteAsync_recusa_pedido_inexistente()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        await SemearUsuarioAsync(contexto);
+        var servico = Servico(contexto);
+
+        await using var conteudo = new MemoryStream(new byte[] { 1 });
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            servico.AnexarComprovanteAsync(999, conteudo, "comp.png", CancellationToken.None));
+    }
+
     [Fact]
     public async Task ObterPorIdAsync_devolve_o_pedido_com_os_itens()
     {
@@ -798,7 +889,8 @@ public sealed class GestaoDePedidosServiceTests
                 contexto,
                 new GestaoDeCuponsService(contexto),
                 Mock.Of<INotificadorDePedido>(),
-                Mock.Of<IGestaoDeProdutosService>())
+                Mock.Of<IGestaoDeProdutosService>(),
+                Mock.Of<IArmazenamentoDeImagens>())
             .CriarAsync(requisicao, origem, CancellationToken.None);
 
         return (await contexto.Pedidos.AsNoTracking().SingleAsync(p => p.Id == pedido.Id), usuario);

@@ -209,7 +209,9 @@ public sealed record PedidoDto(
     string? EnderecoBairro,
     string? EnderecoCidade,
     string? EnderecoEstado,
-    IReadOnlyList<PedidoItemDto> Itens);
+    IReadOnlyList<PedidoItemDto> Itens,
+    string? CaminhoComprovante = null,
+    string? NomeOriginalComprovante = null);
 
 /// <summary>
 /// O que o Node do Baileys devolve para a API guardar a sessao.
