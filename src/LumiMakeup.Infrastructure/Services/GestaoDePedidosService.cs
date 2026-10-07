@@ -226,8 +226,12 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
         // Depois do commit, nunca antes. O aviso vai para fora do banco: se o SMTP
         // ou o WhatsApp falharem, o pedido existe e o aviso pode ser reenviado.
         // Ao contrario, avisar antes do commit mandaria o cliente confirmar uma
-        // compra que ainda podia ser desfeita.
-        await _notificador.PedidoCriadoAsync(dto, cancellationToken);
+        // compra que ainda podia ser desfeita. Na venda de balcão a
+        // administradora pode pedir para não avisar.
+        if (requisicao.AvisarCliente)
+        {
+            await _notificador.PedidoCriadoAsync(dto, cancellationToken);
+        }
 
         return dto;
     }

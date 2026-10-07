@@ -108,7 +108,8 @@ public sealed class AdminPedidosController : ControllerBase
                     requisicao.Observacoes,
                     0m,
                     0m,
-                    requisicao.CriadoEm),
+                    requisicao.CriadoEm,
+                    AvisarCliente: requisicao.AvisarCliente),
                 OrigemPedido.Balcao,
                 cancellationToken);
 
