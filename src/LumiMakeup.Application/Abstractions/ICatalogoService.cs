@@ -293,6 +293,18 @@ public interface IGestaoDeClientesService
     Task<ClienteResumoDto> CriarAsync(RequisicaoDeCliente requisicao, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Entregadores do portal de entrega. Entram com usuário e senha (sem e-mail)
+/// e saem por desativação, e não por exclusão: o relatório guarda quem
+/// entregou cada pedido.
+/// </summary>
+public interface IGestaoDeEntregadoresService
+{
+    Task<IReadOnlyList<EntregadorDto>> ListarAsync(CancellationToken cancellationToken = default);
+    Task<EntregadorDto> CriarAsync(RequisicaoDeEntregador requisicao, CancellationToken cancellationToken = default);
+    Task<EntregadorDto> AtualizarAsync(long id, RequisicaoDeAtualizacaoDeEntregador requisicao, CancellationToken cancellationToken = default);
+}
+
 public interface IGestaoDePedidosService
 {
     /// <summary>
@@ -324,6 +336,7 @@ public interface IGestaoDePedidosService
         StatusPedido? status = null,
         OrigemPedido? origem = null,
         bool? notaFiscalGerada = null,
+        StatusEntrega? statusEntrega = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -360,4 +373,33 @@ public interface IGestaoDePedidosService
     /// é condicional.
     /// </summary>
     Task<PedidoDto> CancelarAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gera o despacho do dia com os pedidos informados. Devolve os ids
+    /// despachados. É tudo-ou-nada: qualquer id inválido recusa o lote inteiro.
+    /// </summary>
+    Task<IReadOnlyList<long>> GerarDespachoAsync(
+        IReadOnlyList<long> pedidoIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marca o pedido como entregue, gravando quem entregou e quando. Vale
+    /// para entregador e admin. Só sai de despachado para entregue.
+    /// </summary>
+    Task<PedidoDto> RegistrarEntregaAsync(
+        long id,
+        long entregadorId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lista para o portal do entregador e para os relatórios: despachados e
+    /// entregues, com filtros de estágio, período e entregador. O filtro de
+    /// entregador só restringe o entregue: despachado não tem dono.
+    /// </summary>
+    Task<IReadOnlyList<PedidoDto>> ListarEntregasAsync(
+        StatusEntrega? statusEntrega,
+        DateTime? de,
+        DateTime? ate,
+        long? entregadorId,
+        CancellationToken cancellationToken = default);
 }

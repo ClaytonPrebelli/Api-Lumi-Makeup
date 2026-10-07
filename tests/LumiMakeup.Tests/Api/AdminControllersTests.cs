@@ -3,8 +3,11 @@ using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
 using LumiMakeup.Domain.Enums;
 using LumiMakeup.Infrastructure.Integrations;
+using LumiMakeup.Infrastructure.Persistence;
+using LumiMakeup.Tests.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -550,5 +553,122 @@ public class AdminPedidosControllerTests
         var resultado = await controller.AnexarComprovante(7, CriarArquivo(), CancellationToken.None);
 
         Assert.Contains("cancelado", MensagemDe(Assert.IsType<BadRequestObjectResult>(resultado).Value));
+    }
+}
+
+public class AdminWhatsAppControllerTests
+{
+    private static AdminWhatsAppController CriarController(
+        Mock<IWhatsAppService> whatsApp,
+        RepositorioDeSessaoWhatsApp sessao) =>
+        new(
+            whatsApp.Object,
+            new Mock<IGestaoDeWhatsAppService>().Object,
+            sessao,
+            NullLogger<AdminWhatsAppController>.Instance);
+
+    private static StatusDoWhatsApp Ligado() =>
+        new(true, true, "5515999999999", "Lumi", null, null, null);
+
+    [Fact]
+    public async Task Status_diz_se_ha_sessao_guardada_no_banco()
+    {
+        await using var contexto = Testes.CriarContextoInMemory();
+        var sessao = new RepositorioDeSessaoWhatsApp(
+            contexto, NullLogger<RepositorioDeSessaoWhatsApp>.Instance);
+        await sessao.GravarAsync("{\"a\":1}", "{\"b\":2}", 0);
+
+        var whatsApp = new Mock<IWhatsAppService>();
+        whatsApp.Setup(w => w.ObterStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Ligado());
+
+        var resultado = await CriarController(whatsApp, sessao).Status(CancellationToken.None);
+
+        // Anônimo e internal: dynamic não enxerga. Reflexão, sem expor DTO.
+        // Nomes CLR: inferidos de `status.Pareado` vêm com maiúscula; só os
+        // explícitos (`sessaoNoBanco = ...`) são camelCase. No JSON todos saem
+        // camelCase pela policy da API.
+        var corpo = Assert.IsType<OkObjectResult>(resultado).Value!;
+        var tipo = corpo.GetType();
+        Assert.True((bool)tipo.GetProperty("sessaoNoBanco")!.GetValue(corpo)!);
+        Assert.NotNull(tipo.GetProperty("sessaoAtualizadaEm")!.GetValue(corpo));
+        Assert.True((bool)tipo.GetProperty("Pareado")!.GetValue(corpo)!);
+    }
+
+    [Fact]
+    public async Task Status_diz_quando_nao_ha_sessao_guardada()
+    {
+        await using var contexto = Testes.CriarContextoInMemory();
+        var sessao = new RepositorioDeSessaoWhatsApp(
+            contexto, NullLogger<RepositorioDeSessaoWhatsApp>.Instance);
+
+        var whatsApp = new Mock<IWhatsAppService>();
+        whatsApp.Setup(w => w.ObterStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Ligado());
+
+        var resultado = await CriarController(whatsApp, sessao).Status(CancellationToken.None);
+
+        var corpo = Assert.IsType<OkObjectResult>(resultado).Value!;
+        var tipo = corpo.GetType();
+        Assert.False((bool)tipo.GetProperty("sessaoNoBanco")!.GetValue(corpo)!);
+        Assert.Null(tipo.GetProperty("sessaoAtualizadaEm")!.GetValue(corpo));
+    }
+}
+
+public class AdminEntregadoresControllerTests
+{
+    private static AdminEntregadoresController CriarController(Mock<IGestaoDeEntregadoresService> servico) =>
+        new(servico.Object);
+
+    [Fact]
+    public async Task Listar_retorna_os_entregadores()
+    {
+        var servico = new Mock<IGestaoDeEntregadoresService>();
+        var lista = new[] { new EntregadorDto(1, "João", "joao", true, DateTime.UtcNow) };
+        servico.Setup(s => s.ListarAsync(It.IsAny<CancellationToken>())).ReturnsAsync(lista);
+
+        var resultado = await CriarController(servico).Listar(CancellationToken.None);
+
+        Assert.Equal(lista, Assert.IsType<OkObjectResult>(resultado).Value);
+    }
+
+    [Fact]
+    public async Task Criar_retorna_created_com_o_entregador()
+    {
+        var servico = new Mock<IGestaoDeEntregadoresService>();
+        var entregador = new EntregadorDto(1, "João", "joao", true, DateTime.UtcNow);
+        servico.Setup(s => s.CriarAsync(It.IsAny<RequisicaoDeEntregador>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entregador);
+
+        var resultado = await CriarController(servico)
+            .Criar(new RequisicaoDeEntregador("João", "joao", "secreta123"), CancellationToken.None);
+
+        Assert.Equal(entregador, Assert.IsType<CreatedAtActionResult>(resultado).Value);
+    }
+
+    [Fact]
+    public async Task Criar_retorna_bad_request_quando_o_login_ja_existe()
+    {
+        var servico = new Mock<IGestaoDeEntregadoresService>();
+        servico.Setup(s => s.CriarAsync(It.IsAny<RequisicaoDeEntregador>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Já existe um entregador com o usuário joao."));
+
+        var resultado = await CriarController(servico)
+            .Criar(new RequisicaoDeEntregador("João", "joao", "secreta123"), CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(resultado);
+    }
+
+    [Fact]
+    public async Task Atualizar_retorna_not_found_quando_inexistente()
+    {
+        var servico = new Mock<IGestaoDeEntregadoresService>();
+        servico.Setup(s => s.AtualizarAsync(It.IsAny<long>(), It.IsAny<RequisicaoDeAtualizacaoDeEntregador>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new KeyNotFoundException("Entregador não encontrado."));
+
+        var resultado = await CriarController(servico)
+            .Atualizar(99, new RequisicaoDeAtualizacaoDeEntregador("João", "joao", null, true), CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(resultado);
     }
 }

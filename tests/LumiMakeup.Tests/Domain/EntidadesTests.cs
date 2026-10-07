@@ -393,7 +393,9 @@ public class EntidadesTests
         var usuario = new Usuario();
 
         Assert.Empty(usuario.Nome);
-        Assert.Empty(usuario.Email);
+        Assert.Null(usuario.Email);
+        Assert.Null(usuario.Login);
+        Assert.True(usuario.Ativo);
         Assert.Null(usuario.HashSenha);
         Assert.Null(usuario.IdGoogle);
         Assert.Null(usuario.Cpf);

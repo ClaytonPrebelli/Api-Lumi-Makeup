@@ -4,5 +4,6 @@ public enum StatusEntrega
 {
     NaoEnviado,
     Enviado,
-    Entregue
+    Entregue,
+    Despachado
 }

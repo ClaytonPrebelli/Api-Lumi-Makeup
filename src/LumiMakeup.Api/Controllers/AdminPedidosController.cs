@@ -42,6 +42,7 @@ public sealed class AdminPedidosController : ControllerBase
         [FromQuery] StatusPedido? status,
         [FromQuery] OrigemPedido? origem,
         [FromQuery] bool? semNotaFiscal,
+        [FromQuery] StatusEntrega? statusEntrega,
         CancellationToken cancellationToken)
     {
         var pedidos = await _pedidos.ListarAsync(
@@ -51,6 +52,7 @@ public sealed class AdminPedidosController : ControllerBase
             // pergunta; o serviço recebe o valor da flag. A negação acontece uma
             // vez, aqui, com nome explícito dos dois lados.
             notaFiscalGerada: semNotaFiscal is null ? null : !semNotaFiscal.Value,
+            statusEntrega,
             cancellationToken);
 
         return Ok(pedidos);
@@ -158,6 +160,30 @@ public sealed class AdminPedidosController : ControllerBase
         {
             var pedido = await _pedidos.CancelarAsync(id, cancellationToken);
             return Ok(pedido);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Gera o despacho do dia com os pedidos informados: saem de a despachar
+    /// para despachado. É tudo-ou-nada, e só entra pedido pago com entrega.
+    /// </summary>
+    [HttpPost("despacho")]
+    public async Task<IActionResult> GerarDespacho(
+        [FromBody] RequisicaoDeDespacho requisicao,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var ids = await _pedidos.GerarDespachoAsync(requisicao?.PedidoIds ?? [], cancellationToken);
+            return Ok(new { despachados = ids });
         }
         catch (KeyNotFoundException ex)
         {

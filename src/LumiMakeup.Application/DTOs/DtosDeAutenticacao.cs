@@ -4,6 +4,10 @@ namespace LumiMakeup.Application.DTOs;
 
 public sealed record RequisicaoDeRegistro(string Nome, string Email, string Senha, string? TokenRecaptcha);
 
+/// <summary>
+/// `Email` aceita e-mail ou usuário: cliente e admin entram com e-mail,
+/// entregador com o usuário cadastrado no painel.
+/// </summary>
 public sealed record RequisicaoDeLogin(string Email, string Senha);
 
 public sealed record RequisicaoDeLoginGoogle(string TokenId);
@@ -28,7 +32,7 @@ public sealed record RequisicaoDeEndereco(
 public sealed record UsuarioDto(
     long Id,
     string Nome,
-    string Email,
+    string? Email,
     string? Cpf,
     string? Telefone,
     PapelUsuario Papel,

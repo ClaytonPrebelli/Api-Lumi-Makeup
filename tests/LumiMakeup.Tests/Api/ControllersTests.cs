@@ -462,3 +462,76 @@ public class WhatsappControllerTests
         Assert.Equal(estado, Assert.IsType<OkObjectResult>(resultado).Value);
     }
 }
+
+public class EntregasControllerTests
+{
+    private static EntregasController CriarController(
+        Mock<IGestaoDePedidosService> pedidos,
+        string sub = "7",
+        string? papel = "Entregador")
+    {
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, sub) };
+
+        if (papel is not null)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, papel));
+        }
+
+        return new EntregasController(pedidos.Object)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(claims))
+                }
+            }
+        };
+    }
+
+    [Fact]
+    public async Task Listar_entregador_enxerga_despachados_e_suas_entregas()
+    {
+        var pedidos = new Mock<IGestaoDePedidosService>();
+        pedidos.Setup(p => p.ListarEntregasAsync(
+                StatusEntrega.Despachado, null, null, 7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var controller = CriarController(pedidos);
+
+        var resultado = await controller.Listar(StatusEntrega.Despachado, null, null, null, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(resultado);
+        pedidos.Verify(p => p.ListarEntregasAsync(
+            StatusEntrega.Despachado, null, null, 7, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Listar_entregador_nao_puxa_entrega_de_outro()
+    {
+        var pedidos = new Mock<IGestaoDePedidosService>();
+        pedidos.Setup(p => p.ListarEntregasAsync(
+                It.IsAny<StatusEntrega?>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(),
+                It.IsAny<long?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var controller = CriarController(pedidos, sub: "7");
+
+        await controller.Listar(StatusEntrega.Entregue, null, null, 99, CancellationToken.None);
+
+        // O entregador pediu as do 99: recebe só as dele (id 7 do token).
+        pedidos.Verify(p => p.ListarEntregasAsync(
+            StatusEntrega.Entregue, null, null, 7, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegistrarEntrega_retorna_o_pedido()
+    {
+        var pedidos = new Mock<IGestaoDePedidosService>();
+        pedidos.Setup(p => p.RegistrarEntregaAsync(5, 7, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new KeyNotFoundException("Pedido não encontrado."));
+        var controller = CriarController(pedidos);
+
+        var resultado = await controller.RegistrarEntrega(5, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(resultado);
+    }
+}

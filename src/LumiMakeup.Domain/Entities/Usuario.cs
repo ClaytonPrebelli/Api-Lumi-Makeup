@@ -6,7 +6,25 @@ public class Usuario
 {
     public long Id { get; set; }
     public string Nome { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Nulo só para entregador, que entra com usuário e senha. Cliente sempre
+    /// tem, porque conta, pedido e aviso por e-mail dependem dele.
+    /// </summary>
+    public string? Email { get; set; }
+
+    /// <summary>
+    /// Apelido de login do entregador, único. Nulo para cliente e admin, que
+    /// entram com e-mail.
+    /// </summary>
+    public string? Login { get; set; }
+
+    /// <summary>
+    /// Desligar em vez de excluir: o histórico de entregas guarda o nome, e
+    /// desativado não entra mais.
+    /// </summary>
+    public bool Ativo { get; set; } = true;
+
     public string? HashSenha { get; set; }
     public string? IdGoogle { get; set; }
     public string? Cpf { get; set; }

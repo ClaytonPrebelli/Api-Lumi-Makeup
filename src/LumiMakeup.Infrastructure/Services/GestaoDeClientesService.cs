@@ -46,7 +46,7 @@ public sealed class GestaoDeClientesService : IGestaoDeClientesService
 
             consulta = consulta.Where(u =>
                 EF.Functions.Like(u.Nome.ToLower(), $"%{busca}%")
-                || EF.Functions.Like(u.Email, $"%{busca}%")
+                || (u.Email != null && EF.Functions.Like(u.Email, $"%{busca}%"))
                 || (u.Telefone != null && u.Telefone.Contains(termo.Trim()))
                 || (u.Cpf != null
                     && digitos.Length >= 3

@@ -13,8 +13,11 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.HasKey(u => u.Id);
 
         builder.Property(u => u.Nome).HasMaxLength(150).IsRequired();
-        builder.Property(u => u.Email).HasMaxLength(150).IsRequired();
+        builder.Property(u => u.Email).HasMaxLength(150);
         builder.HasIndex(u => u.Email).IsUnique();
+        builder.Property(u => u.Login).HasMaxLength(40);
+        builder.HasIndex(u => u.Login).IsUnique();
+        builder.Property(u => u.Ativo).IsRequired();
         builder.Property(u => u.HashSenha).HasMaxLength(255);
         builder.Property(u => u.IdGoogle).HasMaxLength(255);
         builder.HasIndex(u => u.IdGoogle).IsUnique();
