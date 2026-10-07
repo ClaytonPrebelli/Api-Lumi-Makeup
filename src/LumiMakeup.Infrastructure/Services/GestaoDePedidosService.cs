@@ -46,6 +46,14 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
             throw new InvalidOperationException("Frete e distância não podem ser negativos.");
         }
 
+        // É só a sugestão do cliente, e o pedido continua aguardando: quem
+        // confirma (ou troca) é a admin no aceite. Mas o valor precisa existir
+        // no enum, senão um número inventado viraria forma de pagamento.
+        if (requisicao.MetodoPagamento.HasValue && !Enum.IsDefined(requisicao.MetodoPagamento.Value))
+        {
+            throw new InvalidOperationException("Forma de pagamento inválida.");
+        }
+
         // A regra de origem fica aqui, e nao no controller: e a mesma para o
         // checkout e para a tela de balcao, e um controller esquecendo de aplicar
         // deixaria passar venda de balcao com endereco, ou entrega cobrada ao
@@ -131,6 +139,9 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
             EmailContato = usuario.Email,
             Origem = origem,
             Status = StatusPedido.AguardandoPagamento,
+            // Sugestão do cliente, sem confirmar nada: o pedido continua
+            // aguardando até a admin dar o aceite (e poder trocar a forma).
+            MetodoPagamento = requisicao.MetodoPagamento,
             Subtotal = Arredondar(subtotal),
             Desconto = Arredondar(desconto),
             CupomCodigo = codigoDoCupom,
@@ -466,7 +477,7 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
             // Devolve o estoque antes de marcar como cancelado, para que uma falha
             // no meio deixe o pedido como estava, e nao um pedido cancelado com
             // produto ainda reservado.
-            await DevolverEstoqueAsync(pedido.Itens, cancellationToken);
+            await DevolverEstoqueAsync(pedido.Id, pedido.Itens, cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(pedido.CupomCodigo))
             {
@@ -698,15 +709,34 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
         }
     }
 
-    private async Task DevolverEstoqueAsync(ICollection<ItemPedido> itens, CancellationToken cancellationToken)
+    private async Task DevolverEstoqueAsync(
+        long pedidoId,
+        ICollection<ItemPedido> itens,
+        CancellationToken cancellationToken)
     {
         var porProdutoEVariante = itens
-            .GroupBy(i => (i.ProdutoId, i.VarianteProdutoId))
-            .Select(g => new { g.Key.ProdutoId, g.Key.VarianteProdutoId, Quantidade = g.Sum(i => i.Quantidade) })
+            .GroupBy(i => (i.ProdutoId, i.VarianteProdutoId, i.VarianteNomeRegistrado))
+            .Select(g => new
+            {
+                g.Key.ProdutoId,
+                g.Key.VarianteProdutoId,
+                g.Key.VarianteNomeRegistrado,
+                Quantidade = g.Sum(i => i.Quantidade)
+            })
             .ToList();
 
         foreach (var item in porProdutoEVariante)
         {
+            var produto = await _contexto.Produtos
+                .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken);
+
+            if (produto is null)
+            {
+                // Produto excluído depois da venda: não há onde devolver nem
+                // movimento a registrar sem violar a FK.
+                continue;
+            }
+
             if (item.VarianteProdutoId is { } varianteId)
             {
                 var variante = await _contexto.VariantesProduto
@@ -716,17 +746,24 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                 {
                     variante.QuantidadeEstoque += item.Quantidade;
                 }
-
-                continue;
             }
-
-            var produto = await _contexto.Produtos
-                .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken);
-
-            if (produto is not null)
+            else
             {
                 produto.QuantidadeEstoque += item.Quantidade;
             }
+
+            // Sem a entrada, o extrato mostra a saída da criação sem a volta do
+            // cancelamento, e o movimento do produto nunca fecha.
+            _contexto.MovimentosEstoque.Add(new MovimentoEstoque
+            {
+                ProdutoId = produto.Id,
+                Tipo = TipoMovimentoEstoque.Entrada,
+                Quantidade = item.Quantidade,
+                Referencia = $"Pedido #{pedidoId}",
+                Observacao = item.VarianteNomeRegistrado is null
+                    ? $"Entrada automática por cancelamento do pedido #{pedidoId}."
+                    : $"Entrada automática por cancelamento do pedido #{pedidoId}. Opção: {item.VarianteNomeRegistrado}."
+            });
         }
 
         await _contexto.SaveChangesAsync(cancellationToken);

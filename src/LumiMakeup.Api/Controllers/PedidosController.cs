@@ -76,7 +76,7 @@ public sealed class PedidosController : ControllerBase
             }
 
             var calculo = requisicao.Retirada
-                ? new CalculoDeFreteDto(0m, 0m, 0m, 0m)
+                ? new CalculoDeFreteDto(0m, 0m, 0m, null)
                 : await _frete.CalcularAsync(endereco!, cancellationToken);
 
             var pedido = await _pedidos.CriarAsync(
@@ -89,7 +89,8 @@ public sealed class PedidosController : ControllerBase
                     calculo.Custo,
                     calculo.DistanciaKm,
                     null,
-                    requisicao.Retirada),
+                    requisicao.Retirada,
+                    requisicao.MetodoPagamento),
                 OrigemPedido.Online,
                 cancellationToken);
 

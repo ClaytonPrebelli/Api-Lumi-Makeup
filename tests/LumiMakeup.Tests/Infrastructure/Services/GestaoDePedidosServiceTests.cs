@@ -416,6 +416,43 @@ public sealed class GestaoDePedidosServiceTests
             servico.CriarAsync(Requisicao(999, (produto.Id, 1)), OrigemPedido.Online, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task CriarAsync_guarda_a_forma_escolhida_sem_dar_pago()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+
+        var pedido = await servico.CriarAsync(
+            Requisicao(usuario.Id, (produto.Id, 1)) with { MetodoPagamento = MetodoPagamento.CartaoCredito },
+            OrigemPedido.Online,
+            CancellationToken.None);
+
+        // É sugestão do cliente, e não aceite: o pedido continua aguardando
+        // até a admin confirmar (podendo trocar a forma).
+        Assert.Equal(MetodoPagamento.CartaoCredito, pedido.MetodoPagamento);
+        Assert.Equal(StatusPedido.AguardandoPagamento, pedido.Status);
+        Assert.Null(pedido.PagoEm);
+    }
+
+    [Fact]
+    public async Task CriarAsync_recusa_forma_de_pagamento_invalida()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CriarAsync(
+                Requisicao(usuario.Id, (produto.Id, 1)) with { MetodoPagamento = (MetodoPagamento)99 },
+                OrigemPedido.Online,
+                CancellationToken.None));
+
+        Assert.Contains("pagamento", erro.Message);
+    }
+
     // ----Cupom no pedido ---------------------------------------------------
 
     [Fact]
@@ -697,6 +734,32 @@ public sealed class GestaoDePedidosServiceTests
 
         Assert.Equal(StatusPedido.Cancelado, cancelado.Status);
         Assert.Equal(10, await contexto.Produtos.Select(p => p.QuantidadeEstoque).SingleAsync());
+    }
+
+    [Fact]
+    public async Task CancelarAsync_registra_movimento_de_entrada_no_estoque()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto, estoque: 10);
+        var servico = Servico(contexto);
+        var pedido = await servico.CriarAsync(Requisicao(usuario.Id, (produto.Id, 3)), OrigemPedido.Online, CancellationToken.None);
+
+        await servico.CancelarAsync(pedido.Id, CancellationToken.None);
+
+        // Sem a entrada, o extrato mostra a saída da criação sem a volta, e o
+        // movimento do produto nunca fecha.
+        var movimentos = await contexto.MovimentosEstoque
+            .Where(m => m.ProdutoId == produto.Id)
+            .OrderBy(m => m.Id)
+            .ToListAsync();
+
+        Assert.Equal(2, movimentos.Count);
+        Assert.Equal(TipoMovimentoEstoque.Saida, movimentos[0].Tipo);
+        Assert.Equal(3, movimentos[0].Quantidade);
+        Assert.Equal(TipoMovimentoEstoque.Entrada, movimentos[1].Tipo);
+        Assert.Equal(3, movimentos[1].Quantidade);
+        Assert.Equal($"Pedido #{pedido.Id}", movimentos[1].Referencia);
     }
 
     [Fact]

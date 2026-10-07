@@ -34,6 +34,8 @@ public class EnumsTests
         Assert.Equal(1, (int)MetodoPagamento.Cartao);
         Assert.Equal(2, (int)MetodoPagamento.Dinheiro);
         Assert.Equal(3, (int)MetodoPagamento.Outro);
+        Assert.Equal(4, (int)MetodoPagamento.CartaoDebito);
+        Assert.Equal(5, (int)MetodoPagamento.CartaoCredito);
     }
 
     [Fact]

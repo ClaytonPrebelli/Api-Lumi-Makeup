@@ -36,7 +36,9 @@ public class EntidadesTests
             LatitudeOrigem = -23.55m,
             LongitudeOrigem = -46.63m,
             PrecoPorKm = 1.5m,
-            TaxaMinima = 10m
+            ValorAte8Km = 7.50m,
+            ValorAte16Km = 12.00m,
+            ValorAte25Km = 18.00m
         };
 
         Assert.Equal(2, configuracao.Id);
@@ -44,7 +46,9 @@ public class EntidadesTests
         Assert.Equal(-23.55m, configuracao.LatitudeOrigem);
         Assert.Equal(-46.63m, configuracao.LongitudeOrigem);
         Assert.Equal(1.5m, configuracao.PrecoPorKm);
-        Assert.Equal(10m, configuracao.TaxaMinima);
+        Assert.Equal(7.50m, configuracao.ValorAte8Km);
+        Assert.Equal(12.00m, configuracao.ValorAte16Km);
+        Assert.Equal(18.00m, configuracao.ValorAte25Km);
     }
 
     [Fact]

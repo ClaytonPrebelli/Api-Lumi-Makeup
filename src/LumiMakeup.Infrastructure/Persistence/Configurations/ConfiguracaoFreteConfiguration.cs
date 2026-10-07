@@ -15,6 +15,8 @@ public class ConfiguracaoFreteConfiguration : IEntityTypeConfiguration<Configura
         builder.Property(s => s.LatitudeOrigem).HasColumnType("decimal(10,7)");
         builder.Property(s => s.LongitudeOrigem).HasColumnType("decimal(10,7)");
         builder.Property(s => s.PrecoPorKm).HasColumnType("decimal(10,2)");
-        builder.Property(s => s.TaxaMinima).HasColumnType("decimal(10,2)");
+        builder.Property(s => s.ValorAte8Km).HasColumnType("decimal(10,2)");
+        builder.Property(s => s.ValorAte16Km).HasColumnType("decimal(10,2)");
+        builder.Property(s => s.ValorAte25Km).HasColumnType("decimal(10,2)");
     }
 }

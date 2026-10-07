@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using LumiMakeup.Api.Extensions;
 using LumiMakeup.Infrastructure;
 using LumiMakeup.Infrastructure.Integrations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -77,6 +78,12 @@ if (opcoesJwt is not null && !string.IsNullOrWhiteSpace(opcoesJwt.Segredo))
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(opcoesJwt.Segredo)),
                 NameClaimType = ClaimTypes.Name,
                 RoleClaimType = ClaimTypes.Role
+            };
+            options.Events = new JwtBearerEvents
+            {
+                // Vale para toda rota [Authorize]: id + e-mail do token
+                // precisam ser os do banco, a cada request.
+                OnTokenValidated = ValidacaoDeSessao.AoTokenValidado
             };
         });
 

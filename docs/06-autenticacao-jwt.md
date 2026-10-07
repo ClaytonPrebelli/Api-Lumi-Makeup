@@ -57,9 +57,10 @@ Validade: **60 minutos** (`Jwt:MinutosDeExpiracao`).
 
 Validade: **7 dias** (`Jwt:DiasDeExpiracaoDoRefresh`).
 
-O refresh **não carrega nome, e-mail nem papel** — é só uma prova de que o cliente
-tem direito a um novo access token. Levar menos dados reduz a exposição se ele for
-interceptado.
+O refresh carrega `sub`, `email` e `jti` — sem nome nem papel. O e-mail está lá
+para amarrar a renovação à pessoa: se o id for reaproveitado por outra conta,
+a renovação morre em vez de emitir tokens para a pessoa errada. Levar menos
+dados reduz a exposição se ele for interceptado.
 
 A claim `typ` é a distinção entre os dois. Ela impede que um refresh token seja
 aceito como se fosse access: o middleware de autorização rejeita token sem `role`, e
@@ -92,6 +93,18 @@ diretamente com a claim `role`.
 
 ---
 
+## Sessão amarrada à pessoa
+
+Assinatura válida não basta: se o banco for recriado, o id do token pode passar
+a ser de outra pessoa, e um pedido feito com a sessão antiga cairia na conta
+errada. Por isso `OnTokenValidated` (`ValidacaoDeSessao.AoTokenValidado`)
+confere **id + e-mail** do token contra o banco a cada request em rota
+`[Authorize]`. Usuário inexistente ou e-mail diferente derruba com `401`
+"Sessão inválida. Entre de novo." — e o front desloga pelo caminho que já
+existe. O e-mail nunca muda após o cadastro, então conta válida não cai.
+
+---
+
 ## Renovação
 
 ```http
@@ -112,6 +125,7 @@ não continua renovando.
 | Refresh válido | `200` com tokens novos |
 | Refresh inválido, expirado ou de tipo errado | `401` "Token de atualização inválido ou expirado." |
 | Usuário não encontrado | `401` "Usuário não encontrado." |
+| E-mail do refresh diferente do banco, ou refresh antigo sem e-mail | `401` "Sessão inválida. Entre de novo." |
 
 > O refresh token não é revogado individualmente. Trocar a senha invalida as
 > renovações na prática porque o hash muda, mas o token ainda é criptograficamente
