@@ -275,7 +275,12 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                         i.VarianteNomeRegistrado ?? (i.VarianteProduto == null ? null : i.VarianteProduto.Nome)))
                     .ToList(),
                 p.CaminhoComprovante,
-                p.NomeOriginalComprovante))
+                p.NomeOriginalComprovante,
+                p.StatusEntrega,
+                p.DistanciaKm,
+                p.DespachadoEm,
+                p.EntregueEm,
+                p.EntreguePorNome))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -329,7 +334,12 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                         i.VarianteNomeRegistrado ?? (i.VarianteProduto == null ? null : i.VarianteProduto.Nome)))
                     .ToList(),
                 p.CaminhoComprovante,
-                p.NomeOriginalComprovante))
+                p.NomeOriginalComprovante,
+                p.StatusEntrega,
+                p.DistanciaKm,
+                p.DespachadoEm,
+                p.EntregueEm,
+                p.EntreguePorNome))
             .ToListAsync(cancellationToken);
     }
 
@@ -337,6 +347,7 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
         StatusPedido? status = null,
         OrigemPedido? origem = null,
         bool? notaFiscalGerada = null,
+        StatusEntrega? statusEntrega = null,
         CancellationToken cancellationToken = default)
     {
         var consulta = _contexto.Pedidos.AsNoTracking();
@@ -356,6 +367,11 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
             consulta = consulta.Where(p => p.NotaFiscalGerada == emitida);
         }
 
+        if (statusEntrega is { } entregaInformada)
+        {
+            consulta = consulta.Where(p => p.StatusEntrega == entregaInformada);
+        }
+
         return await consulta
             .OrderByDescending(p => p.CriadoEm)
             .ThenByDescending(p => p.Id)
@@ -370,7 +386,18 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                 p.Total,
                 p.NotaFiscalGerada,
                 p.CriadoEm,
-                p.Itens.Count))
+                p.Itens.Count,
+                p.StatusEntrega,
+                p.DistanciaKm,
+                p.DespachadoEm,
+                p.EntregueEm,
+                p.EntreguePorNome,
+                p.EntreguePorUsuarioId,
+                p.EnderecoLogradouro,
+                p.EnderecoNumero,
+                p.EnderecoBairro,
+                p.EnderecoCidade,
+                p.EnderecoEstado))
             .ToListAsync(cancellationToken);
     }
 
@@ -502,6 +529,212 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
 
         return await ObterPorIdAsync(pedido.Id, cancellationToken)
             ?? throw new InvalidOperationException("O pedido foi cancelado mas não pôde ser lido.");
+    }
+
+    /// <summary>
+    /// Gera o despacho do dia: marca os pedidos como despachados, de uma vez.
+    ///
+    /// Só entra pedido pago, ainda a despachar e com endereço de entrega:
+    /// retirada e balcão não têm entregador. É tudo-ou-nada: se um id não
+    /// serve, nada muda, e a mensagem diz qual.
+    /// </summary>
+    public async Task<IReadOnlyList<long>> GerarDespachoAsync(
+        IReadOnlyList<long> pedidoIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (pedidoIds.Count == 0)
+        {
+            throw new InvalidOperationException("Escolha ao menos um pedido para despachar.");
+        }
+
+        var distintos = pedidoIds.Distinct().ToList();
+        var pedidos = await _contexto.Pedidos
+            .Where(p => distintos.Contains(p.Id))
+            .ToListAsync(cancellationToken);
+
+        var agora = DateTime.UtcNow;
+
+        foreach (var id in distintos)
+        {
+            var pedido = pedidos.FirstOrDefault(p => p.Id == id)
+                ?? throw new KeyNotFoundException($"Pedido {id} não encontrado.");
+
+            if (pedido.Status != StatusPedido.Pago)
+            {
+                throw new InvalidOperationException($"Somente pedido pago vai a despacho (pedido {id}).");
+            }
+
+            if (pedido.StatusEntrega != StatusEntrega.NaoEnviado)
+            {
+                throw new InvalidOperationException($"O pedido {id} já saiu de 'a despachar'.");
+            }
+
+            if (string.IsNullOrWhiteSpace(pedido.EnderecoLogradouro))
+            {
+                throw new InvalidOperationException($"O pedido {id} não tem endereço de entrega.");
+            }
+
+            pedido.StatusEntrega = StatusEntrega.Despachado;
+            pedido.DespachadoEm = agora;
+        }
+
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return distintos;
+    }
+
+    /// <summary>
+    /// Marca o pedido como entregue, gravando quem entregou e quando.
+    ///
+    /// O nome vai copiado, como o do cliente: desativar o entregador depois
+    /// não pode reescrever o relatório. Vale para entregador e admin.
+    /// </summary>
+    public async Task<PedidoDto> RegistrarEntregaAsync(
+        long id,
+        long entregadorId,
+        CancellationToken cancellationToken = default)
+    {
+        var pedido = await _contexto.Pedidos
+            .Include(p => p.Itens)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Pedido não encontrado.");
+
+        if (pedido.Status is StatusPedido.Cancelado)
+        {
+            throw new InvalidOperationException("Este pedido está cancelado.");
+        }
+
+        if (pedido.StatusEntrega != StatusEntrega.Despachado)
+        {
+            throw new InvalidOperationException("Somente pedido despachado pode ser marcado como entregue.");
+        }
+
+        var entregador = await _contexto.Usuarios
+            .FirstOrDefaultAsync(u => u.Id == entregadorId, cancellationToken)
+            ?? throw new KeyNotFoundException("Entregador não encontrado.");
+
+        pedido.StatusEntrega = StatusEntrega.Entregue;
+        pedido.EntregueEm = DateTime.UtcNow;
+        pedido.EntreguePorUsuarioId = entregador.Id;
+        pedido.EntreguePorNome = entregador.Nome;
+
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        return await ObterPorIdAsync(pedido.Id, cancellationToken)
+            ?? throw new InvalidOperationException("A entrega foi registrada mas o pedido não pôde ser lido.");
+    }
+
+    /// <summary>
+    /// Lista para o portal do entregador e para os relatórios.
+    ///
+    /// A despachar/despachado mostra tudo (sem dono); entregue filtra por quem
+    /// entregou, a menos que quem pergunte seja admin. O intervalo `de`/`ate`
+    /// vale para a data do estágio filtrado (despacho ou entrega).
+    /// </summary>
+    public async Task<IReadOnlyList<PedidoDto>> ListarEntregasAsync(
+        StatusEntrega? statusEntrega,
+        DateTime? de,
+        DateTime? ate,
+        long? entregadorId,
+        CancellationToken cancellationToken = default)
+    {
+        var consulta = _contexto.Pedidos.AsNoTracking();
+
+        if (statusEntrega is { } entregaInformada)
+        {
+            consulta = consulta.Where(p => p.StatusEntrega == entregaInformada);
+        }
+        else
+        {
+            consulta = consulta.Where(p => p.StatusEntrega == StatusEntrega.Despachado || p.StatusEntrega == StatusEntrega.Entregue);
+        }
+
+        if (entregadorId is { } entregador)
+        {
+            // Só restringe o entregue: despachado não tem dono, e esconder a
+            // lista de quem vai sair para a rua quebraria a conferência.
+            consulta = consulta.Where(p =>
+                p.StatusEntrega != StatusEntrega.Entregue || p.EntreguePorUsuarioId == entregador);
+        }
+
+        // O intervalo vale para a data do estágio filtrado: entrega ou despacho.
+        if (statusEntrega == StatusEntrega.Entregue)
+        {
+            if (de is { } inicioEntrega)
+            {
+                var dia = inicioEntrega.Date;
+                consulta = consulta.Where(p => p.EntregueEm >= dia);
+            }
+
+            if (ate is { } fimEntrega)
+            {
+                var diaSeguinte = fimEntrega.Date.AddDays(1);
+                consulta = consulta.Where(p => p.EntregueEm < diaSeguinte);
+            }
+        }
+        else
+        {
+            if (de is { } inicioDespacho)
+            {
+                var dia = inicioDespacho.Date;
+                consulta = consulta.Where(p => p.DespachadoEm >= dia);
+            }
+
+            if (ate is { } fimDespacho)
+            {
+                var diaSeguinte = fimDespacho.Date.AddDays(1);
+                consulta = consulta.Where(p => p.DespachadoEm < diaSeguinte);
+            }
+        }
+
+        return await consulta
+            .OrderByDescending(p => p.DespachadoEm)
+            .ThenByDescending(p => p.Id)
+            .Select(p => new PedidoDto(
+                p.Id,
+                p.UsuarioId,
+                p.NomeCliente,
+                p.DocumentoCliente,
+                p.TelefoneContato,
+                p.EmailContato,
+                p.Origem,
+                p.Status,
+                p.MetodoPagamento,
+                p.CupomCodigo,
+                p.Subtotal,
+                p.Desconto,
+                p.CustoFrete,
+                p.Total,
+                p.Observacoes,
+                p.CriadoEm,
+                p.PagoEm,
+                p.EnderecoCep,
+                p.EnderecoLogradouro,
+                p.EnderecoNumero,
+                p.EnderecoComplemento,
+                p.EnderecoBairro,
+                p.EnderecoCidade,
+                p.EnderecoEstado,
+                p.Itens
+                    .OrderBy(i => i.Id)
+                    .Select(i => new PedidoItemDto(
+                        i.ProdutoId,
+                        i.NomeProdutoRegistrado,
+                        i.Quantidade,
+                        i.PrecoVendaUnitario,
+                        i.PrecoPromocionalUnitario,
+                        i.Subtotal,
+                        i.VarianteProdutoId,
+                        i.VarianteNomeRegistrado ?? (i.VarianteProduto == null ? null : i.VarianteProduto.Nome)))
+                    .ToList(),
+                p.CaminhoComprovante,
+                p.NomeOriginalComprovante,
+                p.StatusEntrega,
+                p.DistanciaKm,
+                p.DespachadoEm,
+                p.EntregueEm,
+                p.EntreguePorNome))
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>

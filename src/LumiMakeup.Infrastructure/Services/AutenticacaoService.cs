@@ -76,12 +76,20 @@ public sealed class AutenticacaoService : IAutenticacaoService
 
     public async Task<RespostaDeAutenticacao> EntrarAsync(RequisicaoDeLogin requisicao, CancellationToken cancellationToken = default)
     {
-        var email = requisicao.Email.Trim().ToLowerInvariant();
-        var usuario = await _contexto.Usuarios.SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
+        var identificador = requisicao.Email.Trim().ToLowerInvariant();
+
+        // Entra com e-mail (cliente e admin) ou com usuário (entregador).
+        var usuario = await _contexto.Usuarios
+            .SingleOrDefaultAsync(u => u.Email == identificador || u.Login == identificador, cancellationToken);
 
         if (usuario is null || string.IsNullOrEmpty(usuario.HashSenha))
         {
             throw new UnauthorizedAccessException("E-mail ou senha inválidos.");
+        }
+
+        if (!usuario.Ativo)
+        {
+            throw new UnauthorizedAccessException("Usuário desativado. Fale com a loja.");
         }
 
         var resultado = _passwordHasher.VerifyHashedPassword(usuario, usuario.HashSenha, requisicao.Senha);
@@ -124,6 +132,11 @@ public sealed class AutenticacaoService : IAutenticacaoService
             await _contexto.SaveChangesAsync(cancellationToken);
         }
 
+        if (!usuario.Ativo)
+        {
+            throw new UnauthorizedAccessException("Usuário desativado. Fale com a loja.");
+        }
+
         return ConstruirRespostaDeAutenticacao(usuario);
     }
 
@@ -141,9 +154,9 @@ public sealed class AutenticacaoService : IAutenticacaoService
 
         // Refresh antigo (sem e-mail) ou id reaproveitado por outra pessoa
         // depois de um reset: a sessão morreu, e renovar emitiria tokens para a
-        // pessoa errada.
+        // pessoa errada. Identidade é e-mail ou login, igual ao token.
         if (string.IsNullOrWhiteSpace(identidade.Value.Email)
-            || !string.Equals(usuario.Email, identidade.Value.Email, StringComparison.OrdinalIgnoreCase))
+            || !string.Equals(usuario.Email ?? usuario.Login, identidade.Value.Email, StringComparison.OrdinalIgnoreCase))
         {
             throw new UnauthorizedAccessException("Sessão inválida. Entre de novo.");
         }
@@ -229,7 +242,8 @@ public sealed class AutenticacaoService : IAutenticacaoService
 
     private static UsuarioDto ParaUsuarioDto(Usuario usuario)
     {
-        var precisaPerfil = string.IsNullOrEmpty(usuario.Cpf);
+        // Entregador não completa perfil: entra no portal próprio, sem endereço.
+        var precisaPerfil = usuario.Papel != PapelUsuario.Entregador && string.IsNullOrEmpty(usuario.Cpf);
         return new UsuarioDto(
             usuario.Id,
             usuario.Nome,

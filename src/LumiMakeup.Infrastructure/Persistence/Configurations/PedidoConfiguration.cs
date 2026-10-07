@@ -63,6 +63,8 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
         builder.Property(o => o.CriadoEm).HasColumnType("datetime");
         builder.Property(o => o.PagoEm).HasColumnType("datetime");
         builder.Property(o => o.EntregueEm).HasColumnType("datetime");
+        builder.Property(o => o.DespachadoEm).HasColumnType("datetime");
+        builder.Property(o => o.EntreguePorNome).HasMaxLength(150);
 
         // A origem e o que separa a venda de balcao no relatorio de receita.
         builder.HasIndex(o => o.Origem);

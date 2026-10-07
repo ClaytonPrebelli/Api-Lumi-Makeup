@@ -988,6 +988,165 @@ public sealed class GestaoDePedidosServiceTests
         Assert.Equal(4, await contexto.Produtos.Select(p => p.QuantidadeEstoque).SingleAsync());
     }
 
+    // ----Despacho e entrega ------------------------------------------------
+
+    private static async Task<Usuario> SemearEntregadorAsync(LumiDbContext contexto)
+    {
+        var entregador = new Usuario
+        {
+            Nome = "João",
+            Login = "joao",
+            Papel = PapelUsuario.Entregador
+        };
+
+        contexto.Usuarios.Add(entregador);
+        await contexto.SaveChangesAsync();
+        return entregador;
+    }
+
+    private static async Task<PedidoDto> PedidoPagoAsync(
+        GestaoDePedidosService servico,
+        long usuarioId,
+        long produtoId)
+    {
+        var pedido = await servico.CriarAsync(
+            Requisicao(usuarioId, (produtoId, 1)),
+            OrigemPedido.Online,
+            CancellationToken.None);
+        await servico.RegistrarPagamentoAsync(pedido.Id, MetodoPagamento.Pix, CancellationToken.None);
+        return await servico.ObterPorIdAsync(pedido.Id, CancellationToken.None)
+            ?? throw new InvalidOperationException("Pedido sumiu no teste.");
+    }
+
+    [Fact]
+    public async Task GerarDespachoAsync_marca_despachado_com_data()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var pedido = await PedidoPagoAsync(servico, usuario.Id, produto.Id);
+
+        var ids = await servico.GerarDespachoAsync([pedido.Id], CancellationToken.None);
+
+        Assert.Single(ids);
+        Assert.Equal(pedido.Id, ids[0]);
+        var gravado = await contexto.Pedidos.AsNoTracking().SingleAsync();
+        Assert.Equal(StatusEntrega.Despachado, gravado.StatusEntrega);
+        Assert.NotNull(gravado.DespachadoEm);
+    }
+
+    [Fact]
+    public async Task GerarDespachoAsync_recusa_sem_pagamento()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var pedido = await servico.CriarAsync(
+            Requisicao(usuario.Id, (produto.Id, 1)),
+            OrigemPedido.Online,
+            CancellationToken.None);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.GerarDespachoAsync([pedido.Id], CancellationToken.None));
+
+        Assert.Contains("pago", erro.Message);
+    }
+
+    [Fact]
+    public async Task GerarDespachoAsync_recusa_sem_endereco()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var pedido = await servico.CriarAsync(
+            RequisicaoDeBalcao(usuario.Id, null, (produto.Id, 1)) with { Retirada = true },
+            OrigemPedido.Online,
+            CancellationToken.None);
+        await servico.RegistrarPagamentoAsync(pedido.Id, MetodoPagamento.Pix, CancellationToken.None);
+
+        // Retirada não tem entregador: quem busca é o cliente, na loja.
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.GerarDespachoAsync([pedido.Id], CancellationToken.None));
+
+        Assert.Contains("endereço", erro.Message);
+    }
+
+    [Fact]
+    public async Task GerarDespachoAsync_recusa_lista_vazia()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var servico = Servico(contexto);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.GerarDespachoAsync([], CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RegistrarEntregaAsync_marca_entregue_com_quem()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var entregador = await SemearEntregadorAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var pedido = await PedidoPagoAsync(servico, usuario.Id, produto.Id);
+        await servico.GerarDespachoAsync([pedido.Id], CancellationToken.None);
+
+        var entregue = await servico.RegistrarEntregaAsync(pedido.Id, entregador.Id, CancellationToken.None);
+
+        Assert.Equal(StatusEntrega.Entregue, entregue.StatusEntrega);
+        Assert.NotNull(entregue.EntregueEm);
+        Assert.Equal("João", entregue.EntreguePorNome);
+    }
+
+    [Fact]
+    public async Task RegistrarEntregaAsync_recusa_sem_despacho()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var entregador = await SemearEntregadorAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var pedido = await PedidoPagoAsync(servico, usuario.Id, produto.Id);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.RegistrarEntregaAsync(pedido.Id, entregador.Id, CancellationToken.None));
+
+        Assert.Contains("despachado", erro.Message);
+    }
+
+    [Fact]
+    public async Task ListarEntregasAsync_mostra_despachados_e_suas_entregas()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var joao = await SemearEntregadorAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+
+        var um = await PedidoPagoAsync(servico, usuario.Id, produto.Id);
+        var dois = await PedidoPagoAsync(servico, usuario.Id, produto.Id);
+        await servico.GerarDespachoAsync([um.Id, dois.Id], CancellationToken.None);
+        await servico.RegistrarEntregaAsync(um.Id, joao.Id, CancellationToken.None);
+
+        // Despachado não tem dono: aparece para todo entregador.
+        var despachados = await servico.ListarEntregasAsync(
+            StatusEntrega.Despachado, null, null, joao.Id, CancellationToken.None);
+        Assert.Single(despachados);
+
+        // Entregue filtra por quem entregou.
+        var meus = await servico.ListarEntregasAsync(
+            StatusEntrega.Entregue, null, null, joao.Id, CancellationToken.None);
+        Assert.Single(meus);
+
+        var outros = await servico.ListarEntregasAsync(
+            StatusEntrega.Entregue, null, null, 999, CancellationToken.None);
+        Assert.Empty(outros);
+    }
+
     // ----Listagem do painel ------------------------------------------------
 
     private static async Task<(Pedido Pedido, Usuario Usuario)> PedidoNoBancoAsync(

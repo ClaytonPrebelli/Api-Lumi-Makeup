@@ -35,7 +35,9 @@ public sealed class JwtTokenService : ITokenService
         {
             new(JwtRegisteredClaimNames.Sub, usuario.Id.ToString()),
             new(ClaimTypes.Name, usuario.Nome),
-            new(JwtRegisteredClaimNames.Email, usuario.Email),
+            // Entregador entra com usuário e pode não ter e-mail: a identidade
+            // da sessão é e-mail ou login, igual na validação e na renovação.
+            new(JwtRegisteredClaimNames.Email, usuario.Email ?? usuario.Login ?? string.Empty),
             new(ClaimTypes.Role, usuario.Papel.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Typ, "access")
@@ -52,7 +54,7 @@ public sealed class JwtTokenService : ITokenService
         var claimsDeRefresh = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, usuario.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, usuario.Email),
+            new(JwtRegisteredClaimNames.Email, usuario.Email ?? usuario.Login ?? string.Empty),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Typ, "refresh")
         };

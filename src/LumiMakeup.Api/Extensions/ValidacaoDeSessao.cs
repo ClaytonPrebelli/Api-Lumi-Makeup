@@ -42,15 +42,20 @@ public static class ValidacaoDeSessao
 
         var banco = contexto.HttpContext.RequestServices.GetRequiredService<LumiDbContext>();
 
-        var emailDoBanco = await banco.Usuarios
+        // Identidade é e-mail ou login, igual ao que o token carrega: entregador
+        // pode não ter e-mail.
+        var identidadeDoBanco = await banco.Usuarios
             .AsNoTracking()
             .Where(u => u.Id == principal.ObterId()!.Value)
-            .Select(u => u.Email)
+            .Select(u => new { u.Email, u.Login, u.Ativo })
             .SingleOrDefaultAsync();
 
         // Nulo quando o usuário não existe mais. Diferente quando o id foi
-        // reaproveitado por outra pessoa. Nos dois casos, a sessão morreu.
-        if (!string.Equals(emailDoBanco, emailDoToken, StringComparison.OrdinalIgnoreCase))
+        // reaproveitado por outra pessoa. Inativo não entra. Nos três casos, a
+        // sessão morreu.
+        if (identidadeDoBanco is null
+            || !identidadeDoBanco.Ativo
+            || !string.Equals(identidadeDoBanco.Email ?? identidadeDoBanco.Login, emailDoToken, StringComparison.OrdinalIgnoreCase))
         {
             contexto.Fail("Sessão inválida. Entre de novo.");
         }

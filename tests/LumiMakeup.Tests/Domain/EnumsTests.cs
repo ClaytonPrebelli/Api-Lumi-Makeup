@@ -9,6 +9,7 @@ public class EnumsTests
     {
         Assert.Equal(0, (int)PapelUsuario.Cliente);
         Assert.Equal(1, (int)PapelUsuario.Administrador);
+        Assert.Equal(2, (int)PapelUsuario.Entregador);
     }
 
     [Fact]
@@ -25,6 +26,7 @@ public class EnumsTests
         Assert.Equal(0, (int)StatusEntrega.NaoEnviado);
         Assert.Equal(1, (int)StatusEntrega.Enviado);
         Assert.Equal(2, (int)StatusEntrega.Entregue);
+        Assert.Equal(3, (int)StatusEntrega.Despachado);
     }
 
     [Fact]

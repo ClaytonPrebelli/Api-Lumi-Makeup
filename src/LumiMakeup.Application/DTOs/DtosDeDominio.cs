@@ -217,7 +217,12 @@ public sealed record PedidoDto(
     string? EnderecoEstado,
     IReadOnlyList<PedidoItemDto> Itens,
     string? CaminhoComprovante = null,
-    string? NomeOriginalComprovante = null);
+    string? NomeOriginalComprovante = null,
+    StatusEntrega StatusEntrega = StatusEntrega.NaoEnviado,
+    decimal DistanciaKm = 0m,
+    DateTime? DespachadoEm = null,
+    DateTime? EntregueEm = null,
+    string? EntreguePorNome = null);
 
 /// <summary>
 /// O que o Node do Baileys devolve para a API guardar a sessao.
@@ -267,7 +272,18 @@ public sealed record PedidoListaDto(
     decimal Total,
     bool NotaFiscalGerada,
     DateTime CriadoEm,
-    int QuantidadeDeItens);
+    int QuantidadeDeItens,
+    StatusEntrega StatusEntrega = StatusEntrega.NaoEnviado,
+    decimal DistanciaKm = 0m,
+    DateTime? DespachadoEm = null,
+    DateTime? EntregueEm = null,
+    string? EntreguePorNome = null,
+    long? EntreguePorUsuarioId = null,
+    string? EnderecoLogradouro = null,
+    string? EnderecoNumero = null,
+    string? EnderecoBairro = null,
+    string? EnderecoCidade = null,
+    string? EnderecoEstado = null);
 
 /// <summary>
 /// Venda de balcão. É a requisição de criação **mais a data**.
@@ -391,7 +407,7 @@ public sealed record ExclusaoDeEndereco(long EnderecoId);
 public sealed record ClienteResumoDto(
     long Id,
     string Nome,
-    string Email,
+    string? Email,
     string? Telefone,
     string? Cpf,
     bool TemSenha);
@@ -406,6 +422,31 @@ public sealed record RequisicaoDeCliente(
     string Email,
     string Telefone,
     string? Cpf);
+
+/// <summary>
+/// Entregador para o painel e o portal de entrega. Entra com usuário e senha
+/// (sem e-mail) e pode ser desativado em vez de excluído.
+/// </summary>
+public sealed record EntregadorDto(
+    long Id,
+    string Nome,
+    string? Login,
+    bool Ativo,
+    DateTime CriadoEm);
+
+public sealed record RequisicaoDeEntregador(
+    string Nome,
+    string Login,
+    string Senha);
+
+public sealed record RequisicaoDeAtualizacaoDeEntregador(
+    string Nome,
+    string Login,
+    string? Senha,
+    bool Ativo);
+
+/// <summary>Lote de pedidos que vai ao despacho do dia.</summary>
+public sealed record RequisicaoDeDespacho(IReadOnlyList<long> PedidoIds);
 
 public sealed record RequisicaoDeCategoria(string Nome, string? Slug, string? Descricao, bool Ativo);
 

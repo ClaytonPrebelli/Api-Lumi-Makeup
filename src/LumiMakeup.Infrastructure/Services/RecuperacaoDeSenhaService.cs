@@ -78,7 +78,9 @@ public sealed class RecuperacaoDeSenhaService : IRecuperacaoDeSenhaService
         var corpoHtml = ConstruirCorpoDoEmail(usuario.Nome, linkDeRedefinicao, minutosDeExpiracao, temSenha);
         var assunto = temSenha ? AssuntoDeRedefinicaoDeSenha : AssuntoDeDefinicaoDeSenha;
 
-        await _emailSender.EnviarAsync(usuario.Email, assunto, corpoHtml, cancellationToken);
+        // Achado pelo e-mail acima, então tem: o ?? é só para o compilador,
+        // porque entregador pode não ter e-mail (e nem pede reset por aqui).
+        await _emailSender.EnviarAsync(usuario.Email ?? email, assunto, corpoHtml, cancellationToken);
     }
 
     public async Task<RespostaDeAutenticacao> ConfirmarAsync(RequisicaoDeConfirmarResetDeSenha requisicao, CancellationToken cancellationToken = default)

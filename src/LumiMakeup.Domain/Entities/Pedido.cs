@@ -115,6 +115,21 @@ public class Pedido
     public DateTime? PagoEm { get; set; }
     public DateTime? EntregueEm { get; set; }
 
+    /// <summary>
+    /// Quando entrou no despacho do dia. Nulo enquanto está a despachar.
+    /// </summary>
+    public DateTime? DespachadoEm { get; set; }
+
+    /// <summary>
+    /// Quem marcou como entregue (id do entregador ou da admin). Sem FK, de
+    /// propósito: é registro histórico, como o nome do cliente — desativar ou
+    /// apagar o entregador não pode reescrever o passado.
+    /// </summary>
+    public long? EntreguePorUsuarioId { get; set; }
+
+    /// <summary>Nome de quem entregou, copiado no momento da entrega.</summary>
+    public string? EntreguePorNome { get; set; }
+
     public Usuario Usuario { get; set; } = null!;
     public ICollection<ItemPedido> Itens { get; set; } = new List<ItemPedido>();
     public ICollection<NotaFiscal> NotasFiscais { get; set; } = new List<NotaFiscal>();

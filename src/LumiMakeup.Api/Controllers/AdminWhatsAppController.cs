@@ -1,5 +1,6 @@
 using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
+using LumiMakeup.Infrastructure.Integrations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,15 +22,18 @@ public sealed class AdminWhatsAppController : ControllerBase
 {
     private readonly IWhatsAppService _whatsApp;
     private readonly IGestaoDeWhatsAppService _gestaoWhatsApp;
+    private readonly RepositorioDeSessaoWhatsApp _sessao;
     private readonly ILogger<AdminWhatsAppController> _logger;
 
     public AdminWhatsAppController(
         IWhatsAppService whatsApp,
         IGestaoDeWhatsAppService gestaoWhatsApp,
+        RepositorioDeSessaoWhatsApp sessao,
         ILogger<AdminWhatsAppController> logger)
     {
         _whatsApp = whatsApp;
         _gestaoWhatsApp = gestaoWhatsApp;
+        _sessao = sessao;
         _logger = logger;
     }
 
@@ -39,13 +43,29 @@ public sealed class AdminWhatsAppController : ControllerBase
     /// Nunca lanca: Node parado e um estado legitimo da tela, nao erro 500. A
     /// administradora precisa ver "o servico esta desligado" e saber o que
     /// fazer, e nao uma tela branca de excecao.
+    ///
+    /// Inclui se há sessão guardada no banco: sem sessão, o Node gera QR; com
+    /// sessão, ele restaura sozinho. É o que diz se "aguardando pareamento" é
+    /// só o Node acordando ou se o pareamento se perdeu de verdade.
     /// </summary>
     [HttpGet("status")]
     public async Task<IActionResult> Status(CancellationToken cancellationToken)
     {
         var status = await _whatsApp.ObterStatusAsync(cancellationToken);
+        var sessao = await _sessao.ObterAsync(cancellationToken);
 
-        return Ok(status);
+        return Ok(new
+        {
+            status.ServicoNoAr,
+            status.Pareado,
+            status.Numero,
+            status.Nome,
+            status.ConectadoDesde,
+            status.UltimoEnvioEm,
+            status.Motivo,
+            sessaoNoBanco = sessao is not null,
+            sessaoAtualizadaEm = sessao?.AtualizadoEm
+        });
     }
 
     /// <summary>

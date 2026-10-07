@@ -90,6 +90,7 @@ if (opcoesJwt is not null && !string.IsNullOrWhiteSpace(opcoesJwt.Segredo))
     builder.Services.AddAuthorization(options =>
     {
         options.AddPolicy("SomenteAdministrador", policy => policy.RequireRole("Administrador"));
+        options.AddPolicy("Entrega", policy => policy.RequireRole("Entregador", "Administrador"));
     });
 }
 
