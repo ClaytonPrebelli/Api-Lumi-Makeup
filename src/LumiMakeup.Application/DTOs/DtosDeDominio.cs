@@ -178,7 +178,8 @@ public sealed record RequisicaoDePedido(
     decimal DistanciaKm,
     DateTime? CriadoEm,
     bool Retirada = false,
-    MetodoPagamento? MetodoPagamento = null);
+    MetodoPagamento? MetodoPagamento = null,
+    bool AvisarCliente = true);
 
 public sealed record PedidoItemDto(
     long ProdutoId,
@@ -292,13 +293,18 @@ public sealed record PedidoListaDto(
 /// ontem depois. Ela existe só aqui, e não na requisição do checkout, porque
 /// nesse caso quem manda é o cliente — e um cliente que pudesse escolher a data
 /// do próprio pedido ordenaria a fila de relatórios.
+///
+/// <c>AvisarCliente</c> diz se avisa por e-mail e WhatsApp. Tem venda que a
+/// administradora prefere não avisar, e o padrão avisando mantém o
+/// comportamento de antes para quem não escolhe.
 /// </summary>
 public sealed record RequisicaoDeVendaDeBalcao(
     long UsuarioId,
     IReadOnlyList<ItemDePedidoRequisicao> Itens,
     string? CupomCodigo,
     string? Observacoes,
-    DateTime? CriadoEm);
+    DateTime? CriadoEm,
+    bool AvisarCliente = true);
 
 public sealed record RequisicaoDePagamentoDePedido(MetodoPagamento MetodoPagamento);
 

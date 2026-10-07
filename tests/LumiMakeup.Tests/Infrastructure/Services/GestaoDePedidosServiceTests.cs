@@ -571,6 +571,45 @@ public sealed class GestaoDePedidosServiceTests
     }
 
     [Fact]
+    public async Task CriarAsync_nao_avisa_quando_a_venda_de_balcao_pede_silencio()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var notificador = new Mock<INotificadorDePedido>();
+        var servico = Servico(contexto, notificador.Object);
+
+        await servico.CriarAsync(
+            RequisicaoDeBalcao(usuario.Id, null, (produto.Id, 1)) with { AvisarCliente = false },
+            OrigemPedido.Balcao,
+            CancellationToken.None);
+
+        // Nem e-mail nem WhatsApp: a administradora pediu silêncio na tela.
+        notificador.Verify(
+            n => n.PedidoCriadoAsync(It.IsAny<PedidoDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task CriarAsync_avisa_a_venda_de_balcao_por_padrao()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var notificador = new Mock<INotificadorDePedido>();
+        var servico = Servico(contexto, notificador.Object);
+
+        await servico.CriarAsync(
+            RequisicaoDeBalcao(usuario.Id, null, (produto.Id, 1)),
+            OrigemPedido.Balcao,
+            CancellationToken.None);
+
+        notificador.Verify(
+            n => n.PedidoCriadoAsync(It.IsAny<PedidoDto>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task CriarAsync_recusa_venda_de_balcao_com_endereco()
     {
         using var contexto = Testes.CriarContextoInMemory();
