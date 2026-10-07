@@ -38,7 +38,7 @@ public sealed class GestaoDeFreteServiceTests
     {
         var mock = new Mock<ICalculoDeFreteService>();
         mock.Setup(c => c.CalcularAsync(It.IsAny<EnderecoDeEntregaRequisicao>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CalculoDeFreteDto(distancia, custo, 1.2m, 9m));
+            .ReturnsAsync(new CalculoDeFreteDto(distancia, custo, 1.2m, "Valor fixo até 8 km"));
         return mock;
     }
 
@@ -71,14 +71,16 @@ public sealed class GestaoDeFreteServiceTests
         using var contexto = Testes.CriarContextoInMemory();
 
         await Servico(contexto).SalvarAsync(
-            new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m),
+            new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 7.50m, 12.00m, 18.00m),
             CancellationToken.None);
 
         var gravado = await contexto.ConfiguracoesDeFrete.SingleAsync();
 
         Assert.Equal("01310300", gravado.CepOrigem);
         Assert.Equal(1.20m, gravado.PrecoPorKm);
-        Assert.Equal(9.00m, gravado.TaxaMinima);
+        Assert.Equal(7.50m, gravado.ValorAte8Km);
+        Assert.Equal(12.00m, gravado.ValorAte16Km);
+        Assert.Equal(18.00m, gravado.ValorAte25Km);
         Assert.Equal(-23.561414m, gravado.LatitudeOrigem);
     }
 
@@ -88,8 +90,8 @@ public sealed class GestaoDeFreteServiceTests
         using var contexto = Testes.CriarContextoInMemory();
         var servico = Servico(contexto);
 
-        await servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m), CancellationToken.None);
-        await servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01425-001", 2.00m, 12.00m), CancellationToken.None);
+        await servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 7.50m, 12.00m, 18.00m), CancellationToken.None);
+        await servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01425-001", 2.00m, 8.00m, 13.00m, 19.00m), CancellationToken.None);
 
         // Duas linhas fariam o cÃ¡lculo usar a mais antiga, e a administradora
         // acharia que a tarifa nova foi salva sem nenhum efeito.
@@ -103,7 +105,7 @@ public sealed class GestaoDeFreteServiceTests
         using var contexto = Testes.CriarContextoInMemory();
 
         var configuracao = await Servico(contexto).SalvarAsync(
-            new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m),
+            new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 7.50m, 12.00m, 18.00m),
             CancellationToken.None);
 
         // "R$ 1,20 por km" nÃ£o diz nada concreto. O exemplo Ã© o que faz a
@@ -120,23 +122,23 @@ public sealed class GestaoDeFreteServiceTests
         // Frete zero faz a loja entregar de graÃ§a em qualquer distÃ¢ncia.
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             Servico(contexto).SalvarAsync(
-                new RequisicaoDeConfiguracaoDeFrete("01310-300", 0m, 9.00m),
+                new RequisicaoDeConfiguracaoDeFrete("01310-300", 0m, 7.50m, 12.00m, 18.00m),
                 CancellationToken.None));
 
         Assert.Contains("quilÃ´metro", erro.Message);
     }
 
     [Fact]
-    public async Task SalvarAsync_recusa_taxa_minima_negativa()
+    public async Task SalvarAsync_recusa_faixa_com_valor_negativo()
     {
         using var contexto = Testes.CriarContextoInMemory();
 
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             Servico(contexto).SalvarAsync(
-                new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, -1m),
+                new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 7.50m, -1m, 18.00m),
                 CancellationToken.None));
 
-        Assert.Contains("taxa mÃ­nima", erro.Message);
+        Assert.Contains("faixa", erro.Message);
     }
 
     [Fact]
@@ -146,7 +148,7 @@ public sealed class GestaoDeFreteServiceTests
 
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             Servico(contexto).SalvarAsync(
-                new RequisicaoDeConfiguracaoDeFrete("013", 1.20m, 9.00m),
+                new RequisicaoDeConfiguracaoDeFrete("013", 1.20m, 7.50m, 12.00m, 18.00m),
                 CancellationToken.None));
 
         Assert.Contains("CEP", erro.Message);
@@ -168,7 +170,7 @@ public sealed class GestaoDeFreteServiceTests
             CalculoDeExemplo(12.40m, 8m).Object);
 
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("99999-999", 1.20m, 9.00m), CancellationToken.None));
+            servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("99999-999", 1.20m, 7.50m, 12.00m, 18.00m), CancellationToken.None));
 
         Assert.Contains("CEP", erro.Message);
     }
@@ -192,7 +194,7 @@ public sealed class GestaoDeFreteServiceTests
         // o outro Ã© o serviÃ§o externo instÃ¡vel, e a administradora precisa saber
         // qual dos dois foi para tentar de novo ou corrigir o dado.
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m), CancellationToken.None));
+            servico.SalvarAsync(new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 7.50m, 12.00m, 18.00m), CancellationToken.None));
 
         Assert.Contains("coordenadas", erro.Message);
     }
@@ -213,7 +215,7 @@ public sealed class GestaoDeFreteServiceTests
             calculo.Object);
 
         var configuracao = await servico.SalvarAsync(
-            new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 9.00m),
+            new RequisicaoDeConfiguracaoDeFrete("01310-300", 1.20m, 7.50m, 12.00m, 18.00m),
             CancellationToken.None);
 
         // O exemplo Ã© ilustrativo. Falhar ele nÃ£o pode impedir a gravaÃ§Ã£o de uma

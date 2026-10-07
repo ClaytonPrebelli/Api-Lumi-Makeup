@@ -25,7 +25,9 @@ public sealed class CalculoDeFreteServiceTests
     private static async Task SemearConfiguracaoAsync(
         LumiDbContext contexto,
         decimal precoPorKm = 1.20m,
-        decimal taxaMinima = 9.00m)
+        decimal valorAte8Km = 7.50m,
+        decimal valorAte16Km = 12.00m,
+        decimal valorAte25Km = 18.00m)
     {
         contexto.ConfiguracoesDeFrete.Add(new ConfiguracaoFrete
         {
@@ -33,7 +35,9 @@ public sealed class CalculoDeFreteServiceTests
             LatitudeOrigem = LatPaulista,
             LongitudeOrigem = LonPaulista,
             PrecoPorKm = precoPorKm,
-            TaxaMinima = taxaMinima
+            ValorAte8Km = valorAte8Km,
+            ValorAte16Km = valorAte16Km,
+            ValorAte25Km = valorAte25Km
         });
 
         await contexto.SaveChangesAsync();
@@ -50,53 +54,88 @@ public sealed class CalculoDeFreteServiceTests
     // ----Calculo ----------------------------------------------------------
 
     [Fact]
-    public async Task CalcularAsync_aplica_o_preco_por_km()
+    public async Task CalcularAsync_cobra_por_km_acima_de_25_km()
     {
         using var contexto = Testes.CriarContextoInMemory();
-        await SemearConfiguracaoAsync(contexto, precoPorKm: 1.20m, taxaMinima: 0m);
+        await SemearConfiguracaoAsync(contexto, precoPorKm: 1.20m);
 
-        // 0,1 grau de longitude na latitude de São Paulo é ~10,6 km de linha reta,
-        // que viram ~13,8 pelo fator de rota urbana. O valor exato depende da
-        // geometria da esfera, e o que o teste segura é a conta, não o arredondamento.
+        // 0,2 grau de longitude dá mais de 25 km com o fator de rota. Acima de
+        // 25 km não há valor fixo: volta a ser preço por quilômetro.
+        var mock = Geocodificador(LatPaulista, LonPaulista + 0.2m);
+        var servico = new CalculoDeFreteService(contexto, mock.Object);
+
+        var resultado = await servico.CalcularAsync(Destino(), CancellationToken.None);
+
+        Assert.True(resultado.DistanciaKm > 25m);
+        Assert.Equal(Math.Round(resultado.DistanciaKm * 1.20m, 2), resultado.Custo);
+        Assert.Null(resultado.DescricaoFaixa);
+    }
+
+    [Fact]
+    public async Task CalcularAsync_cobra_valor_fixo_ate_8_km()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        await SemearConfiguracaoAsync(contexto, valorAte8Km: 7.50m);
+
+        // 300 m de distância dariam centavos pelo preço por km. Perto, o frete
+        // é o fixo da primeira faixa.
+        var mock = Geocodificador(LatPaulista, LonPaulista + 0.003m);
+        var servico = new CalculoDeFreteService(contexto, mock.Object);
+
+        var resultado = await servico.CalcularAsync(Destino(), CancellationToken.None);
+
+        Assert.Equal(7.50m, resultado.Custo);
+        Assert.Equal("Valor fixo até 8 km", resultado.DescricaoFaixa);
+    }
+
+    [Fact]
+    public async Task CalcularAsync_cobra_valor_fixo_de_8_a_16_km()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        await SemearConfiguracaoAsync(contexto, valorAte16Km: 12.00m);
+
+        // 0,1 grau dá 13,25 km com o fator de rota: segunda faixa.
         var mock = Geocodificador(LatPaulista, LonPaulista + 0.1m);
         var servico = new CalculoDeFreteService(contexto, mock.Object);
 
         var resultado = await servico.CalcularAsync(Destino(), CancellationToken.None);
 
         Assert.Equal(13.25m, resultado.DistanciaKm);
-        Assert.Equal(15.90m, resultado.Custo);
+        Assert.Equal(12.00m, resultado.Custo);
+        Assert.Equal("Valor fixo de 8 a 16 km", resultado.DescricaoFaixa);
     }
 
     [Fact]
-    public async Task CalcularAsync_respeita_a_taxa_minima_em_endereco_proximo()
+    public async Task CalcularAsync_cobra_valor_fixo_de_16_a_25_km()
     {
         using var contexto = Testes.CriarContextoInMemory();
-        await SemearConfiguracaoAsync(contexto, precoPorKm: 1.20m, taxaMinima: 9.00m);
+        await SemearConfiguracaoAsync(contexto, valorAte25Km: 18.00m);
 
-        // 300 m de distância dariam R$ 0,47 pelo preço por km. Pagar esse valor
-        // por uma remessa de 300 metros não cobre o custo de empacotar.
-        var mock = Geocodificador(LatPaulista, LonPaulista + 0.003m);
+        // 0,15 grau dá cerca de 19,9 km com o fator de rota: terceira faixa.
+        var mock = Geocodificador(LatPaulista, LonPaulista + 0.15m);
         var servico = new CalculoDeFreteService(contexto, mock.Object);
 
         var resultado = await servico.CalcularAsync(Destino(), CancellationToken.None);
 
-        Assert.Equal(9.00m, resultado.Custo);
+        Assert.InRange(resultado.DistanciaKm, 16m, 25m);
+        Assert.Equal(18.00m, resultado.Custo);
+        Assert.Equal("Valor fixo de 16 a 25 km", resultado.DescricaoFaixa);
     }
 
     [Fact]
     public async Task CalcularAsync_devolve_a_tarifa_para_a_tela_explicar_o_numero()
     {
         using var contexto = Testes.CriarContextoInMemory();
-        await SemearConfiguracaoAsync(contexto, precoPorKm: 1.20m, taxaMinima: 9.00m);
+        await SemearConfiguracaoAsync(contexto, precoPorKm: 1.20m);
         var mock = Geocodificador(LatPaulista, LonPaulista + 0.1m);
         var servico = new CalculoDeFreteService(contexto, mock.Object);
 
         var resultado = await servico.CalcularAsync(Destino(), CancellationToken.None);
 
-        // Sem o preço por km e a taxa mínima no corpo, o checkout mostraria um
-        // total que ninguém entende de onde saiu.
+        // Sem o preço por km e a descrição da faixa no corpo, o checkout
+        // mostraria um total que ninguém entende de onde saiu.
         Assert.Equal(1.20m, resultado.PrecoPorKm);
-        Assert.Equal(9.00m, resultado.TaxaMinima);
+        Assert.Equal("Valor fixo de 8 a 16 km", resultado.DescricaoFaixa);
     }
 
     [Fact]

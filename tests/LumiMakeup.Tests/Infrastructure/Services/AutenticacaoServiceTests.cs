@@ -295,7 +295,8 @@ public class AutenticacaoServiceTests
     public async Task RenovarAsync_lanca_quando_usuario_nao_encontrado()
     {
         var cenario = new CenáriosDeTeste();
-        cenario.TokenService.Setup(t => t.ObterIdDeUsuarioDoTokenRefresh(It.IsAny<string>())).Returns("999");
+        cenario.TokenService.Setup(t => t.ObterIdentidadeDoTokenRefresh(It.IsAny<string>()))
+            .Returns(("999", "alguem@exemplo.com"));
         var servico = cenario.CriarServico();
 
         var excecao = await Assert.ThrowsAsync<UnauthorizedAccessException>(
@@ -305,13 +306,33 @@ public class AutenticacaoServiceTests
     }
 
     [Fact]
+    public async Task RenovarAsync_lanca_quando_o_email_nao_e_o_do_usuario()
+    {
+        var cenario = new CenáriosDeTeste();
+        var usuario = new Usuario { Nome = "Maria", Email = "maria@exemplo.com" };
+        cenario.Contexto.Usuarios.Add(usuario);
+        await cenario.Contexto.SaveChangesAsync();
+        cenario.TokenService.Setup(t => t.ObterIdentidadeDoTokenRefresh(It.IsAny<string>()))
+            .Returns((usuario.Id.ToString(), "outra@exemplo.com"));
+        var servico = cenario.CriarServico();
+
+        // Id reaproveitado por outra pessoa depois de um reset: renovar
+        // emitiria tokens para a pessoa errada.
+        var excecao = await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => servico.RenovarAsync("token", CancellationToken.None));
+
+        Assert.Equal("Sessão inválida. Entre de novo.", excecao.Message);
+    }
+
+    [Fact]
     public async Task RenovarAsync_retorna_tokens_para_usuario_existente()
     {
         var cenario = new CenáriosDeTeste();
         var usuario = new Usuario { Nome = "Maria", Email = "maria@exemplo.com" };
         cenario.Contexto.Usuarios.Add(usuario);
         await cenario.Contexto.SaveChangesAsync();
-        cenario.TokenService.Setup(t => t.ObterIdDeUsuarioDoTokenRefresh(It.IsAny<string>())).Returns(usuario.Id.ToString());
+        cenario.TokenService.Setup(t => t.ObterIdentidadeDoTokenRefresh(It.IsAny<string>()))
+            .Returns((usuario.Id.ToString(), "maria@exemplo.com"));
         cenario.TokenService.Setup(t => t.GerarTokens(It.IsAny<Usuario>())).Returns(("novo-acesso", "novo-refresh"));
         var servico = cenario.CriarServico();
 

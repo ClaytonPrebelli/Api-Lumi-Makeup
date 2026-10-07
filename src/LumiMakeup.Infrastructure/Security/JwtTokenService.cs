@@ -52,6 +52,7 @@ public sealed class JwtTokenService : ITokenService
         var claimsDeRefresh = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, usuario.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, usuario.Email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Typ, "refresh")
         };
@@ -70,6 +71,11 @@ public sealed class JwtTokenService : ITokenService
     }
 
     public string? ObterIdDeUsuarioDoTokenRefresh(string tokenRefresh)
+    {
+        return ObterIdentidadeDoTokenRefresh(tokenRefresh)?.Sub;
+    }
+
+    public (string Sub, string? Email)? ObterIdentidadeDoTokenRefresh(string tokenRefresh)
     {
         try
         {
@@ -93,7 +99,12 @@ public sealed class JwtTokenService : ITokenService
             var tipo = principal.FindFirst(JwtRegisteredClaimNames.Typ)?.Value;
             var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
 
-            return tipo == "refresh" ? sub : null;
+            if (tipo != "refresh" || sub is null)
+            {
+                return null;
+            }
+
+            return (sub, principal.FindFirst(JwtRegisteredClaimNames.Email)?.Value);
         }
         catch
         {

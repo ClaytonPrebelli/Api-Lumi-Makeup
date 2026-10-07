@@ -17,4 +17,17 @@ public static class ClaimsDoUsuario
         var sub = usuario.FindFirstValue(ClaimTypes.NameIdentifier);
         return long.TryParse(sub, out var id) ? id : null;
     }
+
+    /// <summary>
+    /// E-mail do token, ou nulo quando o token não tem o claim.
+    ///
+    /// Junto com o id, é o que amarra a sessão à pessoa: se o banco for
+    /// recriado e o id passar a ser de outra pessoa, o e-mail não bate e a
+    /// sessão cai — em vez de o pedido ir para a conta errada.
+    /// </summary>
+    public static string? ObterEmail(this ClaimsPrincipal usuario)
+    {
+        return usuario.FindFirst(ClaimTypes.Email)?.Value
+            ?? usuario.FindFirst("email")?.Value;
+    }
 }

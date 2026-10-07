@@ -129,14 +129,24 @@ public sealed class AutenticacaoService : IAutenticacaoService
 
     public async Task<RespostaDeAutenticacao> RenovarAsync(string tokenRefresh, CancellationToken cancellationToken = default)
     {
-        var usuarioId = _tokenService.ObterIdDeUsuarioDoTokenRefresh(tokenRefresh);
-        if (usuarioId is null || !long.TryParse(usuarioId, out var id))
+        var identidade = _tokenService.ObterIdentidadeDoTokenRefresh(tokenRefresh);
+
+        if (identidade is null || !long.TryParse(identidade.Value.Sub, out var id))
         {
             throw new UnauthorizedAccessException("Token de atualização inválido ou expirado.");
         }
 
         var usuario = await _contexto.Usuarios.FindAsync([id], cancellationToken)
             ?? throw new UnauthorizedAccessException("Usuário não encontrado.");
+
+        // Refresh antigo (sem e-mail) ou id reaproveitado por outra pessoa
+        // depois de um reset: a sessão morreu, e renovar emitiria tokens para a
+        // pessoa errada.
+        if (string.IsNullOrWhiteSpace(identidade.Value.Email)
+            || !string.Equals(usuario.Email, identidade.Value.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Sessão inválida. Entre de novo.");
+        }
 
         return ConstruirRespostaDeAutenticacao(usuario);
     }

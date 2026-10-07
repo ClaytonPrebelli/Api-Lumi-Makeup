@@ -1,5 +1,6 @@
 ﻿using LumiMakeup.Application.Abstractions;
 using LumiMakeup.Application.DTOs;
+using LumiMakeup.Domain.Entities;
 using LumiMakeup.Infrastructure.Integrations;
 using LumiMakeup.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,18 @@ public sealed class CalculoDeFreteService : ICalculoDeFreteService
     /// alguém que mora longe.
     /// </summary>
     private const decimal DistanciaMaximaEmKm = 900m;
+
+    /// <summary>
+    /// Limites das faixas de frete fixo, em km de rua (já com o fator de rota).
+    ///
+    /// Até 8 km, de 8 a 16 km e de 16 a 25 km o frete é o valor fixo da faixa,
+    /// configurado no painel. Acima de 25 km volta a ser por quilômetro. Os
+    /// limites ficam no código, e não no banco: são a regra da loja, e os
+    /// valores de cada faixa é que variam no painel.
+    /// </summary>
+    private const decimal LimiteFaixa1EmKm = 8m;
+    private const decimal LimiteFaixa2EmKm = 16m;
+    private const decimal LimiteFaixa3EmKm = 25m;
 
     private readonly LumiDbContext _contexto;
     private readonly IGeocodificador _geocodificador;
@@ -80,18 +93,41 @@ public sealed class CalculoDeFreteService : ICalculoDeFreteService
                 "Esse endereço está longe demais para envio pelo Correios. Fale com a loja para combinar.");
         }
 
-        var custo = Math.Round(distancia * configuracao.PrecoPorKm, 2, MidpointRounding.AwayFromZero);
-
-        // A taxa mínima é o piso do frete. Sem ela, um pedido de 300 metros
-        // custaria quase nada para a loja empacotar e enviar.
-        var frete = Math.Max(custo, configuracao.TaxaMinima);
-        frete = Math.Round(frete, 2, MidpointRounding.AwayFromZero);
+        var (frete, descricaoFaixa) = CalcularPelaFaixa(distancia, configuracao);
 
         return new CalculoDeFreteDto(
             distancia,
             frete,
             configuracao.PrecoPorKm,
-            configuracao.TaxaMinima);
+            descricaoFaixa);
+    }
+
+    /// <summary>
+    /// Aplica a faixa conforme a distância: valor fixo até 25 km, por
+    /// quilômetro acima disso. A descrição volta junto para o checkout explicar
+    /// o número sem conhecer os limites das faixas.
+    /// </summary>
+    private static (decimal Frete, string? DescricaoFaixa) CalcularPelaFaixa(
+        decimal distancia,
+        ConfiguracaoFrete configuracao)
+    {
+        if (distancia <= LimiteFaixa1EmKm)
+        {
+            return (configuracao.ValorAte8Km, "Valor fixo até 8 km");
+        }
+
+        if (distancia <= LimiteFaixa2EmKm)
+        {
+            return (configuracao.ValorAte16Km, "Valor fixo de 8 a 16 km");
+        }
+
+        if (distancia <= LimiteFaixa3EmKm)
+        {
+            return (configuracao.ValorAte25Km, "Valor fixo de 16 a 25 km");
+        }
+
+        var porKm = Math.Round(distancia * configuracao.PrecoPorKm, 2, MidpointRounding.AwayFromZero);
+        return (porKm, null);
     }
 
     /// <summary>

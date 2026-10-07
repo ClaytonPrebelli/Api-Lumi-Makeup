@@ -114,4 +114,26 @@ public class JwtTokenServiceTests
 
         Assert.Null(id);
     }
+
+    [Fact]
+    public void ObterIdentidadeDoTokenRefresh_devolve_id_e_email()
+    {
+        var servico = CriarServico();
+        var (_, tokenRefresh) = servico.GerarTokens(CriarUsuario());
+
+        var identidade = servico.ObterIdentidadeDoTokenRefresh(tokenRefresh);
+
+        Assert.NotNull(identidade);
+        Assert.Equal("42", identidade.Value.Sub);
+        Assert.Equal("maria@exemplo.com", identidade.Value.Email);
+    }
+
+    [Fact]
+    public void ObterIdentidadeDoTokenRefresh_retorna_nulo_para_token_de_acesso()
+    {
+        var servico = CriarServico();
+        var (tokenAcesso, _) = servico.GerarTokens(CriarUsuario());
+
+        Assert.Null(servico.ObterIdentidadeDoTokenRefresh(tokenAcesso));
+    }
 }

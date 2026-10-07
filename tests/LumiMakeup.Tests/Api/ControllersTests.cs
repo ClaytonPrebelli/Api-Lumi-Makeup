@@ -446,3 +446,19 @@ public class ProdutosControllerTests
             It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
+
+public class WhatsappControllerTests
+{
+    [Fact]
+    public async Task Status_retorna_o_estado_do_servico()
+    {
+        var whatsApp = new Mock<IWhatsAppService>();
+        var estado = new StatusDoWhatsApp(true, true, "5515999999999", "Lumi", null, null, null);
+        whatsApp.Setup(w => w.ObterStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(estado);
+        var controller = new WhatsappController(whatsApp.Object);
+
+        var resultado = await controller.Status(CancellationToken.None);
+
+        Assert.Equal(estado, Assert.IsType<OkObjectResult>(resultado).Value);
+    }
+}

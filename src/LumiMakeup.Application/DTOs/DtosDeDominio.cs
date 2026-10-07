@@ -177,7 +177,8 @@ public sealed record RequisicaoDePedido(
     decimal CustoFrete,
     decimal DistanciaKm,
     DateTime? CriadoEm,
-    bool Retirada = false);
+    bool Retirada = false,
+    MetodoPagamento? MetodoPagamento = null);
 
 public sealed record PedidoItemDto(
     long ProdutoId,
@@ -239,13 +240,17 @@ public sealed record RequisicaoDeGravacaoDeSessao(
 ///
 /// Mandar o custo no corpo faria a API confiar no valor do navegador, e um
 /// cliente poderia finalizar a compra pagando frete zero.
+///
+/// <c>MetodoPagamento</c> é a forma que o cliente escolheu, e não o pagamento
+/// confirmado: o pedido nasce aguardando, e a admin confirma ou troca depois.
 /// </summary>
 public sealed record RequisicaoDeCriacaoDePedido(
     IReadOnlyList<ItemDePedidoRequisicao> Itens,
     EnderecoDeEntregaRequisicao? Endereco,
     string? CupomCodigo,
     string? Observacoes,
-    bool Retirada = false);
+    bool Retirada = false,
+    MetodoPagamento? MetodoPagamento = null);
 
 /// <summary>
 /// Pedido na listagem do painel. Sem os itens: a lista mostra resumo, e puxar os
@@ -284,15 +289,15 @@ public sealed record RequisicaoDePagamentoDePedido(MetodoPagamento MetodoPagamen
 /// <summary>
 /// Frete de um endereço, para mostrar na tela antes de o cliente fechar.
 ///
-/// <c>PrecoPorKm</c> e <c>TaxaMinima</c> vêm junto para o checkout poder
-/// explicar o número em vez de mostrar um total que ninguém entende: "12,40 de
-/// frete (7,8 km a R$ 1,20/km, mínimo de R$ 9,00)" diz de onde saiu o valor.
+/// <c>PrecoPorKm</c> e <c>DescricaoFaixa</c> vêm junto para o checkout poder
+/// explicar o número em vez de mostrar um total que ninguém entende: "valor
+/// fixo até 8 km" ou "7,8 km a R$ 1,20/km" diz de onde saiu o valor.
 /// </summary>
 public sealed record CalculoDeFreteDto(
     decimal DistanciaKm,
     decimal Custo,
     decimal PrecoPorKm,
-    decimal TaxaMinima);
+    string? DescricaoFaixa);
 
 /// <summary>
 /// Configuração de frete da loja, como o painel mostra e edita.
@@ -306,14 +311,18 @@ public sealed record ConfiguracaoDeFreteDto(
     long Id,
     string CepOrigem,
     decimal PrecoPorKm,
-    decimal TaxaMinima,
+    decimal ValorAte8Km,
+    decimal ValorAte16Km,
+    decimal ValorAte25Km,
     decimal? DistanciaDeExemplo,
     decimal? FreteDeExemplo);
 
 public sealed record RequisicaoDeConfiguracaoDeFrete(
     string CepOrigem,
     decimal PrecoPorKm,
-    decimal TaxaMinima);
+    decimal ValorAte8Km,
+    decimal ValorAte16Km,
+    decimal ValorAte25Km);
 
 public sealed record RequisicaoDeSimulacaoDeFrete(string Cep);
 

@@ -48,7 +48,7 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
             // Lista vazia em vez de erro: ainda nÃ£o configurado Ã© o estado inicial
             // normal de uma loja que estÃ¡ abrindo, e a tela sabe mostrar o
             // formulÃ¡rio de criaÃ§Ã£o para esse caso.
-            return new ConfiguracaoDeFreteDto(0, string.Empty, 0m, 0m, null, null);
+            return new ConfiguracaoDeFreteDto(0, string.Empty, 0m, 0m, 0m, 0m, null, null);
         }
 
         return await ComExemploAsync(configuracao, cancellationToken);
@@ -70,9 +70,9 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
             throw new InvalidOperationException("Informe quanto custa cada quilÃ´metro.");
         }
 
-        if (requisicao.TaxaMinima < 0)
+        if (requisicao.ValorAte8Km < 0 || requisicao.ValorAte16Km < 0 || requisicao.ValorAte25Km < 0)
         {
-            throw new InvalidOperationException("A taxa mÃ­nima nÃ£o pode ser negativa.");
+            throw new InvalidOperationException("Os valores das faixas nÃ£o podem ser negativos.");
         }
 
         // A coordenada vem do CEP, e nÃ£o Ã© digitada. Pedir lat/long na tela faria a
@@ -110,7 +110,9 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
         existente.LatitudeOrigem = latitude;
         existente.LongitudeOrigem = longitude;
         existente.PrecoPorKm = requisicao.PrecoPorKm;
-        existente.TaxaMinima = requisicao.TaxaMinima;
+        existente.ValorAte8Km = requisicao.ValorAte8Km;
+        existente.ValorAte16Km = requisicao.ValorAte16Km;
+        existente.ValorAte25Km = requisicao.ValorAte25Km;
 
         await _contexto.SaveChangesAsync(cancellationToken);
 
@@ -151,7 +153,9 @@ public sealed class GestaoDeFreteService : IGestaoDeFreteService
             configuracao.Id,
             configuracao.CepOrigem,
             configuracao.PrecoPorKm,
-            configuracao.TaxaMinima,
+            configuracao.ValorAte8Km,
+            configuracao.ValorAte16Km,
+            configuracao.ValorAte25Km,
             exemplo?.DistanciaKm,
             exemplo?.Custo);
     }

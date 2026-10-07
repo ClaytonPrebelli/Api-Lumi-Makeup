@@ -53,6 +53,13 @@ mutações são `POST`** - o servidor de produção não encaminha `PUT` nem `DE
 | `POST` | `/api/admin/whatsapp/mensagem` | Grava a frase |
 | `GET` | `/api/admin/whatsapp/mensagem/previa?mensagemInicial=` | Monta a mensagem sem gravar |
 
+Fora do painel, para cliente logado (`WhatsappController`, `[Authorize]` sem
+policy de admin):
+
+| Método | Rota | O que faz |
+|---|---|---|
+| `GET` | `/api/whatsapp/status` | Mesma leitura de status. O front chama ao abrir o carrinho e ao adicionar item, e o tráfego de entrada acorda o Node — na hora de finalizar, a confirmação já encontra o serviço de pé |
+
 Respostas:
 
 ```json
