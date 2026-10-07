@@ -159,6 +159,10 @@ public sealed record EnderecoDeEntregaRequisicao(
 /// os dois é a <c>Origem</c> e o que vem preenchido: venda de balcão não traz
 /// endereço e o frete é zero.
 ///
+/// Retirada na loja é pedido <c>Online</c> com <c>Retirada</c> ligado: sem
+/// endereço e sem frete, como o balcão, mas continua online porque foi o
+/// cliente quem comprou pelo site.
+///
 /// <paramref name="CustoFrete"/> entra como valor pronto, e não como cálculo.
 /// Calcular a distância e a tarifa é do checkout, e essa regra ainda não existe
 /// (ver <c>ConfiguracaoFrete</c> no roadmap). Trazer a fórmula para dentro do
@@ -172,7 +176,8 @@ public sealed record RequisicaoDePedido(
     string? Observacoes,
     decimal CustoFrete,
     decimal DistanciaKm,
-    DateTime? CriadoEm);
+    DateTime? CriadoEm,
+    bool Retirada = false);
 
 public sealed record PedidoItemDto(
     long ProdutoId,

@@ -62,6 +62,21 @@ public sealed class GestaoDePedidosService : IGestaoDePedidosService
                 throw new InvalidOperationException("Venda de balcão não tem frete.");
             }
         }
+        else if (requisicao.Retirada)
+        {
+            // Retirada na loja é pedido online sem entrega: foi o cliente quem
+            // comprou pelo site, então a origem continua Online e só o destino
+            // e o frete ficam zerados.
+            if (requisicao.Endereco is not null)
+            {
+                throw new InvalidOperationException("Retirada na loja não tem endereço de entrega.");
+            }
+
+            if (requisicao.CustoFrete > 0 || requisicao.DistanciaKm > 0)
+            {
+                throw new InvalidOperationException("Retirada na loja não tem frete.");
+            }
+        }
         else if (requisicao.Endereco is null)
         {
             throw new InvalidOperationException("Escolha o endereço de entrega.");

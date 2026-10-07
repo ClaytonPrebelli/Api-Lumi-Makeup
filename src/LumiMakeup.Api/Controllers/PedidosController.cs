@@ -88,8 +88,9 @@ public sealed class PedidosController : ControllerBase
                     requisicao.Observacoes,
                     calculo.Custo,
                     calculo.DistanciaKm,
-                    null),
-                requisicao.Retirada ? OrigemPedido.Balcao : OrigemPedido.Online,
+                    null,
+                    requisicao.Retirada),
+                OrigemPedido.Online,
                 cancellationToken);
 
             return CreatedAtAction(nameof(ObterPorId), new { id = pedido.Id }, pedido);
