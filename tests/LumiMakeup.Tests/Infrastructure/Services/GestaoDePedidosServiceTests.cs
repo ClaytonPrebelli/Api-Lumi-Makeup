@@ -564,6 +564,58 @@ public sealed class GestaoDePedidosServiceTests
     }
 
     [Fact]
+    public async Task CriarAsync_registra_retirada_online_sem_endereco_e_sem_frete()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+
+        var pedido = await servico.CriarAsync(
+            RequisicaoDeBalcao(usuario.Id, null, (produto.Id, 2)) with { Retirada = true },
+            OrigemPedido.Online,
+            CancellationToken.None);
+
+        // Retirada é compra pelo site com busca na loja: continua Online, só
+        // sem destino e sem frete.
+        Assert.Equal(OrigemPedido.Online, pedido.Origem);
+        Assert.Equal(0m, pedido.CustoFrete);
+        Assert.Equal(70m, pedido.Total);
+    }
+
+    [Fact]
+    public async Task CriarAsync_recusa_retirada_com_endereco()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var comEndereco = Requisicao(usuario.Id, (produto.Id, 1))
+            with { Retirada = true, CustoFrete = 0m, DistanciaKm = 0m };
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CriarAsync(comEndereco, OrigemPedido.Online, CancellationToken.None));
+
+        Assert.Contains("Retirada", erro.Message);
+    }
+
+    [Fact]
+    public async Task CriarAsync_recusa_retirada_com_frete()
+    {
+        using var contexto = Testes.CriarContextoInMemory();
+        var usuario = await SemearUsuarioAsync(contexto);
+        var produto = await SemearProdutoAsync(contexto);
+        var servico = Servico(contexto);
+        var comFrete = RequisicaoDeBalcao(usuario.Id, null, (produto.Id, 1))
+            with { Retirada = true, CustoFrete = 15m };
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servico.CriarAsync(comFrete, OrigemPedido.Online, CancellationToken.None));
+
+        Assert.Contains("frete", erro.Message);
+    }
+
+    [Fact]
     public async Task CriarAsync_aceita_cupom_na_venda_de_balcao()
     {
         using var contexto = Testes.CriarContextoInMemory();
